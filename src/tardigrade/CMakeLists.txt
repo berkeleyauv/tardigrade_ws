@@ -26,12 +26,12 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 )
 
 # Install Python modules
-ament_python_install_package(${PROJECT_NAME})
+ament_python_install_package(controls)
 
 # Install Python scripts
 install(PROGRAMS
-  src/controls/orientation_control.py
-  src/controls/velocity_transformer.py
+  controls/orientation_control.py
+  controls/velocity_transformer.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -2,3 +2,4 @@ tfquaternion
 opencv-python
 imageio
 numpy
+xacro

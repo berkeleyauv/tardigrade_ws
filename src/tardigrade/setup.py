@@ -1,28 +1,33 @@
 from setuptools import setup
+from glob import glob
+import os
 
 package_name = 'tardigrade'
 
 setup(
     name=package_name,
     version='0.1.0',
-    packages=[package_name, f'{package_name}.controls', f'{package_name}.controls.controllers'],
-    package_dir={'': 'src'},
+    packages=[
+        'controls',
+        'controls.controllers',
+    ],
+    package_dir={'': f'src/{package_name}'},
     data_files=[
         ('share/ament_index/resource_index/packages',
-            [f'resource/{package_name}']),
-        ('share/' + package_name, ['package.xml']),
+            [f'src/{package_name}/resource/{package_name}']),
+        ('share/' + package_name, [f'src/{package_name}/package.xml']),
     ],
     install_requires=['setuptools', 'opencv-python', 'imageio'],
     zip_safe=True,
-    maintainer='Your Name',
-    maintainer_email='your@email.com',
+    maintainer='kabilan',
+    maintainer_email='kabilanvaikunthan@berkeley.edu',
     description='Tardigrade robot controller and URDF package',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'orientation_control = tardigrade.controls.orientation_control:main',
-            'velocity_transformer = tardigrade.controls.velocity_transformer:main',
+            'orientation_control = controls.orientation_control:main',
+            'velocity_transformer = controls.velocity_transformer:main',
         ],
     },
 )
