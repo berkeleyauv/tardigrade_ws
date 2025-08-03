@@ -1,0 +1,33 @@
+material Gman
+{
+    technique
+    {
+        pass
+        {
+            texture_unit
+            {
+                texture earth.png
+                filtering anistropic
+                max_anistropy 16
+            }
+        }
+    }
+}
+
+material Bootlegger
+{
+    technique
+    {
+        pass
+        {
+            texture_unit
+            {
+                texture abydos.png
+                filtering anistropic
+                max_anistropy 16
+            }
+        }
+    }
+}
+
+
