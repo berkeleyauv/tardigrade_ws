@@ -6,7 +6,6 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from msg import SubThrusts
 
-
 class VelocityTransformer(Node):
 
     def __init__(self):
@@ -17,8 +16,8 @@ class VelocityTransformer(Node):
     def vel_callback(self, twist):
         """
         Assuming that 
-            forward is +x
-            lateral left is +y
+            forward is +y
+            lateral right is +x
             depth up is +z
 
         Assuming that thrusts order is
@@ -41,9 +40,9 @@ class VelocityTransformer(Node):
 
         msg = SubThrusts()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.thrusts[0] = twist.linear.x - twist.linear.y - twist.angular.z
-        msg.thrusts[1] = twist.linear.x + twist.linear.y + twist.angular.z
-        msg.thrusts[2] = twist.linear.x - twist.linear.y - twist.angular.z
+        msg.thrusts[0] = twist.linear.x + twist.linear.y - twist.angular.z
+        msg.thrusts[1] = -twist.linear.x + twist.linear.y + twist.angular.z
+        msg.thrusts[2] = -twist.linear.x + twist.linear.y - twist.angular.z
         msg.thrusts[3] = twist.linear.x + twist.linear.y + twist.angular.z
 
         for i in range(4):
@@ -55,7 +54,7 @@ def main(args=None):
     rclpy.init(args=args)
     vel_transform = VelocityTransformer()
     rclpy.spin(vel_transform)
-    rclpy.shutdown()
+    rclpy.shutdown(vel_transform)
 
 if __name__ == "__main__":
     main()

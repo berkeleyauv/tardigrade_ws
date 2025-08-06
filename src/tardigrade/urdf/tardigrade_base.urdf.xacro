@@ -96,8 +96,4 @@
     <xacro:include filename="$(find tardigrade)/urdf/tardigrade_sensors.xacro"/>
 
   </xacro:macro>
-
-  <xacro:tardigrade_base namespace="${namespace}" inertial_reference_frame="world">
-    <gazebo/>
-  </xacro:tardigrade_base>
 </robot>

@@ -62,13 +62,14 @@ def launch_setup(context, *args, **kwargs):
     # Xacro
     xacro_file = os.path.join(
         get_package_share_directory('tardigrade'),
-        'urdf',
+        'robots',
         'tardigrade_base.urdf.xacro'
     )
 
     # Build the directories, check for existence
     path = os.path.join(
         get_package_share_directory('tardigrade'),
+        'robots',
         'generated',
         namespace,
     )
@@ -176,4 +177,3 @@ def generate_launch_description():
         # DeclareLaunchArgument('use_sim_time', default_value='true'),
         OpaqueFunction(function = launch_setup)
     ])
-    
