@@ -28,6 +28,7 @@ setup(
         'console_scripts': [
             'orientation_control = controls.orientation_control:main',
             'velocity_transformer = controls.velocity_transformer:main',
+            'gate_approach = tardigrade.vision.gate_approach:main',
         ],
     },
 )
