@@ -41,6 +41,7 @@ install(DIRECTORY
   urdf
   meshes
   launch
+  robots
   DESTINATION share/${PROJECT_NAME}
 )
 

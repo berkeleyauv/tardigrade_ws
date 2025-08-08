@@ -32,7 +32,7 @@
     <!-- Volume, see p.31 in Berg2012 -->
     <xacro:property name="volume" value="1.83826"/>
 
-    <xacro:macro name="rexrov_hydro_model" params="namespace">
+    <xacro:macro name="tardigrade_hydro_model" params="namespace">
         <link name="${namespace}/base_link">
             <neutrally_buoyant>0</neutrally_buoyant>
             <volume>${volume}</volume>

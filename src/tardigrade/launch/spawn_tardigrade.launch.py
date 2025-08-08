@@ -63,7 +63,7 @@ def launch_setup(context, *args, **kwargs):
     xacro_file = os.path.join(
         get_package_share_directory('tardigrade'),
         'robots',
-        'tardigrade_base.urdf.xacro'
+        'tardigrade_default.xacro'
     )
 
     # Build the directories, check for existence
