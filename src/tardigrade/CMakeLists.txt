@@ -27,13 +27,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
 # Install Python modules
 ament_python_install_package(controls)
-
-# Install Python scripts
-install(PROGRAMS
-  controls/orientation_control.py
-  controls/velocity_transformer.py
-  DESTINATION lib/${PROJECT_NAME}
-)
+ament_python_install_package(vision)
 
 # Install msg, urdf, and mesh files
 install(DIRECTORY

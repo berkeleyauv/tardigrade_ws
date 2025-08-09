@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from glob import glob
 import os
 
@@ -9,9 +9,8 @@ setup(
     version='0.1.0',
     packages=[
         'controls',
-        'controls.controllers',
+        'vision'
     ],
-    package_dir={'': f'src/{package_name}'},
     data_files=[
         ('share/ament_index/resource_index/packages',
             [f'src/{package_name}/resource/{package_name}']),
@@ -28,7 +27,7 @@ setup(
         'console_scripts': [
             'orientation_control = controls.orientation_control:main',
             'velocity_transformer = controls.velocity_transformer:main',
-            'gate_approach = tardigrade.vision.gate_approach:main',
+            'gate_approach = vision.gate_approach:main',
         ],
     },
 )
