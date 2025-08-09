@@ -7,14 +7,12 @@ package_name = 'tardigrade'
 setup(
     name=package_name,
     version='0.1.0',
-    packages=[
-        'controls',
-        'vision'
-    ],
+    packages=['controls', 'tasks'],
+    package_dir={'':'.'},
     data_files=[
         ('share/ament_index/resource_index/packages',
-            [f'src/{package_name}/resource/{package_name}']),
-        ('share/' + package_name, [f'src/{package_name}/package.xml']),
+            [f'resource/{package_name}']),
+        ('share/' + package_name, ['package.xml']),
     ],
     install_requires=['setuptools', 'opencv-python', 'imageio'],
     zip_safe=True,
@@ -27,7 +25,7 @@ setup(
         'console_scripts': [
             'orientation_control = controls.orientation_control:main',
             'velocity_transformer = controls.velocity_transformer:main',
-            'gate_approach = vision.gate_approach:main',
+            'gate_approach = tasks.gate_approach:main',
         ],
     },
 )

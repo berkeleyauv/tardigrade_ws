@@ -27,7 +27,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
 # Install Python modules
 ament_python_install_package(controls)
-ament_python_install_package(vision)
+ament_python_install_package(tasks)
 
 # Install msg, urdf, and mesh files
 install(DIRECTORY
