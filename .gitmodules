@@ -1,0 +1,6 @@
+[submodule "src/perception"]
+	path = src/perception
+	url = https://github.com/berkeleyauv/perception.git
+[submodule "src/Plankton"]
+	path = src/Plankton
+	url = https://github.com/berkeleyauv/Plankton.git
