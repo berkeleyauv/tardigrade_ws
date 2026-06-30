@@ -3,19 +3,25 @@ from rclpy.node import Node
 
 from px4_msgs.msg import VehicleStatus, VehicleCommand, OffboardControlMode
 
+from tardigrade_interfaces.srv import SetArmed, SetExternalControl
+from tardigrade_interfaces.msg import RobotStatus
+
 class PixhawkInterface(Node):
     def __init__(self):
         super().__init__('pixhawk_interface')
 
         self.last_vehicle_status = None
+        self.external_control_enabled = False
 
-        self.vehicle_status_pub = self.create_subscription(
+        # Subscribers
+        self.vehicle_status_sub = self.create_subscription(
             VehicleStatus,
             'fmu/out/vehicle_status',
             self.vehicle_status_callback,
             10,
         )
 
+        # Publishers
         self.vehicle_command_pub = self.create_publisher(
             VehicleCommand,
             'fmu/in/vehicle_command',
@@ -28,6 +34,26 @@ class PixhawkInterface(Node):
             10,
         )
 
+        self.robot_status_pub = self.create_publisher(
+            RobotStatus,
+            "/tardigrade/status",
+            10,
+        )
+
+        # Services
+        self.set_armed_srv = self.create_service(
+            SetArmed,
+            "/tardigrade/set_armed",
+            self.handle_set_armed,
+        )
+
+        self.set_external_control_srv = self.create_service(
+            SetExternalControl,
+            "/tardigrade/set_external_control",
+            self.handle_set_external_control,
+        )
+
+        # Timers
         self.heartbeat_timer = self.create_timer(
             0.1,
             self.publish_offboard_heartbeat,
@@ -40,6 +66,8 @@ class PixhawkInterface(Node):
 
     def vehicle_status_callback(self, msg: VehicleStatus):
         self.last_vehicle_status = msg
+
+        self.publish_robot_status()
         
         self.get_logger().info(
             f"PX4 status | arming_state={msg.arming_state}, nav_state={msg.nav_state}",
@@ -72,6 +100,29 @@ class PixhawkInterface(Node):
         msg.from_external = True
 
         self.vehicle_command_pub.publish(msg)
+
+    def handle_set_armed(self, request, response):
+        if request.armed:
+            self.arm()
+            response.message = 'Arm command sent'
+        else:
+            self.disarm()
+            response.message = 'Disarm command sent'
+        
+        response.success = True
+        return response
+
+    def handle_set_external_control(self, request, response):
+        self.external_control_enabled = request.enabled
+
+        if request.enabled:
+            self.enter_offboard_mode()
+            response.message = 'External control enable command sent'
+        else:
+            response.message = 'External control disabled locally'
+        
+        response.success = True
+        return response
     
     def arm(self):
         self.get_logger().warn("Sending ARM command")
@@ -81,7 +132,7 @@ class PixhawkInterface(Node):
         )
 
     def disarm(self):
-        self.get_logger().warn("Sending ARM command")
+        self.get_logger().warn("Sending DISARM command")
         self.publish_vehicle_command(
             VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM,
             param1=0.0
@@ -94,6 +145,26 @@ class PixhawkInterface(Node):
             param1=1.0,
             param2=6.0,
         )
+    
+    def publish_robot_status(self):
+        msg = RobotStatus()
+        msg.stamp = self.get_clock().now().to_msg()
+
+        msg.px4_connected = self.last_vehicle_status is not None
+        msg.external_control_enabled = self.external_control_enabled
+
+        if self.last_vehicle_status is not None:
+            msg.arming_state = self.last_vehicle_status.arming_state
+            msg.nav_state = self.last_vehicle_status.nav_state
+            msg.armed = self.last_vehicle_status.arming_state == VehicleStatus.ARMING_STATE_ARMED
+            msg.detail = 'PX4 status received'
+        else:
+            msg.arming_state = 0
+            msg.nav_state = 0
+            msg.armed = False
+            msg.detail = 'No PX4 status received'
+        
+        self.robot_status_pub.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)
