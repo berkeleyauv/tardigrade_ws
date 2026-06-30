@@ -1,3 +1,10 @@
+## Setup
+
+### Cloning
+Since there are submodules, clone recursively
+```
+git clone --recurse-submodules https://github.com/berkeleyauv/tardigrade_ws.git 
+```
 ### Docker
 
 Build docker image with 
