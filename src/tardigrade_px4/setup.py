@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'pixhawk_interface = tardigrade_px4.pixhawk_interface:main',
+            'mock_px4_status = tardigrade_px4.mock_px4_status:main'
         ],
     },
 )

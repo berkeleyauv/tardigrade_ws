@@ -7,8 +7,9 @@ RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     git \
     vim \
-    && rm -rf /var/lib/apt/lists/*
+    tmux \
+    && rm -rf /var/lib/apt/lists/* \
 
 WORKDIR /ws
 
-RUN echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrc
+RUN echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrcf
