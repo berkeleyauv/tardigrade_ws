@@ -1,7 +1,13 @@
 import rclpy
 from rclpy.node import Node
 
-from px4_msgs.msg import VehicleStatus, VehicleCommand, OffboardControlMode
+from px4_msgs.msg import (
+    VehicleStatus,
+    VehicleCommand,
+    VehicleCommandAck,
+    OffboardControlMode,
+    TrajectorySetpoint
+)
 
 from tardigrade_interfaces.srv import SetArmed, SetExternalControl
 from tardigrade_interfaces.msg import RobotStatus
@@ -11,6 +17,7 @@ class PixhawkInterface(Node):
         super().__init__('pixhawk_interface')
 
         self.last_vehicle_status = None
+        self.last_command_ack = None
         self.external_control_enabled = False
 
         # Subscribers
@@ -19,6 +26,13 @@ class PixhawkInterface(Node):
             'fmu/out/vehicle_status',
             self.vehicle_status_callback,
             10,
+        )
+
+        self.vehicle_command_ack_sub = self.create_subscription(
+            VehicleCommandAck,
+            '/fmu/out/vehicle_command_ack',
+            self.vehicle_command_ack_callback,
+            10
         )
 
         # Publishers
@@ -38,6 +52,12 @@ class PixhawkInterface(Node):
             RobotStatus,
             "/tardigrade/status",
             10,
+        )
+
+        self.trajectory_setpoint_pub = self.create_publisher(
+            TrajectorySetpoint,
+            'fmu/in/trajectory_setpoint',
+            10
         )
 
         # Services
@@ -61,8 +81,11 @@ class PixhawkInterface(Node):
 
         self.get_logger().info("Pixhawk interface started.")
         self.get_logger().info("Listening: /fmu/out/vehicle_status")
+        self.get_logger().info('Listening: /fmu/out/vehicle_command_ack')
         self.get_logger().info("Publishing: /fmu/in/offboard_control_mode")
         self.get_logger().info("Publishing: /fmu/in/vehicle_command")
+        self.get_logger().info("Publishing: /fmu/in/trajectory_setpoint")
+        self.get_logger().info('Publishing: /tardigrade/status')
 
     def vehicle_status_callback(self, msg: VehicleStatus):
         self.last_vehicle_status = msg
@@ -73,18 +96,41 @@ class PixhawkInterface(Node):
             f"PX4 status | arming_state={msg.arming_state}, nav_state={msg.nav_state}",
             throttle_duration_sec=1.0,
         )
+    
+    def vehicle_command_ack_callback(self, msg: VehicleCommandAck):
+        self.last_command_ack = msg
+
+        self.get_logger().info(
+            f'PX4 command ack | command={msg.command}, result={msg.result}',
+            throttle_duration_sec=1.0
+        )
+
+        self.publish_robot_status()
 
     def publish_offboard_heartbeat(self):
-        msg = OffboardControlMode()
-        msg.timestamp = self.get_clock().now().nanoseconds // 1000
+        control_mode = OffboardControlMode()
+        control_mode.timestamp = self.get_clock().now().nanoseconds // 1000
 
-        msg.position = False
-        msg.velocity = True
-        msg.acceleration = False
-        msg.attitude = False
-        msg.body_rate = False
+        control_mode.position = False
+        control_mode.velocity = True
+        control_mode.acceleration = False
+        control_mode.attitude = False
+        control_mode.body_rate = False
+        control_mode.actuator = False
 
-        self.offboard_control_mode_pub.publish(msg)
+        self.offboard_control_mode_pub.publish(control_mode)
+
+        setpoint = TrajectorySetpoint()
+        setpoint.timestamp = control_mode.timestamp
+
+        setpoint.position = [float('nan'), float('nan'), float('nan')]
+        setpoint.velocity = [0.0, 0.0, 0.0]
+        setpoint.acceleration = [float('nan'), float('nan'), float('nan')]
+        setpoint.jerk = [float('nan'), float('nan'), float('nan')]
+        setpoint.yaw = float('nan')
+        setpoint.yawspeed = 0.0
+
+        self.trajectory_setpoint_pub.publish(setpoint)
 
     def publish_vehicle_command(self, command: int, param1=0.0, param2=0.0):
         msg = VehicleCommand()
@@ -157,7 +203,15 @@ class PixhawkInterface(Node):
             msg.arming_state = self.last_vehicle_status.arming_state
             msg.nav_state = self.last_vehicle_status.nav_state
             msg.armed = self.last_vehicle_status.arming_state == VehicleStatus.ARMING_STATE_ARMED
-            msg.detail = 'PX4 status received'
+            detail = 'PX4 status received'
+
+            if self.last_command_ack is not None:
+                detail += (
+                    f'; last_ack_command={self.last_command_ack.command}'
+                    f'; last_ack_result={self.last_command_ack.result}'
+                )
+            
+            msg.detail = detail
         else:
             msg.arming_state = 0
             msg.nav_state = 0

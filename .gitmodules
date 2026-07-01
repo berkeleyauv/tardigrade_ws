@@ -2,3 +2,7 @@
 	path = src/px4_msgs
 	url = https://github.com/PX4/px4_msgs.git
 	branch = release/1.14
+[submodule "src/vectornav"]
+	path = src/vectornav
+	url = https://github.com/berkeleyauv/vectornav.git
+	branch = ros2
