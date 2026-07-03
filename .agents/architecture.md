@@ -12,6 +12,18 @@ PX4 is the week-one actuator/control backend, but it should not define the whole
 
 ## Package Boundaries
 
+### Current Status Snapshot
+
+As of July 2, 2026:
+
+- `px4_msgs` is present as a submodule and builds.
+- `vectornav` is present as a submodule from the `ros2` branch; `vectornav` and `vectornav_msgs` build.
+- `tardigrade_interfaces` exists and builds.
+- `tardigrade_px4` exists and provides the current PX4 adapter.
+- `tardigrade_bringup` exists with `mock.launch.py`.
+- Mock bringup works: mock PX4 status, fake command acknowledgements, PX4 driver services, neutral Offboard heartbeat, and `/tardigrade/status`.
+- `tardigrade_state_estimation`, `tardigrade_teleop`, `tardigrade_perception`, and `tardigrade_behavior_tree` are planned but not implemented yet.
+
 ### `px4_msgs`
 
 Vendored as a submodule and pinned to the PX4 firmware version running on the Pixhawk. This package is a dependency of `tardigrade_px4` only.
@@ -55,13 +67,26 @@ Responsibilities:
 - subscribe to `/fmu/out/*`
 - publish `/fmu/in/*`
 - send Offboard heartbeat
+- publish neutral Offboard `TrajectorySetpoint` while active
 - send arm/disarm commands
 - enter/exit Offboard/external-control mode
+- subscribe to PX4 `VehicleCommandAck`
 - convert robot-level teleop commands into PX4 Offboard setpoints
 - convert robot odometry into PX4-compatible odometry input
 - publish robot-level status
 
 This package may import `px4_msgs`. Other Tardigrade packages may not.
+
+Current implemented PX4 topics:
+
+- subscribes `/fmu/out/vehicle_status`
+- subscribes `/fmu/out/vehicle_command_ack`
+- publishes `/fmu/in/vehicle_command`
+- publishes `/fmu/in/offboard_control_mode`
+- publishes `/fmu/in/trajectory_setpoint`
+- publishes `/tardigrade/status`
+- serves `/tardigrade/set_armed`
+- serves `/tardigrade/set_external_control`
 
 ### `tardigrade_state_estimation`
 
@@ -94,7 +119,7 @@ Owns launch files and bringup modes.
 
 Initial launch modes:
 
-- `mock`: mock PX4 status plus PX4 driver
+- `mock`: mock PX4 status/ack plus PX4 driver
 - `hardware`: VectorNav, Micro XRCE-DDS Agent instructions, PX4 driver, state estimation, teleop-ready interfaces
 - `bench`: later mode for explicitly gated thruster/actuator tests
 
@@ -103,6 +128,36 @@ Initial launch modes:
 Future package for camera pipelines, gate detection, target estimation, and perception health.
 
 It should publish robot-level detections or target poses, not commands directly to PX4.
+
+First gate-perception contract:
+
+- subscribe `/front_camera/image_raw` or another configured `sensor_msgs/Image` topic
+- run a YOLO gate detector
+- publish `/tardigrade/perception/gate/detection`
+- publish `/tardigrade/perception/gate/debug_image` when debug output is enabled
+
+The first detection topic may use `geometry_msgs/PointStamped`:
+
+- `point.x`: normalized gate center x in `[-1, 1]`
+- `point.y`: normalized gate center y in `[-1, 1]`
+- `point.z`: confidence in `[0, 1]`
+
+Later, replace this with a custom `GateDetection.msg` if the task needs bounding boxes, class IDs, stale flags, or pose estimates.
+
+Perception must not publish `/fmu/*` topics and should not directly arm, enter Offboard, or command PX4.
+
+### `tardigrade_gate_controller`
+
+Planned package or module for converting gate detections into robot-level motion commands.
+
+Responsibilities:
+
+- subscribe to `/tardigrade/perception/gate/detection`
+- apply confidence thresholds and smoothing
+- handle lost-gate behavior
+- publish `/tardigrade/cmd_vel` as `geometry_msgs/TwistStamped`
+
+This layer is deliberately separate from YOLO so the detector can change without rewriting control behavior.
 
 ### `tardigrade_behavior_tree`
 
@@ -138,6 +193,28 @@ tardigrade_px4
 PX4 / Pixhawk
 ```
 
+### Current Mock PX4 Path
+
+```text
+ros2 service call /tardigrade/set_armed
+  |
+  v
+tardigrade_px4.pixhawk_interface
+  |
+  | /fmu/in/vehicle_command
+  v
+tardigrade_px4.mock_px4_status
+  |
+  | /fmu/out/vehicle_command_ack
+  | /fmu/out/vehicle_status
+  v
+tardigrade_px4.pixhawk_interface
+  |
+  | /tardigrade/status
+  v
+operator / future teleop / future autonomy
+```
+
 ### Teleop Path
 
 ```text
@@ -168,6 +245,28 @@ tardigrade_interfaces
 tardigrade_px4 / teleop / perception / state estimation
 ```
 
+### Gate Task Path
+
+```text
+front camera
+  |
+  | /front_camera/image_raw
+  v
+tardigrade_perception
+  |
+  | /tardigrade/perception/gate/detection
+  v
+tardigrade_gate_controller or behavior tree action node
+  |
+  | /tardigrade/cmd_vel
+  v
+tardigrade_px4
+  |
+  | PX4 Offboard setpoints
+  v
+PX4 / Pixhawk
+```
+
 ## Interface Ownership
 
 Use standard ROS messages where they are already a good fit:
@@ -175,6 +274,8 @@ Use standard ROS messages where they are already a good fit:
 - `nav_msgs/Odometry` for robot odometry
 - `geometry_msgs/Twist` or `TwistStamped` for simple velocity commands
 - `sensor_msgs/Imu` from VectorNav
+- `sensor_msgs/Image` for camera frames
+- `geometry_msgs/PointStamped` for the first simple gate-center detection output
 
 Use `tardigrade_interfaces` when the concept is robot-specific:
 
@@ -183,6 +284,7 @@ Use `tardigrade_interfaces` when the concept is robot-specific:
 - robot status
 - mission/autonomy status
 - future task actions
+- future custom gate detection if `PointStamped` becomes too limiting
 
 Do not expose PX4 enum values, PX4 topic names, or PX4 message fields in public Tardigrade interfaces.
 
@@ -220,3 +322,12 @@ The gate task is more than "detect gate and drive forward." It likely needs:
 - manual abort path
 
 BehaviorTree.CPP should orchestrate those behaviors, but the behavior nodes should call robot-level ROS APIs. PX4 should remain hidden behind `tardigrade_px4`.
+
+Suggested first gate autonomy decomposition:
+
+1. `DetectGate`: perception reports a confident gate detection.
+2. `CenterOnGate`: controller reduces image-space x/y error.
+3. `ApproachGate`: command slow forward motion while maintaining alignment.
+4. `PassThroughGate`: continue through after close/centered criteria.
+5. `ConfirmGateComplete`: use timeout, detection loss pattern, or downstream state to mark success.
+6. `AbortOrHold`: neutral command and wait for operator if confidence/state is unsafe.
