@@ -21,7 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'pixhawk_interface = tardigrade_px4.pixhawk_interface:main',
-            'mock_px4_status = tardigrade_px4.mock_px4_status:main'
+            'mock_px4_status = tardigrade_px4.mock_px4_status:main',
+            'odometry_to_px4 = tardigrade_px4.odometry_to_px4:main'
         ],
     },
 )
