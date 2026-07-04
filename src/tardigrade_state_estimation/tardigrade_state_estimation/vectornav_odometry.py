@@ -3,7 +3,57 @@ from rclpy.node import Node
 
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Quaternion, Vector3
 
+
+def quat_multiply(a, b):
+    aw, ax, ay, az = a
+    bw, bx, by, bz = b
+
+    return [
+        aw * bw - ax * bx - ay * by - az * bz,
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+    ]
+
+
+def vector_frd_to_flu(v):
+    out = Vector3()
+    out.x = v.x
+    out.y = -v.y
+    out.z = -v.z
+    return out
+
+
+def quaternion_ned_frd_to_enu_flu(q):
+    vn_q = [q.w, q.x, q.y, q.z]
+
+    q_enu_from_ned = [
+        0.0,
+        math.sqrt(0.5),
+        math.sqrt(0.5),
+        0.0,
+    ]
+
+    q_frd_from_flu = [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+    ]
+
+    ros_q = quat_multiply(
+        quat_multiply(q_enu_from_ned, vn_q),
+        q_frd_from_flu,
+    )
+
+    out = Quaternion()
+    out.w = ros_q[0]
+    out.x = ros_q[1]
+    out.y = ros_q[2]
+    out.z = ros_q[3]
+    return out
 
 class VectornavOdometry(Node):
     def __init__(self):
@@ -42,7 +92,7 @@ class VectornavOdometry(Node):
         odom.header.frame_id = self.odom_frame
         odom.child_frame_id = self.base_frame
 
-        odom.pose.pose.orientation = msg.orientation
+        odom.pose.pose.orientation = quaternion_ned_frd_to_enu_flu(msg.orientation)
         odom.pose.covariance = [
             999.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 999.0, 0.0, 0.0, 0.0, 0.0,
@@ -52,7 +102,7 @@ class VectornavOdometry(Node):
             0.0, 0.0, 0.0, msg.orientation_covariance[6], msg.orientation_covariance[7], msg.orientation_covariance[8],
         ]
 
-        odom.twist.twist.angular = msg.angular_velocity
+        odom.twist.twist.angular = vector_frd_to_flu(msg.angular_velocity)
         odom.twist.covariance = [
             999.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 999.0, 0.0, 0.0, 0.0, 0.0,

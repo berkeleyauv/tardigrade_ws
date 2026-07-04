@@ -22,7 +22,9 @@ setup(
         'console_scripts': [
             'pixhawk_interface = tardigrade_px4.pixhawk_interface:main',
             'mock_px4_status = tardigrade_px4.mock_px4_status:main',
-            'odometry_to_px4 = tardigrade_px4.odometry_to_px4:main'
+            'odometry_to_px4 = tardigrade_px4.odometry_to_px4:main',
+            'mavlink_odometry_to_px4 = tardigrade_px4.mavlink_odometry_to_px4:main',
+            'mavlink_pixhawk_interface = tardigrade_px4.mavlink_pixhawk_interface:main',
         ],
     },
 )
