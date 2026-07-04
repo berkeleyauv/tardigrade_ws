@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
     tmux \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir pymavlink
+RUN pip3 install --no-cache-dir pymavlink pyserial
 
 WORKDIR /ws
 
