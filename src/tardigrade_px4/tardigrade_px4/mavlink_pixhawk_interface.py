@@ -38,6 +38,7 @@ class MavlinkPixhawkInterface(Node):
         self.target_component = 1
         self.last_heartbeat = None
         self.last_command_ack = None
+        self.last_status_text = None
         self.external_control_enabled = False
         self.lock = threading.Lock()
 
@@ -81,6 +82,9 @@ class MavlinkPixhawkInterface(Node):
                     self.target_component = msg.get_srcComponent()
                 elif msg_type == 'COMMAND_ACK':
                     self.last_command_ack = msg
+                elif msg_type == 'STATUSTEXT':
+                    self.last_status_text = msg.text
+                    self.get_logger().warn(f'PX4 status text: {msg.text}')
 
     def publish_offboard_setpoint(self):
         if not self.external_control_enabled:
@@ -160,6 +164,7 @@ class MavlinkPixhawkInterface(Node):
         with self.lock:
             heartbeat = self.last_heartbeat
             command_ack = self.last_command_ack
+            status_text = self.last_status_text
 
         msg.px4_connected = heartbeat is not None
         msg.external_control_enabled = self.external_control_enabled
@@ -171,6 +176,8 @@ class MavlinkPixhawkInterface(Node):
             msg.detail = f'MAVLink heartbeat received; base_mode={heartbeat.base_mode}; custom_mode={heartbeat.custom_mode}'
             if command_ack is not None:
                 msg.detail += f'; last_ack_command={command_ack.command}; last_ack_result={command_ack.result}'
+            if status_text is not None:
+                msg.detail += f'; last_status_text="{status_text}"'
         else:
             msg.armed = False
             msg.arming_state = 0
