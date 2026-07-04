@@ -10,6 +10,7 @@
   <depend>launch</depend>
   <depend>launch_ros</depend>
   <depend>tardigrade_px4</depend>
+  <depend>tardigrade_state_estimation</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

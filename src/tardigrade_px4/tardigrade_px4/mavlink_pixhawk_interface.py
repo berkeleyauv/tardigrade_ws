@@ -4,12 +4,30 @@ import rclpy
 from rclpy.node import Node
 from pymavlink import mavutil
 
+from nav_msgs.msg import Odometry
 from tardigrade_interfaces.msg import RobotStatus
 from tardigrade_interfaces.srv import SetArmed, SetExternalControl
-from tardigrade_px4.mavlink_common import connect_mavlink
+from tardigrade_px4.mavlink_common import (
+    connect_mavlink,
+    enu_to_ned_point,
+    flu_to_frd_vector,
+    now_us,
+    quaternion_enu_flu_to_ned_frd,
+)
 
 
 PX4_CUSTOM_MAIN_MODE_OFFBOARD = 6
+
+
+def covariance_upper_triangle(position_variance, orientation_variance):
+    return [
+        position_variance,
+        0.0, position_variance,
+        0.0, 0.0, position_variance,
+        0.0, 0.0, 0.0, orientation_variance,
+        0.0, 0.0, 0.0, 0.0, orientation_variance,
+        0.0, 0.0, 0.0, 0.0, 0.0, orientation_variance,
+    ]
 
 
 class MavlinkPixhawkInterface(Node):
@@ -21,12 +39,20 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('source_system', 43)
         self.declare_parameter('source_component', 191)
         self.declare_parameter('offboard_thrust', 0.0)
+        self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
+        self.declare_parameter('send_visual_odometry', True)
+        self.declare_parameter('visual_position_variance', 0.05)
+        self.declare_parameter('visual_orientation_variance', 0.05)
 
         self.device = self.get_parameter('device').value
         self.baudrate = self.get_parameter('baudrate').value
         source_system = self.get_parameter('source_system').value
         source_component = self.get_parameter('source_component').value
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
+        self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
+        self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
+        visual_position_variance = float(self.get_parameter('visual_position_variance').value)
+        visual_orientation_variance = float(self.get_parameter('visual_orientation_variance').value)
 
         self.mav = connect_mavlink(
             self.device,
@@ -43,6 +69,10 @@ class MavlinkPixhawkInterface(Node):
         self.external_control_enabled = False
         self.boot_time_ns = self.get_clock().now().nanoseconds
         self.lock = threading.Lock()
+        self.visual_covariance = covariance_upper_triangle(
+            visual_position_variance,
+            visual_orientation_variance,
+        )
 
         self.robot_status_pub = self.create_publisher(
             RobotStatus,
@@ -62,6 +92,13 @@ class MavlinkPixhawkInterface(Node):
             self.handle_set_external_control,
         )
 
+        self.visual_odometry_sub = self.create_subscription(
+            Odometry,
+            self.visual_odometry_topic,
+            self.visual_odometry_callback,
+            10,
+        )
+
         self.read_timer = self.create_timer(0.02, self.read_mavlink)
         self.status_timer = self.create_timer(0.2, self.publish_robot_status)
         self.offboard_timer = self.create_timer(0.1, self.publish_offboard_setpoint)
@@ -69,6 +106,8 @@ class MavlinkPixhawkInterface(Node):
         self.get_logger().info(f'Opening MAVLink serial: {self.device} @ {self.baudrate}')
         self.get_logger().info('Services: /tardigrade/set_armed, /tardigrade/set_external_control')
         self.get_logger().info('Publishing: /tardigrade/status')
+        if self.send_visual_odometry:
+            self.get_logger().info(f'Sending visual odometry from: {self.visual_odometry_topic}')
 
     def read_mavlink(self):
         while True:
@@ -102,6 +141,35 @@ class MavlinkPixhawkInterface(Node):
             0.0,
             0.0,
             self.offboard_thrust,
+        )
+
+    def visual_odometry_callback(self, msg):
+        if not self.send_visual_odometry:
+            return
+
+        position = enu_to_ned_point(msg.pose.pose.position)
+        q = quaternion_enu_flu_to_ned_frd(msg.pose.pose.orientation)
+        velocity = enu_to_ned_point(msg.twist.twist.linear)
+        angular_velocity = flu_to_frd_vector(msg.twist.twist.angular)
+
+        self.mav.mav.odometry_send(
+            now_us(),
+            mavutil.mavlink.MAV_FRAME_LOCAL_FRD,
+            mavutil.mavlink.MAV_FRAME_BODY_FRD,
+            position[0],
+            position[1],
+            position[2],
+            q,
+            velocity[0],
+            velocity[1],
+            velocity[2],
+            angular_velocity[0],
+            angular_velocity[1],
+            angular_velocity[2],
+            self.visual_covariance,
+            self.visual_covariance,
+            0,
+            mavutil.mavlink.MAV_ESTIMATOR_TYPE_VISION,
         )
 
     def time_boot_ms(self):

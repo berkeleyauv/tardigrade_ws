@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'vectornav_odometry = tardigrade_state_estimation.vectornav_odometry:main',
+            'zed_odometry = tardigrade_state_estimation.zed_odometry:main',
         ],
     },
 )
