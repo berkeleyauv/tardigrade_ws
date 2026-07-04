@@ -10,13 +10,15 @@ mavutil.set_dialect('common')
 
 
 def connect_mavlink(device, baudrate, source_system=42, source_component=191):
-    return mavutil.mavlink_connection(
+    mav = mavutil.mavlink_connection(
         device,
         baud=baudrate,
         source_system=source_system,
         source_component=source_component,
         autoreconnect=True,
     )
+    mav.mav.force_mavlink2 = True
+    return mav
 
 
 def quat_multiply(a, b):

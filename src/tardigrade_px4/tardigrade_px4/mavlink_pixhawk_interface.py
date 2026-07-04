@@ -125,28 +125,35 @@ class MavlinkPixhawkInterface(Node):
         return response
 
     def handle_set_external_control(self, request, response):
-        self.external_control_enabled = request.enabled
+        try:
+            self.external_control_enabled = request.enabled
 
-        if request.enabled:
-            self.publish_offboard_setpoint()
-            self.mav.mav.command_long_send(
-                self.target_system,
-                self.target_component,
-                mavutil.mavlink.MAV_CMD_DO_SET_MODE,
-                0,
-                float(mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),
-                float(PX4_CUSTOM_MAIN_MODE_OFFBOARD),
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            )
-            response.message = 'MAVLink OFFBOARD mode command sent'
-        else:
-            response.message = 'External control setpoint stream disabled'
+            if request.enabled:
+                self.publish_offboard_setpoint()
+                self.mav.mav.command_long_send(
+                    self.target_system,
+                    self.target_component,
+                    mavutil.mavlink.MAV_CMD_DO_SET_MODE,
+                    0,
+                    float(mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),
+                    float(PX4_CUSTOM_MAIN_MODE_OFFBOARD),
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                )
+                response.message = 'MAVLink OFFBOARD mode command sent'
+            else:
+                response.message = 'External control setpoint stream disabled'
 
-        response.success = True
+            response.success = True
+        except Exception as exc:
+            self.external_control_enabled = False
+            response.success = False
+            response.message = f'Failed to set external control: {exc}'
+            self.get_logger().error(response.message)
+
         return response
 
     def publish_robot_status(self):
