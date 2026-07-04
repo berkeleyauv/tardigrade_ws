@@ -1,7 +1,12 @@
 import math
+import os
 import time
 
+os.environ.setdefault('MAVLINK20', '1')
+
 from pymavlink import mavutil
+
+mavutil.set_dialect('common')
 
 
 def connect_mavlink(device, baudrate, source_system=42, source_component=191):
