@@ -41,6 +41,7 @@ class MavlinkPixhawkInterface(Node):
         self.last_command_ack = None
         self.last_status_text = None
         self.external_control_enabled = False
+        self.boot_time_ns = self.get_clock().now().nanoseconds
         self.lock = threading.Lock()
 
         self.robot_status_pub = self.create_publisher(
@@ -92,7 +93,7 @@ class MavlinkPixhawkInterface(Node):
             return
 
         self.mav.mav.set_attitude_target_send(
-            self.get_clock().now().nanoseconds // 1_000_000,
+            self.time_boot_ms(),
             self.target_system,
             self.target_component,
             0,
@@ -102,6 +103,10 @@ class MavlinkPixhawkInterface(Node):
             0.0,
             self.offboard_thrust,
         )
+
+    def time_boot_ms(self):
+        elapsed_ns = self.get_clock().now().nanoseconds - self.boot_time_ns
+        return (elapsed_ns // 1_000_000) & 0xFFFFFFFF
 
     def handle_set_armed(self, request, response):
         arm_value = 1.0 if request.armed else 0.0
