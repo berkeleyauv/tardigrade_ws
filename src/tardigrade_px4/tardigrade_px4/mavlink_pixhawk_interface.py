@@ -1,4 +1,3 @@
-import math
 import threading
 
 import rclpy
@@ -21,11 +20,13 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('baudrate', 921600)
         self.declare_parameter('source_system', 43)
         self.declare_parameter('source_component', 191)
+        self.declare_parameter('offboard_thrust', 0.0)
 
         self.device = self.get_parameter('device').value
         self.baudrate = self.get_parameter('baudrate').value
         source_system = self.get_parameter('source_system').value
         source_component = self.get_parameter('source_component').value
+        self.offboard_thrust = self.get_parameter('offboard_thrust').value
 
         self.mav = connect_mavlink(
             self.device,
@@ -90,33 +91,16 @@ class MavlinkPixhawkInterface(Node):
         if not self.external_control_enabled:
             return
 
-        type_mask = (
-            mavutil.mavlink.POSITION_TARGET_TYPEMASK_X_IGNORE
-            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_Y_IGNORE
-            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_Z_IGNORE
-            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AX_IGNORE
-            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AY_IGNORE
-            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AZ_IGNORE
-            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_YAW_IGNORE
-        )
-
-        self.mav.mav.set_position_target_local_ned_send(
-            0,
+        self.mav.mav.set_attitude_target_send(
+            self.get_clock().now().nanoseconds // 1_000_000,
             self.target_system,
             self.target_component,
-            mavutil.mavlink.MAV_FRAME_LOCAL_NED,
-            type_mask,
+            0,
+            [1.0, 0.0, 0.0, 0.0],
             0.0,
             0.0,
             0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            math.nan,
-            0.0,
+            self.offboard_thrust,
         )
 
     def handle_set_armed(self, request, response):
@@ -145,10 +129,18 @@ class MavlinkPixhawkInterface(Node):
 
         if request.enabled:
             self.publish_offboard_setpoint()
-            self.mav.mav.set_mode_send(
+            self.mav.mav.command_long_send(
                 self.target_system,
-                mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-                PX4_CUSTOM_MAIN_MODE_OFFBOARD,
+                self.target_component,
+                mavutil.mavlink.MAV_CMD_DO_SET_MODE,
+                0,
+                float(mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),
+                float(PX4_CUSTOM_MAIN_MODE_OFFBOARD),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
             )
             response.message = 'MAVLink OFFBOARD mode command sent'
         else:
