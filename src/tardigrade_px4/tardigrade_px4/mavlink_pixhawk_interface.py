@@ -41,8 +41,11 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('offboard_thrust', 0.0)
         self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
         self.declare_parameter('send_visual_odometry', True)
+        self.declare_parameter('visual_odometry_rate_hz', 30.0)
+        self.declare_parameter('visual_odometry_timeout_sec', 0.5)
         self.declare_parameter('visual_position_variance', 0.05)
         self.declare_parameter('visual_orientation_variance', 0.05)
+        self.declare_parameter('visual_velocity_variance', 999.0)
 
         self.device = self.get_parameter('device').value
         self.baudrate = self.get_parameter('baudrate').value
@@ -51,8 +54,11 @@ class MavlinkPixhawkInterface(Node):
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
         self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
+        self.visual_odometry_rate_hz = float(self.get_parameter('visual_odometry_rate_hz').value)
+        self.visual_odometry_timeout_sec = float(self.get_parameter('visual_odometry_timeout_sec').value)
         visual_position_variance = float(self.get_parameter('visual_position_variance').value)
         visual_orientation_variance = float(self.get_parameter('visual_orientation_variance').value)
+        visual_velocity_variance = float(self.get_parameter('visual_velocity_variance').value)
 
         self.mav = connect_mavlink(
             self.device,
@@ -66,11 +72,18 @@ class MavlinkPixhawkInterface(Node):
         self.last_heartbeat = None
         self.last_command_ack = None
         self.last_status_text = None
+        self.latest_visual_odometry = None
+        self.latest_visual_odometry_received_ns = None
+        self.visual_odometry_sent_count = 0
         self.external_control_enabled = False
         self.boot_time_ns = self.get_clock().now().nanoseconds
         self.lock = threading.Lock()
-        self.visual_covariance = covariance_upper_triangle(
+        self.visual_pose_covariance = covariance_upper_triangle(
             visual_position_variance,
+            visual_orientation_variance,
+        )
+        self.visual_velocity_covariance = covariance_upper_triangle(
+            visual_velocity_variance,
             visual_orientation_variance,
         )
 
@@ -102,6 +115,8 @@ class MavlinkPixhawkInterface(Node):
         self.read_timer = self.create_timer(0.02, self.read_mavlink)
         self.status_timer = self.create_timer(0.2, self.publish_robot_status)
         self.offboard_timer = self.create_timer(0.1, self.publish_offboard_setpoint)
+        visual_period = 1.0 / max(self.visual_odometry_rate_hz, 1.0)
+        self.visual_odometry_timer = self.create_timer(visual_period, self.publish_visual_odometry)
 
         self.get_logger().info(f'Opening MAVLink serial: {self.device} @ {self.baudrate}')
         self.get_logger().info('Services: /tardigrade/set_armed, /tardigrade/set_external_control')
@@ -144,7 +159,24 @@ class MavlinkPixhawkInterface(Node):
         )
 
     def visual_odometry_callback(self, msg):
+        with self.lock:
+            self.latest_visual_odometry = msg
+            self.latest_visual_odometry_received_ns = self.get_clock().now().nanoseconds
+
+    def publish_visual_odometry(self):
         if not self.send_visual_odometry:
+            return
+
+        now_ns = self.get_clock().now().nanoseconds
+        with self.lock:
+            msg = self.latest_visual_odometry
+            received_ns = self.latest_visual_odometry_received_ns
+
+        if msg is None or received_ns is None:
+            return
+
+        age_sec = (now_ns - received_ns) / 1_000_000_000.0
+        if age_sec > self.visual_odometry_timeout_sec:
             return
 
         position = enu_to_ned_point(msg.pose.pose.position)
@@ -166,11 +198,13 @@ class MavlinkPixhawkInterface(Node):
             angular_velocity[0],
             angular_velocity[1],
             angular_velocity[2],
-            self.visual_covariance,
-            self.visual_covariance,
+            self.visual_pose_covariance,
+            self.visual_velocity_covariance,
             0,
             mavutil.mavlink.MAV_ESTIMATOR_TYPE_VISION,
         )
+        with self.lock:
+            self.visual_odometry_sent_count += 1
 
     def time_boot_ms(self):
         elapsed_ns = self.get_clock().now().nanoseconds - self.boot_time_ns
@@ -237,6 +271,8 @@ class MavlinkPixhawkInterface(Node):
             heartbeat = self.last_heartbeat
             command_ack = self.last_command_ack
             status_text = self.last_status_text
+            visual_received_ns = self.latest_visual_odometry_received_ns
+            visual_sent_count = self.visual_odometry_sent_count
 
         msg.px4_connected = heartbeat is not None
         msg.external_control_enabled = self.external_control_enabled
@@ -250,6 +286,9 @@ class MavlinkPixhawkInterface(Node):
                 msg.detail += f'; last_ack_command={command_ack.command}; last_ack_result={command_ack.result}'
             if status_text is not None:
                 msg.detail += f'; last_status_text="{status_text}"'
+            if visual_received_ns is not None:
+                age_ms = (self.get_clock().now().nanoseconds - visual_received_ns) / 1_000_000.0
+                msg.detail += f'; visual_odom_age_ms={age_ms:.0f}; visual_odom_sent={visual_sent_count}'
         else:
             msg.armed = False
             msg.arming_state = 0

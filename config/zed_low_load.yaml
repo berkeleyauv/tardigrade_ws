@@ -1,4 +1,4 @@
-/zed/zed_node:
+/**:
   ros__parameters:
     general:
       camera_resolution: 'VGA'
