@@ -4,12 +4,12 @@ SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     && add-apt-repository universe \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bash-completion \
     git \
     iputils-ping \
@@ -42,8 +42,6 @@ RUN apt-get update && apt-get install -y \
     ros-foxy-theora-image-transport \
     ros-foxy-xacro \
     udev \
-    vim \
-    tmux \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir pymavlink pyserial
