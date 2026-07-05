@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-foxy-theora-image-transport \
     ros-foxy-xacro \
     udev \
+    usbutils \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir pymavlink pyserial

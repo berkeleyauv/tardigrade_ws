@@ -14,17 +14,28 @@ NAME="${NAME:-tardigrade-foxy}"
 docker stop "$NAME" >/dev/null 2>&1 || true
 docker rm "$NAME" >/dev/null 2>&1 || true
 
+RUNTIME_ARGS=()
+if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; then
+  RUNTIME_ARGS+=(--runtime nvidia)
+fi
+
 docker run -it --rm \
   --name "$NAME" \
   --network host \
   --ipc host \
   --privileged \
+  "${RUNTIME_ARGS[@]}" \
   -v "$WORKSPACE:/ws" \
   -v /dev:/dev \
   -v /dev/bus/usb:/dev/bus/usb \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v /tmp/argus_socket:/tmp/argus_socket \
   -v /usr/local/zed:/usr/local/zed \
   -v /usr/local/cuda:/usr/local/cuda \
   -v /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra:ro \
+  -e DISPLAY="${DISPLAY:-:0}" \
+  -e NVIDIA_VISIBLE_DEVICES=all \
+  -e NVIDIA_DRIVER_CAPABILITIES=all \
   -e ZED_DIR=/usr/local/zed \
   -e CUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda \
   -e CMAKE_PREFIX_PATH=/usr/local/zed \
