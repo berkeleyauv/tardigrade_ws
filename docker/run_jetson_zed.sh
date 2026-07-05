@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WORKSPACE="${WORKSPACE:-$HOME/Developer/tardigrade_ws}"
+if [[ -z "${WORKSPACE:-}" ]]; then
+  if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]]; then
+    WORKSPACE="$(getent passwd "$SUDO_USER" | cut -d: -f6)/Developer/tardigrade_ws"
+  else
+    WORKSPACE="$HOME/Developer/tardigrade_ws"
+  fi
+fi
 IMAGE="${IMAGE:-tardigrade-foxy}"
 NAME="${NAME:-tardigrade-foxy}"
 
@@ -15,6 +21,7 @@ docker run -it --rm \
   --privileged \
   -v "$WORKSPACE:/ws" \
   -v /dev:/dev \
+  -v /dev/bus/usb:/dev/bus/usb \
   -v /usr/local/zed:/usr/local/zed \
   -v /usr/local/cuda:/usr/local/cuda \
   -v /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra:ro \

@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-dev \
     libgles2-mesa-dev \
     liblapack-dev \
+    libturbojpeg \
     libusb-1.0-0-dev \
     nano \
     nlohmann-json3-dev \
