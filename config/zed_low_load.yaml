@@ -1,0 +1,13 @@
+/zed/zed_node:
+  ros__parameters:
+    general:
+      camera_resolution: 'VGA'
+      camera_fps: 15
+      pub_resolution: 'CUSTOM'
+      pub_downscale_factor: 4.0
+    depth:
+      depth_mode: 'PERFORMANCE'
+      point_cloud_freq: 0.0
+    pos_tracking:
+      pos_tracking_enabled: true
+      area_memory: false

@@ -109,6 +109,12 @@ arguments once the port names are stable.
 
 ### Jetson notes
 
+For the current Jetson + ZED + Pixhawk arming workflow, use the full runbook:
+
+```
+docs/jetson_zed_px4_startup.md
+```
+
 Build this image on the Jetson when you intend to run on the Jetson:
 
 ```
