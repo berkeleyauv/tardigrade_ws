@@ -455,6 +455,11 @@ ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
   -p max_yaw_rate:=0.20
 ```
 
+Before commanding real thrust, fill out `config/thruster_map.yaml` and follow
+`docs/thruster_mapping.md`. This lets the actual wiring differ from the old
+diagram while still keeping PX4 actuator setup and ROS body-motion commands
+consistent.
+
 Keyboard controls:
 
 ```text

@@ -309,6 +309,11 @@ ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
   -p max_yaw_rate:=0.20
 ```
 
+Before commanding real thrust, fill out `config/thruster_map.yaml` and follow
+`docs/thruster_mapping.md`. The robot does not need to match the old diagram,
+but the physical wiring, PX4 actuator setup, and documented force directions
+must match.
+
 Test only one axis at a time at first. If the wrong thrusters move, fix the PX4
 actuator/mixer/output configuration before increasing limits. The ROS code
 commands body motion; PX4 maps that motion to the physical thrusters.
