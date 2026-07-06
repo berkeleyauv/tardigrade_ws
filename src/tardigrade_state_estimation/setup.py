@@ -19,9 +19,12 @@ setup(
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
+        # Each console_script becomes a `ros2 run tardigrade_state_estimation ...`
+        # executable after colcon build.
         'console_scripts': [
             'vectornav_odometry = tardigrade_state_estimation.vectornav_odometry:main',
             'zed_odometry = tardigrade_state_estimation.zed_odometry:main',
+            'zed_vectornav_odometry = tardigrade_state_estimation.zed_vectornav_odometry:main',
         ],
     },
 )

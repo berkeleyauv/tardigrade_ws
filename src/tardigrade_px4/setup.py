@@ -19,12 +19,15 @@ setup(
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
+        # Each console_script becomes a `ros2 run tardigrade_px4 ...`
+        # executable after colcon build.
         'console_scripts': [
             'pixhawk_interface = tardigrade_px4.pixhawk_interface:main',
             'mock_px4_status = tardigrade_px4.mock_px4_status:main',
             'odometry_to_px4 = tardigrade_px4.odometry_to_px4:main',
             'mavlink_odometry_to_px4 = tardigrade_px4.mavlink_odometry_to_px4:main',
             'mavlink_pixhawk_interface = tardigrade_px4.mavlink_pixhawk_interface:main',
+            'keyboard_cmd_vel = tardigrade_px4.keyboard_cmd_vel:main',
         ],
     },
 )

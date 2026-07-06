@@ -147,7 +147,13 @@ Terminal 1, ZED camera:
 ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
 ```
 
-Terminal 2, convert ZED pose into robot odometry:
+Terminal 2, start VectorNav and convert ZED + VectorNav into robot odometry:
+
+```
+ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
+```
+
+If the VectorNav is not connected and you only need the ZED pose path, use:
 
 ```
 ros2 launch tardigrade_bringup zed_state.launch.py
@@ -183,6 +189,129 @@ Important: `configure_px4_params:=true` is currently required because the
 Pixhawk parameter save path is not working on the bench board. The node sends
 the required PX4 params into RAM at startup, so they are lost when the Pixhawk
 reboots.
+
+ROS interfaces used by this flow:
+
+```
+/zed/zed_node/pose
+```
+
+Pose from the ZED wrapper. This is the robot's local position source.
+
+```
+/vectornav/imu
+```
+
+IMU data from the VectorNav. This is used for attitude and angular velocity.
+
+```
+/tardigrade/state/odometry
+```
+
+Fused robot state published by `zed_vectornav_odometry`. The Pixhawk interface
+sends this to PX4 as MAVLink visual odometry.
+
+```
+/tardigrade/status
+```
+
+Robot/Pixhawk status published by `mavlink_pixhawk_interface`. Use this to
+confirm `px4_connected`, `armed`, `external_control_enabled`, visual odometry
+freshness, and command acknowledgements.
+
+```
+/tardigrade/cmd_vel
+```
+
+Teleop velocity command. It uses `geometry_msgs/Twist` in ROS body-frame FLU:
+`linear.x` forward, `linear.y` left, `linear.z` up, and `angular.z` yaw left.
+
+```
+/tardigrade/set_external_control
+```
+
+Service that switches PX4 into Offboard/external-control mode and starts the
+setpoint stream.
+
+```
+/tardigrade/set_armed
+```
+
+Service that sends the MAVLink arm/disarm command to PX4.
+
+### Safe Teleop Dry Run
+
+For a no-motion teleop dry run, restart the Pixhawk interface in velocity mode
+without speed limits. This node subscribes to `/tardigrade/cmd_vel`, but the
+defaults clamp all commanded motion to zero:
+
+```
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_setpoint_mode:=velocity
+```
+
+Then publish keyboard velocity commands from another container terminal. This
+node only publishes desired motion; it does not talk to the Pixhawk directly:
+
+```
+ros2 run tardigrade_px4 keyboard_cmd_vel
+```
+
+Keyboard controls:
+
+```
+w/s     forward/back
+j/l     strafe left/right
+r/f     up/down
+a/d     yaw left/right
+space   zero command
+Ctrl-C  quit
+```
+
+In the Pixhawk interface terminal, look for:
+
+```
+cmd_vel_received=...
+```
+
+That proves the keyboard node is reaching the Pixhawk interface. With all speed
+limits at zero, the Pixhawk can be armed but should command no motion.
+
+Arm in another container terminal:
+
+```
+ros2 service call /tardigrade/set_external_control tardigrade_interfaces/srv/SetExternalControl "{enabled: true}"
+ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: true}"
+ros2 topic echo /tardigrade/status
+```
+
+Disarm:
+
+```
+ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: false}"
+```
+
+Only after a dry run should nonzero velocity clamps be added, one axis at a
+time, with thrusters made safe:
+
+```
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_setpoint_mode:=velocity \
+  -p max_forward_speed:=0.10 \
+  -p max_lateral_speed:=0.10 \
+  -p max_vertical_speed:=0.05 \
+  -p max_yaw_rate:=0.20
+```
+
+Test only one axis at a time at first. If the wrong thrusters move, fix the PX4
+actuator/mixer/output configuration before increasing limits. The ROS code
+commands body motion; PX4 maps that motion to the physical thrusters.
 
 Build this image on the Jetson when you intend to run on the Jetson:
 

@@ -7,10 +7,12 @@
   <maintainer email="root@todo.todo">root</maintainer>
   <license>TODO: License declaration</license>
 
+  <!-- Launch files here start nodes from these runtime packages. -->
   <depend>launch</depend>
   <depend>launch_ros</depend>
   <depend>tardigrade_px4</depend>
   <depend>tardigrade_state_estimation</depend>
+  <depend>vectornav</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

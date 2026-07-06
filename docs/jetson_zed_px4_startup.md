@@ -4,7 +4,7 @@ This is the bench startup path for using the ZED as the local position source
 for PX4 arming. The goal is:
 
 1. Run the ZED wrapper.
-2. Convert ZED pose into `/tardigrade/state/odometry`.
+2. Fuse ZED position with VectorNav attitude into `/tardigrade/state/odometry`.
 3. Send that odometry to PX4 over USB MAVLink.
 4. Arm the Pixhawk from ROS.
 
@@ -174,6 +174,60 @@ Repeated `uvcvideo: Failed to set UVC probe control : -71` means the USB video
 stream is unstable. Fix cable, port, power, or use a powered USB3 hub before
 chasing ROS.
 
+## ROS Interfaces
+
+```text
+/zed/zed_node/pose
+```
+
+ZED local pose. This is the position source.
+
+```text
+/vectornav/imu
+```
+
+VectorNav IMU. This is the attitude and angular-velocity source.
+
+```text
+/tardigrade/state/odometry
+```
+
+Fused odometry from ZED + VectorNav. The MAVLink interface forwards this to PX4
+as visual odometry.
+
+```text
+/tardigrade/status
+```
+
+Status from the Pixhawk interface. Check this for `px4_connected`, `armed`,
+`external_control_enabled`, visual odometry age, and MAVLink command ACKs.
+
+```text
+/tardigrade/cmd_vel
+```
+
+Teleop velocity command in ROS body-frame FLU:
+
+```text
+linear.x   forward/back
+linear.y   left/right
+linear.z   up/down
+angular.z  yaw left/right
+```
+
+```text
+/tardigrade/set_external_control
+```
+
+Service that asks PX4 to enter Offboard/external-control mode and starts the
+setpoint stream.
+
+```text
+/tardigrade/set_armed
+```
+
+Service that sends the arm/disarm command to PX4.
+
 ## Terminal Layout For Arming Test
 
 Use four terminals. Terminal 1 starts the container. Terminals 2-4 enter the
@@ -218,26 +272,34 @@ Connection issue detected: CAMERA_REBOOTING
 
 If that happens, stop here and fix ZED USB/power stability.
 
-### Terminal 2: Bridge ZED Pose To Robot Odometry
+### Terminal 2: Start VectorNav And Publish Robot Odometry
 
 Inside container:
 
 ```bash
 cd /ws
 source install/setup.bash
-ros2 launch tardigrade_bringup zed_state.launch.py
+ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
 ```
 
 This converts:
 
 ```text
-/zed/zed_node/pose
+/zed/zed_node/pose + /vectornav/imu
 ```
 
 into:
 
 ```text
 /tardigrade/state/odometry
+```
+
+The fused odometry uses ZED for position and VectorNav for orientation/angular
+velocity. If the VectorNav is not connected and you only need the ZED pose path,
+use:
+
+```bash
+ros2 launch tardigrade_bringup zed_state.launch.py
 ```
 
 ### Terminal 3: Start Pixhawk MAVLink Interface
@@ -339,6 +401,71 @@ PX4 received the arm command but rejected it. Check QGroundControl's current
 arming blockers. Do not debug ROS until QGC shows only blockers related to local
 position/vision quality.
 
+## Teleop Dry Run
+
+The command path uses standard ROS `geometry_msgs/Twist` on:
+
+```text
+/tardigrade/cmd_vel
+```
+
+The convention is body-frame ROS FLU:
+
+```text
+linear.x   forward/back
+linear.y   left/right
+linear.z   up/down
+angular.z  yaw left/right
+```
+
+By default, `mavlink_pixhawk_interface` keeps the proven arming behavior and
+uses attitude setpoints. To test the teleop path, restart the Pixhawk interface
+in velocity mode:
+
+```bash
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_setpoint_mode:=velocity
+```
+
+With no speed parameters, velocity mode is a no-motion dry run: all speed clamps
+default to zero. In another container terminal, run:
+
+```bash
+ros2 run tardigrade_px4 keyboard_cmd_vel
+```
+
+The keyboard node publishes `/tardigrade/cmd_vel`; the Pixhawk interface debug
+line should show `cmd_vel_received=...`.
+
+After the dry run passes, add small nonzero clamps one axis at a time. Make the
+thrusters physically safe first:
+
+```bash
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_setpoint_mode:=velocity \
+  -p max_forward_speed:=0.10 \
+  -p max_lateral_speed:=0.10 \
+  -p max_vertical_speed:=0.05 \
+  -p max_yaw_rate:=0.20
+```
+
+Keyboard controls:
+
+```text
+w/s     forward/back
+j/l     strafe left/right
+r/f     up/down
+a/d     yaw left/right
+space   zero command
+Ctrl-C  quit
+```
+
 ## VectorNav Check
 
 The VectorNav is not enough to create valid local position by itself, but it is
@@ -396,7 +523,9 @@ Do not proceed to PX4. Fix ZED first.
 /tardigrade/state/odometry not publishing
 ```
 
-Run `zed_state.launch.py` and confirm `/zed/zed_node/pose` is active.
+Run `zed_vectornav_state.launch.py` and confirm `/zed/zed_node/pose` and
+`/vectornav/imu` are active. If the VectorNav is intentionally disconnected,
+run `zed_state.launch.py` instead and confirm `/zed/zed_node/pose` is active.
 
 ```text
 px4_connected: false
