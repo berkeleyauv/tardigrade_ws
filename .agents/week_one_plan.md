@@ -1,401 +1,290 @@
-# Week-One Bringup Plan
+# Current Bringup Plan
 
-## Goal
+This file replaced the original week-one plan after the bench work proved a
+different hardware path. The old plan centered Micro XRCE-DDS. The current
+working path centers ZED + VectorNav odometry and USB MAVLink to the Pixhawk.
 
-By the end of the week, Tardigrade should have a working bringup path for:
+## Current Goal
 
-1. VectorNav-based state input.
-2. PX4 communication through Micro XRCE-DDS.
-3. Offboard heartbeat and PX4 command publishing.
-4. Arm/disarm and external-control services.
-5. Keyboard teleop through robot-level commands.
+Make the robot repeatably:
 
-This is a bringup milestone, not an autonomy milestone. Gate autonomy comes after the robot can be safely started, monitored, armed, and commanded.
+1. Start the Jetson container with ZED SDK access.
+2. Run the ZED wrapper.
+3. Run the VectorNav driver.
+4. Publish fused ZED + VectorNav robot odometry.
+5. Send that odometry to PX4 over USB MAVLink.
+6. Enter external-control/Offboard mode.
+7. Arm from ROS.
+8. Dry-run teleop through `/tardigrade/cmd_vel`.
+9. Map and verify thrusters before commanding real thrust.
 
-## Current Progress
+The main human-facing runbook is:
 
-Completed as of July 2, 2026:
+```text
+docs/jetson_zed_px4_startup.md
+```
 
-- `px4_msgs` added and built.
-- `vectornav` added from the `ros2` branch and built with `vectornav_msgs`.
-- `tardigrade_interfaces` created and built.
-- `tardigrade_px4` created with:
-  - `/tardigrade/set_armed`
-  - `/tardigrade/set_external_control`
-  - `/tardigrade/status`
-  - `/fmu/in/vehicle_command`
-  - `/fmu/in/offboard_control_mode`
-  - `/fmu/in/trajectory_setpoint`
-  - `/fmu/out/vehicle_status`
-  - `/fmu/out/vehicle_command_ack`
-- `tardigrade_bringup` created with `mock.launch.py`.
-- Mock PX4 publishes status, accepts `VehicleCommand`, publishes fake `VehicleCommandAck`, and updates fake arming/offboard state.
+The thruster setup guide is:
 
-Not done yet:
+```text
+docs/thruster_mapping.md
+```
 
-- Real Micro XRCE-DDS Agent hardware test.
-- Real VectorNav hardware test.
-- `tardigrade_state_estimation`.
-- PX4 odometry feed from robot odometry.
-- `tardigrade_teleop`.
-- Perception/gate packages.
+## What Is Proven
 
-## Milestone 1: Build Core Dependencies
+- Docker image builds on the Jetson.
+- ZED wrapper can publish `/zed/zed_node/pose` when the ZED is stable on USB3.
+- VectorNav publishes `/vectornav/imu`.
+- `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`.
+- `mavlink_pixhawk_interface` connects to the Pixhawk over `/dev/ttyACM0`.
+- The interface sends MAVLink visual odometry to PX4.
+- The interface can send required PX4 params into RAM.
+- The Pixhawk has armed from ROS.
+- `/tardigrade/status` reports `armed: true` when arming succeeds.
 
-Build `px4_msgs` first.
+## Important Known Issue
 
-Recommended command inside Docker:
+The current Pixhawk cannot save parameters:
+
+```text
+param save
+ERROR [parameters] parameter export to /fs/mtd_params failed
+```
+
+The board also reported:
+
+```text
+mtd status
+Device size: 0 Blocks (0 bytes)
+```
+
+Because of this, PX4 parameter changes do not survive reboot. The bench
+workaround is to start `mavlink_pixhawk_interface` with:
+
+```text
+-p configure_px4_params:=true
+```
+
+This sends required params into RAM each startup. Do not remove this from the
+arming workflow until Pixhawk parameter storage is fixed or the controller is
+replaced.
+
+## Standard Arming Terminals
+
+Open the container from the Jetson host:
+
+```bash
+cd ~/Developer/tardigrade_ws
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
+```
+
+### Terminal 1: ZED
 
 ```bash
 cd /ws
-source /opt/ros/foxy/setup.bash
-colcon build --packages-select px4_msgs --parallel-workers 1 --event-handlers console_direct+
+source install/setup.bash
+ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
 ```
 
-Notes:
+Expected:
 
-- The first `px4_msgs` build is slow because it generates many ROS interfaces.
-- Keep `px4_msgs` pinned to the PX4 firmware version on the Pixhawk.
-- Current default is PX4 `v1.14.0`.
-- Status: done.
+```text
+Advertised on topic: /zed/zed_node/pose
+```
 
-Add VectorNav from the `ros2` branch:
+If the ZED says `CAMERA NOT DETECTED` or `CAMERA_REBOOTING`, stop and fix
+USB3/power before debugging ROS or PX4.
+
+### Terminal 2: ZED + VectorNav Odometry
 
 ```bash
 cd /ws
-git submodule add -b ros2 https://github.com/berkeleyauv/vectornav.git src/vectornav
-git submodule update --init --recursive
+source install/setup.bash
+ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
 ```
 
-Then build:
+Expected:
+
+```text
+Publishing: /tardigrade/state/odometry
+```
+
+Check:
+
+```bash
+ros2 topic hz /tardigrade/state/odometry
+```
+
+Expected rate is around the ZED pose rate, often about 15 Hz with the low-load
+configuration.
+
+### Terminal 3: Pixhawk MAVLink Interface
 
 ```bash
 cd /ws
-source /opt/ros/foxy/setup.bash
-colcon build --packages-select vectornav_msgs vectornav --parallel-workers 1 --event-handlers console_direct+
+source install/setup.bash
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true
 ```
 
-Status: done. Real VectorNav launch remains blocked until hardware is available.
-
-## Milestone 2: Define Robot Interfaces
-
-Create `tardigrade_interfaces`.
-
-Initial interfaces:
+Expected:
 
 ```text
-srv/SetArmed.srv
-bool armed
----
-bool success
-string message
+Opening MAVLink serial: /dev/ttyACM0 @ 921600
+Services: /tardigrade/set_armed, /tardigrade/set_external_control
+Publishing: /tardigrade/status
+Sending visual odometry from: /tardigrade/state/odometry
+Sent required PX4 params in RAM
 ```
 
-```text
-srv/SetExternalControl.srv
-bool enabled
----
-bool success
-string message
-```
-
-Use standard messages unless a custom robot concept is needed:
-
-- prefer `nav_msgs/Odometry` for robot odometry
-- prefer `geometry_msgs/TwistStamped` for teleop velocity commands
-- add a custom `RobotStatus.msg` for combined robot/PX4 health
-
-Acceptance criteria:
-
-- `tardigrade_interfaces` builds independently.
-- No interface references `px4_msgs`.
-- Other packages can depend on these interfaces without pulling in PX4 concepts.
-
-Status: done.
-
-## Milestone 3: Establish PX4 Communication
-
-Run the Micro XRCE-DDS Agent in the environment connected to the Pixhawk.
-
-Checklist:
-
-- Pixhawk firmware matches the checked-out `px4_msgs` version.
-- Agent is running before expecting `/fmu/*` topics.
-- ROS domain and network settings are correct.
-- `/fmu/out/vehicle_status` appears.
-- `/fmu/in/vehicle_command` exists or can be published to.
-- QoS settings are compatible with PX4 ROS 2 topics.
-
-Useful checks:
+### Terminal 4: Arm
 
 ```bash
-ros2 topic list
-ros2 topic echo /fmu/out/vehicle_status
+cd /ws
+source install/setup.bash
+ros2 service call /tardigrade/set_external_control tardigrade_interfaces/srv/SetExternalControl "{enabled: true}"
+ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: true}"
+ros2 topic echo /tardigrade/status
 ```
 
-Acceptance criteria:
-
-- ROS 2 can see PX4 topics.
-- `VehicleStatus` messages arrive when Pixhawk is connected.
-
-Status: not hardware-tested yet.
-
-## Milestone 4: PX4 Driver Services And Heartbeat
-
-Update `tardigrade_px4` so it owns:
-
-- Offboard heartbeat publishing
-- neutral trajectory setpoint publishing
-- arm/disarm service
-- external-control enable service
-- PX4 status subscription
-- PX4 command acknowledgement subscription
-- robot status publication
-
-Safety behavior:
-
-- no automatic arming
-- no automatic external-control enable
-- heartbeat can run continuously while the driver is active
-- commands should log clearly when sent
-- teleop setpoints should be ignored unless external control is enabled
-
-Acceptance criteria:
-
-- Calling the arm service publishes the correct PX4 `VehicleCommand`.
-- Calling the disarm service publishes the correct PX4 `VehicleCommand`.
-- Calling external-control enable publishes the Offboard mode command.
-- `/tardigrade/status` updates from PX4 status.
-- Mock command acknowledgement updates `/tardigrade/status` detail.
-
-Status: done in mock mode.
-
-## Milestone 5: VectorNav Bringup
-
-Launch the VectorNav driver:
-
-```bash
-ros2 launch vectornav vectornav.launch.py
-```
-
-Expected topics:
-
-- `/vectornav/raw/common`
-- `/vectornav/imu`
-- `/vectornav/pose`
-- `/vectornav/velocity`
-
-Useful checks:
-
-```bash
-ros2 topic echo /vectornav/imu
-ros2 topic hz /vectornav/imu
-```
-
-Acceptance criteria:
-
-- `/vectornav/imu` publishes `sensor_msgs/Imu`.
-- Frame IDs are understood and documented.
-- Serial port and baud rate are correct for the robot.
-
-Status: package builds; hardware run pending.
-
-## Milestone 6: State Estimation Bridge
-
-Create `tardigrade_state_estimation`.
-
-Week-one scope:
-
-- subscribe to VectorNav outputs
-- validate message freshness
-- publish robot odometry
-- provide the PX4 driver with PX4-ready odometry input
-
-Do not build a full custom EKF yet.
-
-Recommended first implementation:
-
-- subscribe `/vectornav/imu` as `sensor_msgs/Imu`
-- publish `/tardigrade/state/odometry` as `nav_msgs/Odometry`
-- copy IMU orientation into odometry pose orientation
-- copy angular velocity into odometry twist angular
-- set position and linear velocity to zero initially
-- add a mock VectorNav IMU publisher if real hardware is unavailable
-
-Acceptance criteria:
-
-- State estimation publishes a stable robot odometry topic.
-- The PX4 driver can convert that odometry into the PX4 odometry topic needed for arming/control.
-- If VectorNav data goes stale, status reflects that clearly.
-
-Status: next backend task.
-
-## Milestone 7: Keyboard Teleop
-
-Create `tardigrade_teleop`.
-
-Responsibilities:
-
-- read keyboard commands
-- publish robot-level velocity commands
-- call arm/disarm/external-control services when explicitly requested
-- never publish PX4 messages directly
-
-Initial command shape:
-
-- surge
-- sway
-- heave or depth intent
-- yaw rate
-- deadman/enable behavior
-
-Acceptance criteria:
-
-- Teleop can publish neutral commands.
-- Teleop can publish simple directional commands.
-- `tardigrade_px4` receives robot-level commands and translates them to PX4 Offboard setpoints.
-- Commands time out to neutral when keyboard input stops.
-
-Status: planned after state-estimation skeleton or in parallel if someone else owns it.
-
-## Milestone 8: Bringup Launch Files
-
-Create `tardigrade_bringup`.
-
-Initial launch modes:
-
-- `mock.launch.py`: mock PX4 status plus PX4 driver
-- `hardware.launch.py`: VectorNav, state estimation, PX4 driver, and teleop-ready robot APIs
-
-Keep Micro XRCE-DDS Agent startup documented even if it is not launched by ROS at first.
-
-Acceptance criteria:
-
-- One command can start mock development mode.
-- One command can start hardware bringup mode after the agent and devices are ready.
-- Launch files do not hide safety-critical service calls.
-
-Status: `mock.launch.py` done. `hardware.launch.py` pending.
-
-## Parallel Perception Plan
-
-Perception can begin in parallel with state estimation and PX4 hardware work.
-
-Create `tardigrade_perception` as an `ament_python` package.
-
-Initial responsibilities:
-
-- subscribe to `/front_camera/image_raw` or a configurable `sensor_msgs/Image` topic
-- run the YOLO gate detector
-- publish a simple gate-center detection topic
-- publish optional debug images with bounding boxes
-
-Initial output topic:
+Expected after success:
 
 ```text
-/tardigrade/perception/gate/detection
-geometry_msgs/PointStamped
+armed: true
+external_control_enabled: true
+arming_state: 1
+last_ack_command=400
+last_ack_result=0
 ```
 
-Temporary meaning:
+Disarm:
 
-- `point.x`: normalized center x, `[-1, 1]`
-- `point.y`: normalized center y, `[-1, 1]`
-- `point.z`: confidence, `[0, 1]`
+```bash
+ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: false}"
+```
 
-Later output:
+## Teleop Dry Run
+
+Teleop commands use:
 
 ```text
-tardigrade_interfaces/msg/GateDetection.msg
-bool detected
-float32 center_x
-float32 center_y
-float32 width
-float32 height
-float32 confidence
-string class_name
+/tardigrade/cmd_vel
 ```
 
-Create `tardigrade_gate_controller` later, or keep it as a node in a gate/autonomy package at first.
+The command convention is ROS body-frame FLU:
 
-Controller responsibilities:
+```text
+linear.x   forward/back
+linear.y   left/right
+linear.z   up/down
+angular.z  yaw left/right
+```
 
-- subscribe to `/tardigrade/perception/gate/detection`
-- threshold and smooth detections
-- publish `/tardigrade/cmd_vel` as `geometry_msgs/TwistStamped`
-- never publish PX4 messages directly
+Start the Pixhawk interface in velocity mode with zero default clamps:
 
-Perception non-goals for the first pass:
+```bash
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_setpoint_mode:=velocity
+```
 
-- no PX4 imports
-- no arming/offboard service calls
-- no direct `/fmu/*` publishing
-- no BehaviorTree.CPP integration until detector and command boundary work
+Run keyboard teleop:
 
-## Suggested Work Split
+```bash
+ros2 run tardigrade_px4 keyboard_cmd_vel
+```
 
-Developer A: PX4/backend
+Expected in the Pixhawk interface logs:
 
-- maintain `tardigrade_px4`
-- add PX4 odometry publisher from `/tardigrade/state/odometry`
-- create `hardware.launch.py`
-- test Micro XRCE-DDS and real Pixhawk
+```text
+cmd_vel_received=...
+```
 
-Developer B: state estimation / VectorNav
+With default clamps, this proves the ROS command path without commanding real
+motion.
 
-- create `tardigrade_state_estimation`
-- add mock VectorNav IMU publisher
-- publish `/tardigrade/state/odometry`
-- test real VectorNav when hardware is available
+## Real-Thrust Preconditions
 
-Developer C: perception/gate
+Do not command real thrust until:
 
-- create `tardigrade_perception`
-- integrate YOLO model
-- publish gate detections
-- create debug visualization
-- later add a gate alignment controller
+- The vehicle is physically safe.
+- The Pixhawk is armed/disarmed repeatably.
+- `/tardigrade/state/odometry` is stable.
+- `/tardigrade/status` shows fresh visual odometry age.
+- `config/thruster_map.yaml` is filled out.
+- QGroundControl actuator tests match `config/thruster_map.yaml`.
+- Each axis is tested one at a time with tiny clamps.
 
-## End-Of-Week Acceptance Criteria
+Then start with small clamps:
 
-The week-one milestone is successful when:
+```bash
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_setpoint_mode:=velocity \
+  -p max_forward_speed:=0.10 \
+  -p max_lateral_speed:=0.10 \
+  -p max_vertical_speed:=0.05 \
+  -p max_yaw_rate:=0.20
+```
 
-- Docker builds the required packages.
-- VectorNav publishes usable ROS topics.
-- Micro XRCE-DDS exposes PX4 topics.
-- `tardigrade_px4` publishes Offboard heartbeat.
-- Robot-level services can send arm/disarm/external-control commands.
-- State estimation publishes odometry from VectorNav-derived data.
-- PX4 receives odometry in the expected format.
-- Keyboard teleop publishes robot-level commands.
-- PX4 driver translates teleop commands into Offboard setpoints.
-- Mock and hardware launch paths exist.
+If the wrong thrusters move, fix PX4 actuator configuration or the physical
+wiring map before increasing limits.
 
-Adjusted realistic target:
+## Current Work Split
 
-- mock PX4 bringup remains working
-- VectorNav package builds
-- state-estimation skeleton publishes mock odometry
-- perception package has a documented gate detection topic, even if the YOLO model is not fully integrated yet
+Backend/PX4:
 
-## Explicit Non-Goals For This Week
+- maintain `mavlink_pixhawk_interface`,
+- keep `/tardigrade/status` useful,
+- document required runtime PX4 params,
+- decide how to handle broken Pixhawk parameter storage.
+
+State estimation:
+
+- maintain `zed_vectornav_odometry`,
+- verify frame conventions,
+- tune covariances and stale-sensor behavior,
+- keep ZED and VectorNav setup repeatable.
+
+Teleop/control:
+
+- keep `keyboard_cmd_vel` conservative,
+- move teleop into `tardigrade_teleop` when stable,
+- test velocity mode with zero clamps before nonzero clamps.
+
+Hardware:
+
+- fill `config/thruster_map.yaml`,
+- verify every Pixhawk output with QGroundControl motor tests,
+- document any output reversals,
+- make the wiring reproducible for future teammates.
+
+Perception/autonomy:
+
+- remain off the critical arming path until bringup is repeatable,
+- publish robot-level detections or commands,
+- never publish PX4 messages directly.
+
+## Non-Goals For The Immediate Bringup
 
 - Full custom EKF.
-- Gate detection.
-- BehaviorTree.CPP integration.
-- Mission autonomy.
-- Direct thruster testing as part of normal teleop.
-- Recreating the legacy repo.
+- Replacing PX4 actuator allocation tonight.
+- Autonomous gate behavior.
+- Direct thruster control from perception.
+- Hiding arming inside launch files.
+- Depending on unsaved Pixhawk parameters.
 
-Update: gate detection may start in parallel, but it is not on the critical PX4 bringup path.
+## Guidance For Future Codex/Agent Sessions
 
-## Guidance For Working With Codex
-
-You write the code. Use Codex for:
-
-- package/interface review
-- implementation sequencing
-- debugging build errors
-- checking ROS/PX4 assumptions
-- code review before committing
-- keeping these docs updated when decisions change
+- Read `docs/jetson_zed_px4_startup.md` before changing bringup commands.
+- Read `docs/thruster_mapping.md` before changing teleop or actuator behavior.
+- Keep PX4-specific details inside `tardigrade_px4`.
+- Keep robot-level APIs centered on `/tardigrade/*`.
+- Do not re-center Micro XRCE-DDS unless the team explicitly revives that path.
+- Update these `.agents` docs whenever the bench procedure changes.
