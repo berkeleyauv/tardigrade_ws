@@ -81,6 +81,12 @@ class MavlinkPixhawkInterface(Node):
         self.visual_odometry_sent_count = 0
         self.odometry_send_supports_quality = None
         self.px4_params_sent = False
+        self.diagnostic_streams_requested = False
+        self.px4_param_values = {}
+        self.last_local_position = None
+        self.last_local_position_ns = None
+        self.last_estimator_status = None
+        self.last_estimator_status_ns = None
         self.external_control_enabled = False
         self.boot_time_ns = self.get_clock().now().nanoseconds
         self.lock = threading.Lock()
@@ -122,6 +128,7 @@ class MavlinkPixhawkInterface(Node):
         self.status_timer = self.create_timer(0.2, self.publish_robot_status)
         self.offboard_timer = self.create_timer(0.1, self.publish_offboard_setpoint)
         self.px4_param_timer = self.create_timer(1.0, self.configure_required_px4_params)
+        self.diagnostic_timer = self.create_timer(1.0, self.publish_debug_diagnostics)
         visual_period = 1.0 / max(self.visual_odometry_rate_hz, 1.0)
         self.visual_odometry_timer = self.create_timer(visual_period, self.publish_visual_odometry)
 
@@ -150,6 +157,18 @@ class MavlinkPixhawkInterface(Node):
                 elif msg_type == 'STATUSTEXT':
                     self.last_status_text = msg.text
                     self.get_logger().warn(f'PX4 status text: {msg.text}')
+                elif msg_type == 'PARAM_VALUE':
+                    param_id = msg.param_id
+                    if isinstance(param_id, bytes):
+                        param_id = param_id.decode('ascii', errors='ignore')
+                    param_id = param_id.rstrip('\x00')
+                    self.px4_param_values[param_id] = msg.param_value
+                elif msg_type == 'LOCAL_POSITION_NED':
+                    self.last_local_position = msg
+                    self.last_local_position_ns = self.get_clock().now().nanoseconds
+                elif msg_type == 'ESTIMATOR_STATUS':
+                    self.last_estimator_status = msg
+                    self.last_estimator_status_ns = self.get_clock().now().nanoseconds
 
     def publish_offboard_setpoint(self):
         if not self.external_control_enabled:
@@ -166,6 +185,35 @@ class MavlinkPixhawkInterface(Node):
             0.0,
             self.offboard_thrust,
         )
+
+    def request_message_interval(self, message_id, rate_hz):
+        self.mav.mav.command_long_send(
+            self.target_system,
+            self.target_component,
+            mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL,
+            0,
+            float(message_id),
+            float(1_000_000 / rate_hz),
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )
+
+    def request_diagnostic_streams(self):
+        if self.diagnostic_streams_requested:
+            return
+
+        with self.lock:
+            heartbeat = self.last_heartbeat
+
+        if heartbeat is None:
+            return
+
+        self.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, 5.0)
+        self.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_ESTIMATOR_STATUS, 2.0)
+        self.diagnostic_streams_requested = True
 
     def configure_required_px4_params(self):
         if not self.configure_px4_params or self.px4_params_sent:
@@ -193,6 +241,12 @@ class MavlinkPixhawkInterface(Node):
                 name.encode('ascii'),
                 value,
                 param_type,
+            )
+            self.mav.mav.param_request_read_send(
+                self.target_system,
+                self.target_component,
+                name.encode('ascii'),
+                -1,
             )
 
         self.px4_params_sent = True
@@ -261,6 +315,74 @@ class MavlinkPixhawkInterface(Node):
 
         with self.lock:
             self.visual_odometry_sent_count += 1
+
+    def publish_debug_diagnostics(self):
+        self.request_diagnostic_streams()
+
+        with self.lock:
+            command_ack = self.last_command_ack
+            px4_param_values = dict(self.px4_param_values)
+            local_position = self.last_local_position
+            local_position_ns = self.last_local_position_ns
+            estimator_status = self.last_estimator_status
+            estimator_status_ns = self.last_estimator_status_ns
+            visual_received_ns = self.latest_visual_odometry_received_ns
+            visual_sent_count = self.visual_odometry_sent_count
+            px4_params_sent = self.px4_params_sent
+
+        now_ns = self.get_clock().now().nanoseconds
+        parts = []
+
+        if command_ack is not None:
+            parts.append(f'ack={command_ack.command}/{command_ack.result}')
+
+        if visual_received_ns is not None:
+            visual_age_ms = (now_ns - visual_received_ns) / 1_000_000.0
+            parts.append(f'visual_odom_age_ms={visual_age_ms:.0f}')
+            parts.append(f'visual_odom_sent={visual_sent_count}')
+
+        if self.configure_px4_params:
+            parts.append(f'px4_params_sent={px4_params_sent}')
+            tracked_params = [
+                'COM_RC_IN_MODE',
+                'COM_ARM_WO_GPS',
+                'COM_ARM_MIS_REQ',
+                'EKF2_EV_CTRL',
+                'EKF2_HGT_REF',
+                'EKF2_EV_QMIN',
+            ]
+            param_summary = ','.join(
+                f'{name}={px4_param_values[name]:.3g}'
+                for name in tracked_params
+                if name in px4_param_values
+            )
+            if param_summary:
+                parts.append(f'px4_param_values={param_summary}')
+
+        if local_position is not None and local_position_ns is not None:
+            local_age_ms = (now_ns - local_position_ns) / 1_000_000.0
+            parts.append(
+                'local_position='
+                f'age_ms:{local_age_ms:.0f},'
+                f'x:{local_position.x:.2f},'
+                f'y:{local_position.y:.2f},'
+                f'z:{local_position.z:.2f}'
+            )
+        else:
+            parts.append('local_position=none')
+
+        if estimator_status is not None and estimator_status_ns is not None:
+            estimator_age_ms = (now_ns - estimator_status_ns) / 1_000_000.0
+            parts.append(
+                'estimator='
+                f'age_ms:{estimator_age_ms:.0f},'
+                f'flags:{estimator_status.flags},'
+                f'pos_h:{estimator_status.pos_horiz_accuracy:.2f},'
+                f'pos_v:{estimator_status.pos_vert_accuracy:.2f}'
+            )
+
+        if parts:
+            self.get_logger().info('PX4 debug: ' + '; '.join(parts))
 
     def time_boot_ms(self):
         elapsed_ns = self.get_clock().now().nanoseconds - self.boot_time_ns
