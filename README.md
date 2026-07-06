@@ -1,6 +1,6 @@
 # Tardigrade ROS 2 Workspace
 
-![Welcome](lol/hehe.jpeg)
+![Welcome](lol/hehe.jpg)
 
 This workspace is set up for ROS 2 Foxy development in Docker. The container
 keeps every teammate on the same Ubuntu/ROS toolchain while mounting this repo
