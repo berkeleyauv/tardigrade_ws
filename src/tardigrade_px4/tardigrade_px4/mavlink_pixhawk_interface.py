@@ -39,6 +39,7 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('source_system', 43)
         self.declare_parameter('source_component', 191)
         self.declare_parameter('offboard_thrust', 0.0)
+        self.declare_parameter('configure_px4_params', False)
         self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
         self.declare_parameter('send_visual_odometry', True)
         self.declare_parameter('visual_odometry_rate_hz', 30.0)
@@ -52,6 +53,7 @@ class MavlinkPixhawkInterface(Node):
         source_system = self.get_parameter('source_system').value
         source_component = self.get_parameter('source_component').value
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
+        self.configure_px4_params = bool(self.get_parameter('configure_px4_params').value)
         self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
         self.visual_odometry_rate_hz = float(self.get_parameter('visual_odometry_rate_hz').value)
@@ -75,6 +77,7 @@ class MavlinkPixhawkInterface(Node):
         self.latest_visual_odometry = None
         self.latest_visual_odometry_received_ns = None
         self.visual_odometry_sent_count = 0
+        self.px4_params_sent = False
         self.external_control_enabled = False
         self.boot_time_ns = self.get_clock().now().nanoseconds
         self.lock = threading.Lock()
@@ -115,6 +118,7 @@ class MavlinkPixhawkInterface(Node):
         self.read_timer = self.create_timer(0.02, self.read_mavlink)
         self.status_timer = self.create_timer(0.2, self.publish_robot_status)
         self.offboard_timer = self.create_timer(0.1, self.publish_offboard_setpoint)
+        self.px4_param_timer = self.create_timer(1.0, self.configure_required_px4_params)
         visual_period = 1.0 / max(self.visual_odometry_rate_hz, 1.0)
         self.visual_odometry_timer = self.create_timer(visual_period, self.publish_visual_odometry)
 
@@ -123,6 +127,8 @@ class MavlinkPixhawkInterface(Node):
         self.get_logger().info('Publishing: /tardigrade/status')
         if self.send_visual_odometry:
             self.get_logger().info(f'Sending visual odometry from: {self.visual_odometry_topic}')
+        if self.configure_px4_params:
+            self.get_logger().warn('PX4 runtime parameter configuration is enabled')
 
     def read_mavlink(self):
         while True:
@@ -157,6 +163,37 @@ class MavlinkPixhawkInterface(Node):
             0.0,
             self.offboard_thrust,
         )
+
+    def configure_required_px4_params(self):
+        if not self.configure_px4_params or self.px4_params_sent:
+            return
+
+        with self.lock:
+            heartbeat = self.last_heartbeat
+
+        if heartbeat is None:
+            return
+
+        params = {
+            'COM_RC_IN_MODE': 4.0,
+            'COM_ARM_WO_GPS': 1.0,
+            'COM_ARM_MIS_REQ': 0.0,
+            'EKF2_EV_CTRL': 3.0,
+            'EKF2_HGT_REF': 3.0,
+            'EKF2_EV_QMIN': 0.0,
+        }
+
+        for name, value in params.items():
+            self.mav.mav.param_set_send(
+                self.target_system,
+                self.target_component,
+                name.encode('ascii'),
+                value,
+                mavutil.mavlink.MAV_PARAM_TYPE_REAL32,
+            )
+
+        self.px4_params_sent = True
+        self.get_logger().warn('Sent required PX4 params in RAM; Pixhawk param save is still not fixed')
 
     def visual_odometry_callback(self, msg):
         with self.lock:
@@ -273,6 +310,7 @@ class MavlinkPixhawkInterface(Node):
             status_text = self.last_status_text
             visual_received_ns = self.latest_visual_odometry_received_ns
             visual_sent_count = self.visual_odometry_sent_count
+            px4_params_sent = self.px4_params_sent
 
         msg.px4_connected = heartbeat is not None
         msg.external_control_enabled = self.external_control_enabled
@@ -289,6 +327,8 @@ class MavlinkPixhawkInterface(Node):
             if visual_received_ns is not None:
                 age_ms = (self.get_clock().now().nanoseconds - visual_received_ns) / 1_000_000.0
                 msg.detail += f'; visual_odom_age_ms={age_ms:.0f}; visual_odom_sent={visual_sent_count}'
+            if self.configure_px4_params:
+                msg.detail += f'; px4_params_sent={px4_params_sent}'
         else:
             msg.armed = False
             msg.arming_state = 0
