@@ -1,3 +1,5 @@
+import math
+
 import rclpy
 from rclpy.node import Node
 
@@ -9,16 +11,34 @@ from px4_msgs.msg import (
     TrajectorySetpoint
 )
 
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+
 from tardigrade_interfaces.srv import SetArmed, SetExternalControl
 from tardigrade_interfaces.msg import RobotStatus
+
+
+def yaw_from_quaternion_enu(q):
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
 
 class PixhawkInterface(Node):
     def __init__(self):
         super().__init__('pixhawk_interface')
 
+        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
+        self.declare_parameter('odom_topic', '/tardigrade/state/odometry')
+        self.declare_parameter('cmd_vel_timeout', 0.5)  # s; stale cmd -> zero velocity
+
         self.last_vehicle_status = None
         self.last_command_ack = None
         self.external_control_enabled = False
+
+        self.last_cmd_vel = None        # geometry_msgs/Twist, BODY frame FLU
+        self.last_cmd_vel_time = None
+        self.current_yaw_enu = None     # from odometry, for body->world rotation
 
         # Subscribers
         self.vehicle_status_sub = self.create_subscription(
@@ -33,6 +53,20 @@ class PixhawkInterface(Node):
             '/fmu/out/vehicle_command_ack',
             self.vehicle_command_ack_callback,
             10
+        )
+
+        self.cmd_vel_sub = self.create_subscription(
+            Twist,
+            self.get_parameter('cmd_vel_topic').value,
+            self.cmd_vel_callback,
+            10,
+        )
+
+        self.odom_sub = self.create_subscription(
+            Odometry,
+            self.get_parameter('odom_topic').value,
+            self.odom_callback,
+            10,
         )
 
         # Publishers
@@ -87,6 +121,56 @@ class PixhawkInterface(Node):
         self.get_logger().info("Publishing: /fmu/in/trajectory_setpoint")
         self.get_logger().info('Publishing: /tardigrade/status')
 
+    def cmd_vel_callback(self, msg: Twist):
+        """Velocity command in BODY frame, FLU (+x fwd, +y left, +z up)."""
+        self.last_cmd_vel = msg
+        self.last_cmd_vel_time = self.get_clock().now()
+
+    def odom_callback(self, msg: Odometry):
+        self.current_yaw_enu = yaw_from_quaternion_enu(msg.pose.pose.orientation)
+
+    def get_velocity_setpoint_ned(self):
+        """Rotate the latest body-FLU cmd_vel into world NED for PX4.
+
+        Returns ([vn, ve, vd], yawspeed_ned). Zeros when the command is
+        stale (failsafe) or missing.
+        """
+        timeout = float(self.get_parameter('cmd_vel_timeout').value)
+
+        if self.last_cmd_vel is None or self.last_cmd_vel_time is None:
+            return [0.0, 0.0, 0.0], 0.0
+
+        age = (self.get_clock().now() - self.last_cmd_vel_time).nanoseconds * 1e-9
+        if age > timeout:
+            self.get_logger().warn(
+                'cmd_vel stale ({:.2f}s) — holding zero velocity'.format(age),
+                throttle_duration_sec=2.0,
+            )
+            return [0.0, 0.0, 0.0], 0.0
+
+        cmd = self.last_cmd_vel
+
+        yaw = self.current_yaw_enu
+        if yaw is None:
+            self.get_logger().warn(
+                'No odometry yaw yet — assuming yaw=0 for body->NED rotation',
+                throttle_duration_sec=2.0,
+            )
+            yaw = 0.0
+
+        # Body FLU -> world ENU (rotate by ENU yaw)
+        v_east = cmd.linear.x * math.cos(yaw) - cmd.linear.y * math.sin(yaw)
+        v_north = cmd.linear.x * math.sin(yaw) + cmd.linear.y * math.cos(yaw)
+        v_up = cmd.linear.z
+
+        # ENU -> NED
+        velocity_ned = [v_north, v_east, -v_up]
+
+        # FLU yaw rate (+CCW) -> NED/FRD yaw rate (+CW)
+        yawspeed_ned = -cmd.angular.z
+
+        return velocity_ned, yawspeed_ned
+
     def vehicle_status_callback(self, msg: VehicleStatus):
         self.last_vehicle_status = msg
 
@@ -120,15 +204,17 @@ class PixhawkInterface(Node):
 
         self.offboard_control_mode_pub.publish(control_mode)
 
+        velocity_ned, yawspeed_ned = self.get_velocity_setpoint_ned()
+
         setpoint = TrajectorySetpoint()
         setpoint.timestamp = control_mode.timestamp
 
         setpoint.position = [float('nan'), float('nan'), float('nan')]
-        setpoint.velocity = [0.0, 0.0, 0.0]
+        setpoint.velocity = velocity_ned
         setpoint.acceleration = [float('nan'), float('nan'), float('nan')]
         setpoint.jerk = [float('nan'), float('nan'), float('nan')]
         setpoint.yaw = float('nan')
-        setpoint.yawspeed = 0.0
+        setpoint.yawspeed = yawspeed_ned
 
         self.trajectory_setpoint_pub.publish(setpoint)
 
