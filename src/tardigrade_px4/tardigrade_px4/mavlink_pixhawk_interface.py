@@ -47,6 +47,7 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('visual_position_variance', 0.05)
         self.declare_parameter('visual_orientation_variance', 0.05)
         self.declare_parameter('visual_velocity_variance', 999.0)
+        self.declare_parameter('visual_odometry_quality', 100)
 
         self.device = self.get_parameter('device').value
         self.baudrate = self.get_parameter('baudrate').value
@@ -61,6 +62,7 @@ class MavlinkPixhawkInterface(Node):
         visual_position_variance = float(self.get_parameter('visual_position_variance').value)
         visual_orientation_variance = float(self.get_parameter('visual_orientation_variance').value)
         visual_velocity_variance = float(self.get_parameter('visual_velocity_variance').value)
+        self.visual_odometry_quality = int(self.get_parameter('visual_odometry_quality').value)
 
         self.mav = connect_mavlink(
             self.device,
@@ -77,6 +79,7 @@ class MavlinkPixhawkInterface(Node):
         self.latest_visual_odometry = None
         self.latest_visual_odometry_received_ns = None
         self.visual_odometry_sent_count = 0
+        self.odometry_send_supports_quality = None
         self.px4_params_sent = False
         self.external_control_enabled = False
         self.boot_time_ns = self.get_clock().now().nanoseconds
@@ -175,21 +178,21 @@ class MavlinkPixhawkInterface(Node):
             return
 
         params = {
-            'COM_RC_IN_MODE': 4.0,
-            'COM_ARM_WO_GPS': 1.0,
-            'COM_ARM_MIS_REQ': 0.0,
-            'EKF2_EV_CTRL': 3.0,
-            'EKF2_HGT_REF': 3.0,
-            'EKF2_EV_QMIN': 0.0,
+            'COM_RC_IN_MODE': (4.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            'COM_ARM_WO_GPS': (1.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            'COM_ARM_MIS_REQ': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            'EKF2_EV_CTRL': (3.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            'EKF2_HGT_REF': (3.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            'EKF2_EV_QMIN': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_REAL32),
         }
 
-        for name, value in params.items():
+        for name, (value, param_type) in params.items():
             self.mav.mav.param_set_send(
                 self.target_system,
                 self.target_component,
                 name.encode('ascii'),
                 value,
-                mavutil.mavlink.MAV_PARAM_TYPE_REAL32,
+                param_type,
             )
 
         self.px4_params_sent = True
@@ -221,7 +224,7 @@ class MavlinkPixhawkInterface(Node):
         velocity = enu_to_ned_point(msg.twist.twist.linear)
         angular_velocity = flu_to_frd_vector(msg.twist.twist.angular)
 
-        self.mav.mav.odometry_send(
+        odometry_args = (
             now_us(),
             mavutil.mavlink.MAV_FRAME_LOCAL_FRD,
             mavutil.mavlink.MAV_FRAME_BODY_FRD,
@@ -240,6 +243,22 @@ class MavlinkPixhawkInterface(Node):
             0,
             mavutil.mavlink.MAV_ESTIMATOR_TYPE_VISION,
         )
+
+        if self.odometry_send_supports_quality is not False:
+            try:
+                self.mav.mav.odometry_send(
+                    *odometry_args,
+                    max(0, min(self.visual_odometry_quality, 100)),
+                )
+                self.odometry_send_supports_quality = True
+            except TypeError:
+                if self.odometry_send_supports_quality is True:
+                    raise
+                self.odometry_send_supports_quality = False
+                self.mav.mav.odometry_send(*odometry_args)
+        else:
+            self.mav.mav.odometry_send(*odometry_args)
+
         with self.lock:
             self.visual_odometry_sent_count += 1
 
