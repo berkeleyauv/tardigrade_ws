@@ -107,13 +107,82 @@ arguments once the port names are stable.
   into it during development because the workspace is bind-mounted into the
   container.
 
-### Jetson notes
+### Jetson ZED + Pixhawk arming
 
 For the current Jetson + ZED + Pixhawk arming workflow, use the full runbook:
 
 ```
 docs/jetson_zed_px4_startup.md
 ```
+
+The short version is:
+
+1. Start the Jetson/ZED container from the Jetson host:
+
+```
+cd ~/Developer/tardigrade_ws
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
+```
+
+2. In the container, build/source the ROS workspace:
+
+```
+cd /ws
+source install/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+3. Run these in separate container terminals. Open additional terminals with:
+
+```
+sudo docker exec -it tardigrade-foxy bash
+cd /ws
+source install/setup.bash
+```
+
+Terminal 1, ZED camera:
+
+```
+ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+```
+
+Terminal 2, convert ZED pose into robot odometry:
+
+```
+ros2 launch tardigrade_bringup zed_state.launch.py
+```
+
+Terminal 3, connect to Pixhawk over USB MAVLink and send visual odometry:
+
+```
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true
+```
+
+Terminal 4, arm from ROS:
+
+```
+ros2 topic echo /tardigrade/status
+ros2 service call /tardigrade/set_external_control tardigrade_interfaces/srv/SetExternalControl "{enabled: true}"
+ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: true}"
+ros2 topic echo /tardigrade/status
+```
+
+Success looks like:
+
+```
+px4_connected: true
+armed: true
+external_control_enabled: true
+```
+
+Important: `configure_px4_params:=true` is currently required because the
+Pixhawk parameter save path is not working on the bench board. The node sends
+the required PX4 params into RAM at startup, so they are lost when the Pixhawk
+reboots.
 
 Build this image on the Jetson when you intend to run on the Jetson:
 
@@ -132,11 +201,13 @@ nodes in this repo do not appear to require CUDA.
 
 ### Pixhawk/PX4 note
 
-The current `tardigrade_px4` package imports `px4_msgs` and publishes/subscribes
-to PX4-style ROS 2 topics like `/fmu/in/vehicle_command` and
-`/fmu/out/vehicle_status`. That means the robot also needs a PX4 ROS 2 bridge
-running between the Pixhawk and ROS 2. The Docker container provides the ROS
-workspace environment, but it does not by itself create the PX4 bridge.
+There are two PX4 communication paths in the workspace:
+
+- `pixhawk_interface` uses PX4 ROS 2 `/fmu/...` topics and requires a PX4 ROS 2
+  bridge such as uXRCE-DDS.
+- `mavlink_pixhawk_interface` talks directly to the Pixhawk over USB MAVLink,
+  usually `/dev/ttyACM0`. This is the path used by the current bench arming
+  workflow.
 
 ### Cleaning build outputs
 

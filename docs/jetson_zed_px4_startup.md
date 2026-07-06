@@ -55,7 +55,7 @@ Start the main container from the Jetson host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo ./docker/run_jetson_zed.sh
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
 ```
 
 Expected prompt:
@@ -176,11 +176,13 @@ chasing ROS.
 
 ## Terminal Layout For Arming Test
 
-Use five terminals. Terminal 1 starts the container. Terminals 2-5 enter the
+Use four terminals. Terminal 1 starts the container. Terminals 2-4 enter the
 same running container with:
 
 ```bash
 sudo docker exec -it tardigrade-foxy bash
+cd /ws
+source install/setup.bash
 ```
 
 ### Terminal 1: Launch ZED
@@ -189,7 +191,7 @@ Host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo ./docker/run_jetson_zed.sh
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
 ```
 
 Inside container:
@@ -198,7 +200,7 @@ Inside container:
 cd /ws
 source install/setup.bash
 lsusb -t
-ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed ros_params_override_path:=/ws/config/zed_low_load.yaml
+ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
 ```
 
 Good signs:
@@ -216,25 +218,7 @@ Connection issue detected: CAMERA_REBOOTING
 
 If that happens, stop here and fix ZED USB/power stability.
 
-### Terminal 2: Verify ZED Pose
-
-Inside container:
-
-```bash
-cd /ws
-source install/setup.bash
-ros2 topic hz /zed/zed_node/pose
-```
-
-Good output:
-
-```text
-average rate: ...
-```
-
-Leave it running long enough to confirm the ZED is stable.
-
-### Terminal 3: Bridge ZED Pose To Robot Odometry
+### Terminal 2: Bridge ZED Pose To Robot Odometry
 
 Inside container:
 
@@ -256,14 +240,17 @@ into:
 /tardigrade/state/odometry
 ```
 
-### Terminal 4: Start Pixhawk MAVLink Interface
+### Terminal 3: Start Pixhawk MAVLink Interface
 
 Inside container:
 
 ```bash
 cd /ws
 source install/setup.bash
-ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args -p device:=/dev/ttyACM0 -p baudrate:=921600
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true
 ```
 
 This node:
@@ -272,9 +259,24 @@ This node:
 - publishes `/tardigrade/status`,
 - provides `/tardigrade/set_armed`,
 - provides `/tardigrade/set_external_control`,
-- sends `/tardigrade/state/odometry` to PX4 as MAVLink visual odometry.
+- sends `/tardigrade/state/odometry` to PX4 as MAVLink visual odometry,
+- sends the required PX4 params into RAM when `configure_px4_params:=true`.
 
-### Terminal 5: Verify And Arm
+Important: `configure_px4_params:=true` is required on the current bench
+Pixhawk because `param save` fails. The runtime params are lost when the Pixhawk
+reboots.
+
+Good signs in this terminal:
+
+```text
+Publishing: /tardigrade/status
+Sending visual odometry from: /tardigrade/state/odometry
+PX4 runtime parameter configuration is enabled
+Sent required PX4 params in RAM; Pixhawk param save is still not fixed
+PX4 debug: ...
+```
+
+### Terminal 4: Verify And Arm
 
 Inside container:
 
@@ -313,7 +315,17 @@ ros2 topic echo /tardigrade/status
 Success:
 
 ```text
+px4_connected: true
 armed: true
+external_control_enabled: true
+last_ack_result=0
+```
+
+When testing is finished, disarm:
+
+```bash
+ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: false}"
+ros2 topic echo /tardigrade/status
 ```
 
 If it stays false and shows:
