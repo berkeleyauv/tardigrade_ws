@@ -62,6 +62,7 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('offboard_thrust', 0.0)
         self.declare_parameter('configure_px4_params', False)
         self.declare_parameter('relax_px4_arm_checks', False)
+        self.declare_parameter('force_arm', False)
         self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
         self.declare_parameter('send_visual_odometry', True)
         self.declare_parameter('visual_odometry_rate_hz', 30.0)
@@ -79,6 +80,7 @@ class MavlinkPixhawkInterface(Node):
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
         self.configure_px4_params = bool(self.get_parameter('configure_px4_params').value)
         self.relax_px4_arm_checks = bool(self.get_parameter('relax_px4_arm_checks').value)
+        self.force_arm = bool(self.get_parameter('force_arm').value)
         self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
         self.visual_odometry_rate_hz = float(self.get_parameter('visual_odometry_rate_hz').value)
@@ -170,6 +172,10 @@ class MavlinkPixhawkInterface(Node):
         if self.relax_px4_arm_checks:
             self.get_logger().error(
                 'PX4 arming checks will be relaxed in RAM. Use only for bench testing with thrusters disabled.'
+            )
+        if self.force_arm:
+            self.get_logger().error(
+                'MAVLink force-arm is enabled. Use only for bench testing with thrusters disabled.'
             )
 
     def read_mavlink(self):
@@ -475,6 +481,7 @@ class MavlinkPixhawkInterface(Node):
 
     def handle_set_armed(self, request, response):
         arm_value = 1.0 if request.armed else 0.0
+        force_arm_code = 21196.0 if request.armed and self.force_arm else 0.0
 
         self.mav.mav.command_long_send(
             self.target_system,
@@ -482,7 +489,7 @@ class MavlinkPixhawkInterface(Node):
             mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
             0,
             arm_value,
-            0.0,
+            force_arm_code,
             0.0,
             0.0,
             0.0,
