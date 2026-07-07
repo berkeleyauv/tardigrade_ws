@@ -3,6 +3,7 @@ services:
     network_mode: host
     ipc: host
     privileged: true
+    runtime: nvidia
     environment:
       DISPLAY: ${DISPLAY:-:0}
       NVIDIA_VISIBLE_DEVICES: all
