@@ -1,3 +1,4 @@
+import math
 import threading
 
 import rclpy
@@ -30,6 +31,26 @@ def covariance_upper_triangle(position_variance, orientation_variance):
     ]
 
 
+def quaternion_to_euler(q):
+    w, x, y, z = q
+
+    sinr_cosp = 2.0 * (w * x + y * z)
+    cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
+    roll = math.atan2(sinr_cosp, cosr_cosp)
+
+    sinp = 2.0 * (w * y - z * x)
+    if abs(sinp) >= 1.0:
+        pitch = math.copysign(math.pi / 2.0, sinp)
+    else:
+        pitch = math.asin(sinp)
+
+    siny_cosp = 2.0 * (w * z + x * y)
+    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+    yaw = math.atan2(siny_cosp, cosy_cosp)
+
+    return roll, pitch, yaw
+
+
 class MavlinkPixhawkInterface(Node):
     def __init__(self):
         super().__init__('mavlink_pixhawk_interface')
@@ -48,6 +69,7 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('visual_orientation_variance', 0.05)
         self.declare_parameter('visual_velocity_variance', 999.0)
         self.declare_parameter('visual_odometry_quality', 100)
+        self.declare_parameter('visual_odometry_mavlink_message', 'vision_position_estimate')
 
         self.device = self.get_parameter('device').value
         self.baudrate = self.get_parameter('baudrate').value
@@ -63,6 +85,9 @@ class MavlinkPixhawkInterface(Node):
         visual_orientation_variance = float(self.get_parameter('visual_orientation_variance').value)
         visual_velocity_variance = float(self.get_parameter('visual_velocity_variance').value)
         self.visual_odometry_quality = int(self.get_parameter('visual_odometry_quality').value)
+        self.visual_odometry_mavlink_message = (
+            self.get_parameter('visual_odometry_mavlink_message').value.lower()
+        )
 
         self.mav = connect_mavlink(
             self.device,
@@ -137,6 +162,7 @@ class MavlinkPixhawkInterface(Node):
         self.get_logger().info('Publishing: /tardigrade/status')
         if self.send_visual_odometry:
             self.get_logger().info(f'Sending visual odometry from: {self.visual_odometry_topic}')
+            self.get_logger().info(f'Visual odometry MAVLink message: {self.visual_odometry_mavlink_message}')
         if self.configure_px4_params:
             self.get_logger().warn('PX4 runtime parameter configuration is enabled')
 
@@ -281,6 +307,47 @@ class MavlinkPixhawkInterface(Node):
         velocity = enu_to_ned_point(msg.twist.twist.linear)
         angular_velocity = flu_to_frd_vector(msg.twist.twist.angular)
 
+        message_mode = self.visual_odometry_mavlink_message
+        sent_any = False
+
+        if message_mode in ('vision_position_estimate', 'vision', 'both'):
+            roll, pitch, yaw = quaternion_to_euler(q)
+            vision_args = (
+                now_us(),
+                position[0],
+                position[1],
+                position[2],
+                roll,
+                pitch,
+                yaw,
+            )
+
+            try:
+                self.mav.mav.vision_position_estimate_send(
+                    *vision_args,
+                    self.visual_pose_covariance,
+                    0,
+                )
+            except TypeError:
+                self.mav.mav.vision_position_estimate_send(*vision_args)
+
+            sent_any = True
+
+        if message_mode not in ('vision_position_estimate', 'vision', 'both', 'odometry'):
+            self.get_logger().warn(
+                f'Unknown visual_odometry_mavlink_message "{message_mode}", using odometry'
+            )
+            message_mode = 'odometry'
+
+        if message_mode in ('odometry', 'both'):
+            self.publish_mavlink_odometry(position, q, velocity, angular_velocity)
+            sent_any = True
+
+        if sent_any:
+            with self.lock:
+                self.visual_odometry_sent_count += 1
+
+    def publish_mavlink_odometry(self, position, q, velocity, angular_velocity):
         odometry_args = (
             now_us(),
             mavutil.mavlink.MAV_FRAME_LOCAL_FRD,
@@ -315,9 +382,6 @@ class MavlinkPixhawkInterface(Node):
                 self.mav.mav.odometry_send(*odometry_args)
         else:
             self.mav.mav.odometry_send(*odometry_args)
-
-        with self.lock:
-            self.visual_odometry_sent_count += 1
 
     def publish_debug_diagnostics(self):
         self.request_diagnostic_streams()
