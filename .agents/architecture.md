@@ -18,15 +18,21 @@ perception, or state-estimation code.
 
 ## Current Status Snapshot
 
-As of July 6, 2026:
+As of July 7, 2026:
 
 - The working bench Pixhawk path is USB MAVLink, not Micro XRCE-DDS.
 - `mavlink_pixhawk_interface` can connect to the Pixhawk over `/dev/ttyACM0`.
-- The robot has successfully armed through ROS using:
-  - ZED visual position,
-  - VectorNav attitude/angular velocity,
-  - MAVLink visual odometry,
-  - runtime PX4 parameter configuration.
+- Local development is currently the only guaranteed path because electrical
+  hardware access is blocked.
+- The Jetson/ZED/VectorNav/Pixhawk bringup path is documented, but Offboard and
+  arming are still active debugging items rather than a guaranteed procedure.
+- Verified pieces from the hardware session:
+  - ZED publishes pose,
+  - VectorNav connects at 115200 baud and publishes IMU data,
+  - `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`,
+  - `mavlink_pixhawk_interface` connects to PX4,
+  - MAVLink visual odometry reaches PX4,
+  - PX4 reports local position and estimator diagnostics.
 - The Pixhawk parameter save path is broken on the current board:
   `param save` fails to export to `/fs/mtd_params`.
 - Because PX4 params do not persist, `configure_px4_params:=true` is required
@@ -45,6 +51,9 @@ As of July 6, 2026:
 - The VectorNav IMU is the attitude and angular-velocity source.
 - `tardigrade_state_estimation` publishes `/tardigrade/state/odometry`.
 - `tardigrade_px4` forwards that odometry to PX4 as MAVLink `ODOMETRY`.
+- Offboard mode requires a live setpoint stream before PX4 will remain in
+  Offboard. The current service sends the mode command immediately after
+  enabling the stream, so a delayed Offboard command may be needed.
 - `keyboard_cmd_vel` provides a first keyboard teleop path through
   `/tardigrade/cmd_vel`.
 - `config/thruster_map.yaml` documents actual thruster wiring and geometry, but
@@ -125,8 +134,8 @@ Current nodes:
 - `vectornav_odometry`: VectorNav-only odometry bridge. Useful for IMU testing,
   but not enough for valid local position.
 - `zed_odometry`: ZED-only pose-to-odometry bridge.
-- `zed_vectornav_odometry`: current preferred arming path. Uses ZED position
-  and VectorNav orientation/angular velocity, then publishes:
+- `zed_vectornav_odometry`: current preferred hardware odometry path. Uses ZED
+  position and VectorNav orientation/angular velocity, then publishes:
 
 ```text
 /tardigrade/state/odometry
@@ -141,7 +150,7 @@ The only PX4-aware package.
 
 Current responsibilities:
 
-- connect to Pixhawk over USB MAVLink for the working hardware path,
+- connect to Pixhawk over USB MAVLink for the current hardware path,
 - keep the older PX4 ROS 2 `/fmu/*` path available for mock/uXRCE work,
 - send MAVLink arm/disarm commands,
 - enter external-control/Offboard mode,
@@ -209,9 +218,8 @@ for Jetson hardware work.
 
 ### Git Metadata Notes
 
-`.legacy_inspect` is currently tracked as a gitlink without a matching
-`.gitmodules` entry. It appears to be stale repository metadata, not an active
-package. Do not confuse it with the active submodules under `src/`.
+`.legacy_inspect` was a stale gitlink without a matching `.gitmodules` entry.
+It was not an active package and should not be restored.
 
 ### Future packages
 
@@ -227,7 +235,7 @@ direct PX4 topics.
 
 ## System Data Flow
 
-### Current Bench Arming Path
+### Current Hardware Bringup Path
 
 ```text
 ZED camera
@@ -257,6 +265,9 @@ tardigrade_px4.mavlink_pixhawk_interface
   v
 Pixhawk / PX4 over USB
 ```
+
+This path is partially verified, but not yet proven repeatable for Offboard and
+arming. Use `docs/jetson_zed_px4_startup.md` for the latest debug procedure.
 
 ### Teleop Path
 
@@ -312,7 +323,7 @@ operator / tests
 ```
 
 This path remains useful for local software testing, but it is not the current
-working Pixhawk hardware path.
+Pixhawk hardware path.
 
 ## Runtime Interfaces To Know
 
@@ -382,15 +393,19 @@ Service that sends the arm/disarm command.
 
 ## Near-Term Roadmap
 
-1. Make the Pixhawk parameter-storage problem explicit and decide whether to
-   replace the Pixhawk, fix MTD storage, or keep runtime params as a bench-only
-   workaround.
-2. Verify `config/thruster_map.yaml` against real wiring and QGroundControl
-   actuator tests.
-3. Test teleop with zero clamps, then tiny nonzero clamps one axis at a time.
-4. Move keyboard teleop into a dedicated `tardigrade_teleop` package when the
-   control path stabilizes.
-5. Add real thruster allocation in ROS only if the team decides to bypass PX4
-   actuator allocation later.
-6. Start perception/autonomy only after arming, odometry, teleop, and safe
-   actuator mapping are repeatable.
+The active task list lives in:
+
+```text
+.agents/current_plan.md
+```
+
+High-level direction:
+
+1. Keep local Docker development smooth while electrical hardware is
+   unavailable.
+2. Keep the mock path useful for interface and package work.
+3. Improve PX4/MAVLink behavior locally where possible, especially Offboard
+   timing and status diagnostics.
+4. Preserve the Jetson/Pixhawk runbook for the next hardware session.
+5. Keep real-thrust work blocked until arming, odometry, and physical thruster
+   mapping are repeatable.
