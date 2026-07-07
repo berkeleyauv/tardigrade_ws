@@ -32,6 +32,14 @@ As of July 6, 2026:
 - Because PX4 params do not persist, `configure_px4_params:=true` is required
   after Pixhawk reboot for bench arming.
 - ZED wrapper support is documented in `docs/jetson_zed_px4_startup.md`.
+- ZED wrapper source is now tracked as submodules pinned to the
+  `humble-v4.0.8` tag commits:
+  - `src/zed-ros2-wrapper`
+  - `src/zed-ros2-interfaces`
+- Docker startup is split into a local-safe base Compose file and a Jetson
+  hardware override:
+  - `docker/compose.yaml`
+  - `docker/compose.jetson.yaml`
 - The ZED camera is the local position source.
 - The VectorNav IMU is the attitude and angular-velocity source.
 - `tardigrade_state_estimation` publishes `/tardigrade/state/odometry`.
@@ -68,6 +76,18 @@ angular velocity, acceleration, and related IMU data.
 The Stereolabs ZED ROS 2 wrapper is used as an external dependency on the
 Jetson. The current known working direction is documented in
 `docs/jetson_zed_px4_startup.md`.
+
+The wrapper and interfaces are Git submodules, not manually cloned source
+directories:
+
+```text
+src/zed-ros2-wrapper
+src/zed-ros2-interfaces
+```
+
+They are pinned by exact submodule commits that correspond to the
+`humble-v4.0.8` tags. A recursive clone or `git submodule update --init
+--recursive` should fetch them.
 
 The main pose topic is:
 
@@ -162,6 +182,30 @@ Current important files:
 - `thruster_map.yaml`: physical thruster map. This documents real wiring,
   output assignment, and force directions. The current ROS/PX4 path does not
   read this file yet.
+
+### `docker`
+
+Owns container startup for both local development and Jetson hardware bringup.
+
+Current important files:
+
+- `Dockerfile`: builds the ROS Foxy environment.
+- `compose.yaml`: base local-development service. This is safe to run on a
+  MacBook or other non-Jetson machine because it only mounts the workspace.
+- `compose.jetson.yaml`: Jetson/ZED/Pixhawk override. This adds host networking,
+  privileged device access, `/dev`, USB, ZED SDK, CUDA, and Tegra library
+  mounts.
+- `run_jetson_zed.sh`: legacy convenience script. It still starts the same style
+  of hardware container and auto-detects the NVIDIA Docker runtime when present.
+
+Use `compose.yaml` alone for laptop/local work. Use both Compose files together
+for Jetson hardware work.
+
+### Git Metadata Notes
+
+`.legacy_inspect` is currently tracked as a gitlink without a matching
+`.gitmodules` entry. It appears to be stale repository metadata, not an active
+package. Do not confuse it with the active submodules under `src/`.
 
 ### Future packages
 

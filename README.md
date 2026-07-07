@@ -20,6 +20,22 @@ If the repo was already cloned without submodules, run:
 git submodule update --init --recursive
 ```
 
+The submodules include PX4 messages, the VectorNav driver, and the ZED ROS 2
+wrapper packages used on the Jetson.
+
+Current external source layout:
+
+```text
+src/px4_msgs              PX4 ROS 2 messages, submodule branch release/1.14
+src/vectornav             VectorNav driver/messages, submodule branch ros2
+src/zed-ros2-interfaces   Stereolabs interfaces, submodule commit for humble-v4.0.8
+src/zed-ros2-wrapper      Stereolabs wrapper, submodule commit for humble-v4.0.8
+```
+
+Git records submodules by exact commit. The ZED commits correspond to the
+`humble-v4.0.8` tags, so a recursive clone checks out the same known-good ZED
+sources without a separate `git clone` or `vcs import` step.
+
 ### Docker
 
 Build the image:
@@ -28,28 +44,36 @@ Build the image:
 docker build -t tardigrade-foxy -f docker/Dockerfile .
 ```
 
-Run an interactive container from the repo root:
+Run an interactive local development container from the repo root:
 
 ```
-docker run -it --rm --network host --ipc host --privileged -v "$(pwd):/ws" -v /dev:/dev tardigrade-foxy
+docker compose -f docker/compose.yaml run --rm tardigrade
 ```
 
-Or use Docker Compose:
+This base Compose file is intended to work on a normal development machine,
+including Docker Desktop on macOS. It mounts the repo at `/ws`, but it does not
+try to pass through Jetson hardware, the ZED SDK, CUDA, or Pixhawk serial
+devices.
+
+For Linux or Jetson hardware access, use the Jetson override too:
 
 ```
-docker compose -f docker/compose.yaml up --build -d
-docker exec -it tardigrade-foxy bash
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
 ```
 
-The compose file is intended for Linux or the Jetson. Docker Desktop on Windows
-does not expose robot serial devices the same way and may not support host
-networking the way ROS 2 expects.
+`WORKSPACE` is the host-side repo path that gets mounted into the container at
+`/ws`. The Jetson override adds host networking, privileged device access, USB,
+ZED SDK, CUDA, and Tegra library mounts.
+
+Use the base Compose file on macOS or other non-Jetson machines. Do not use the
+Jetson override on a MacBook; Docker Desktop cannot pass through the Jetson ZED,
+CUDA, Tegra, or Pixhawk device paths that the override intentionally mounts.
 
 On older Docker installs, the compose command may be:
 
 ```
-docker-compose -f docker/compose.yaml up --build -d
-docker exec -it tardigrade-foxy bash
+docker-compose -f docker/compose.yaml run --rm tardigrade
 ```
 
 ### Building the ROS workspace
@@ -90,10 +114,10 @@ Then launch with the matching port:
 ros2 launch tardigrade_bringup vectornav_state.launch.py port:=/dev/ttyUSB1 baud:=115200
 ```
 
-The compose setup runs the container with `/dev` mounted and `privileged: true`,
-which is the simple development mode for serial hardware. For a tighter
-competition deployment, replace that with explicit `--device=/dev/ttyUSBx`
-arguments once the port names are stable.
+The Jetson compose override runs the container with `/dev` mounted and
+`privileged: true`, which is the simple development mode for serial hardware.
+For a tighter competition deployment, replace that with explicit
+`--device=/dev/ttyUSBx` arguments once the port names are stable.
 
 ### How the Docker setup works
 
@@ -102,9 +126,11 @@ arguments once the port names are stable.
 - `docker/ros_entrypoint.sh` runs every time the container starts. It sources
   ROS Foxy, then sources `/ws/install/setup.bash` if the workspace has already
   been built.
-- `docker/compose.yaml` is a reusable version of the long `docker run` command.
-  It mounts this repo at `/ws`, uses host networking for ROS 2 discovery, and
-  exposes serial devices under `/dev`.
+- `docker/compose.yaml` is the local-development container. It mounts this repo
+  at `/ws` without Jetson-specific hardware assumptions.
+- `docker/compose.jetson.yaml` is an override for the Jetson/ZED/Pixhawk bench
+  setup. It adds host networking, privileged device access, USB, ZED SDK, CUDA,
+  and Tegra mounts.
 - The image is mostly the operating environment. Your source code is not baked
   into it during development because the workspace is bind-mounted into the
   container.
@@ -123,7 +149,8 @@ The short version is:
 
 ```
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
 ```
 
 2. In the container, build/source the ROS workspace:
@@ -320,7 +347,7 @@ Test only one axis at a time at first. If the wrong thrusters move, fix the PX4
 actuator/mixer/output configuration before increasing limits. The ROS code
 commands body motion; PX4 maps that motion to the physical thrusters.
 
-Build this image on the Jetson when you intend to run on the Jetson:
+Build this image on the machine where you intend to run it:
 
 ```
 docker compose -f docker/compose.yaml build
@@ -331,9 +358,23 @@ built on one architecture will not normally run on the other unless you use
 multi-architecture builds. For this robotics workflow, the simplest rule is:
 build on the machine that will run the robot.
 
-If you need GPU access later, install NVIDIA's Docker runtime on the Jetson and
-add the NVIDIA runtime/device settings to the compose file. The current ROS
-nodes in this repo do not appear to require CUDA.
+For the Jetson/ZED hardware run, use the Jetson override:
+
+```
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
+```
+
+The legacy helper script `docker/run_jetson_zed.sh` still starts the same style
+of container and auto-detects the NVIDIA Docker runtime when present.
+
+### Known Repository Metadata Issue
+
+`.legacy_inspect` is currently tracked as a gitlink, but it does not have a
+matching `.gitmodules` entry. This makes full recursive submodule commands warn
+or fail on that path. It is unrelated to the ZED, VectorNav, and PX4 submodules,
+but should be cleaned up before relying on recursive submodule status checks in
+automation.
 
 ### Pixhawk/PX4 note
 

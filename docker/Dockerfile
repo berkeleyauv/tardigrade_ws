@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-foxy-xacro \
     udev \
     usbutils \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir pymavlink pyserial

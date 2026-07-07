@@ -33,6 +33,11 @@ docs/thruster_mapping.md
 ## What Is Proven
 
 - Docker image builds on the Jetson.
+- Local development startup is separated from Jetson hardware startup:
+  - `docker/compose.yaml` is the laptop/local-safe base container.
+  - `docker/compose.jetson.yaml` is the Jetson/ZED/Pixhawk hardware override.
+- ZED wrapper source is tracked as Git submodules pinned to the `humble-v4.0.8`
+  tag commits, not as manual Jetson-only clones.
 - ZED wrapper can publish `/zed/zed_node/pose` when the ZED is stable on USB3.
 - VectorNav publishes `/vectornav/imu`.
 - `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`.
@@ -75,8 +80,18 @@ Open the container from the Jetson host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
 ```
+
+For a MacBook or other non-Jetson development machine, use only:
+
+```bash
+docker compose -f docker/compose.yaml run --rm tardigrade
+```
+
+Do not use the Jetson override on macOS; it intentionally mounts Jetson-specific
+hardware paths that Docker Desktop cannot provide.
 
 ### Terminal 1: ZED
 
@@ -284,6 +299,12 @@ Perception/autonomy:
 
 - Read `docs/jetson_zed_px4_startup.md` before changing bringup commands.
 - Read `docs/thruster_mapping.md` before changing teleop or actuator behavior.
+- Keep `docker/compose.yaml` local-safe. Put Jetson/ZED/Pixhawk mounts in
+  `docker/compose.jetson.yaml`.
+- Keep ZED source as submodules unless the team explicitly changes dependency
+  strategy.
+- `.legacy_inspect` is a stale gitlink without a `.gitmodules` entry; avoid
+  treating it as an active package.
 - Keep PX4-specific details inside `tardigrade_px4`.
 - Keep robot-level APIs centered on `/tardigrade/*`.
 - Do not re-center Micro XRCE-DDS unless the team explicitly revives that path.

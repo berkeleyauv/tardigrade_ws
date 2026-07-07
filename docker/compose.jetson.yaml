@@ -1,0 +1,22 @@
+services:
+  tardigrade:
+    network_mode: host
+    ipc: host
+    privileged: true
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      ZED_DIR: /usr/local/zed
+      CUDA_TOOLKIT_ROOT_DIR: /usr/local/cuda
+      CMAKE_PREFIX_PATH: /usr/local/zed
+      LD_LIBRARY_PATH: /usr/local/zed/lib:/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu
+      LIBRARY_PATH: /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu
+    volumes:
+      - /dev:/dev
+      - /dev/bus/usb:/dev/bus/usb
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /tmp/argus_socket:/tmp/argus_socket
+      - /usr/local/zed:/usr/local/zed
+      - /usr/local/cuda:/usr/local/cuda
+      - /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra:ro

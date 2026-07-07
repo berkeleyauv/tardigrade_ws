@@ -3,18 +3,14 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: tardigrade-foxy
-    container_name: tardigrade-foxy
+    image: ${IMAGE:-tardigrade-foxy}
+    container_name: ${NAME:-tardigrade-foxy}
     working_dir: /ws
-    network_mode: host
-    ipc: host
-    privileged: true
     stdin_open: true
     tty: true
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
     volumes:
-      - ..:/ws
-      - /dev:/dev
+      - ${WORKSPACE:-..}:/ws
     command: bash

@@ -28,18 +28,21 @@ Run these on the Jetson host.
 ```bash
 cd ~/Developer/tardigrade_ws
 git pull
-chmod +x docker/run_jetson_zed.sh
-sudo docker build -t tardigrade-foxy -f docker/Dockerfile .
+git submodule update --init --recursive
+sudo docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml build
 ```
 
-If the ZED wrapper source is missing, add the same wrapper/tag that worked with
-the legacy workspace:
+The ZED wrapper and interfaces are tracked as submodules:
 
 ```bash
-cd ~/Developer/tardigrade_ws/src
-git clone --branch humble-v4.0.8 https://github.com/stereolabs/zed-ros2-wrapper.git
-git clone --branch humble-v4.0.8 https://github.com/stereolabs/zed-ros2-interfaces.git
+src/zed-ros2-wrapper
+src/zed-ros2-interfaces
 ```
+
+They are pinned to the commits for Stereolabs `humble-v4.0.8`, so do not clone
+the ZED repositories manually into `src/`. If an older Jetson checkout already
+has manually cloned ZED directories, move them aside before running
+`git submodule update --init --recursive`.
 
 The Jetson host must have the ZED SDK installed at `/usr/local/zed`. Check it:
 
@@ -55,7 +58,8 @@ Start the main container from the Jetson host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
 ```
 
 Expected prompt:
@@ -88,6 +92,12 @@ Stop the whole container from the host:
 
 ```bash
 sudo docker stop tardigrade-foxy
+```
+
+The helper script remains available if you want NVIDIA runtime auto-detection:
+
+```bash
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_zed.sh
 ```
 
 ## Build The ROS Workspace
@@ -245,7 +255,8 @@ Host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws bash ./docker/run_jetson_zed.sh
+sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
 ```
 
 Inside container:
