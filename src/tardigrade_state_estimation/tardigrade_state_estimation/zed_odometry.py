@@ -45,7 +45,6 @@ class ZedOdometry(Node):
         self.declare_parameter('position_variance', 0.05)
         self.declare_parameter('orientation_variance', 0.05)
         self.declare_parameter('use_zed_frame_id', False)
-        self.declare_parameter('zero_initial_position', True)
 
         self.pose_topic = self.get_parameter('pose_topic').value
         self.odom_topic = self.get_parameter('odom_topic').value
@@ -54,8 +53,6 @@ class ZedOdometry(Node):
         self.position_variance = float(self.get_parameter('position_variance').value)
         self.orientation_variance = float(self.get_parameter('orientation_variance').value)
         self.use_zed_frame_id = bool(self.get_parameter('use_zed_frame_id').value)
-        self.zero_initial_position = bool(self.get_parameter('zero_initial_position').value)
-        self.initial_position = None
 
         self.pose_sub = self.create_subscription(
             PoseStamped,
@@ -80,8 +77,6 @@ class ZedOdometry(Node):
 
         self.get_logger().info(f'Subscribing: {self.pose_topic}')
         self.get_logger().info(f'Publishing: {self.odom_topic}')
-        if self.zero_initial_position:
-            self.get_logger().info('Zeroing odometry position to first ZED pose')
 
     def pose_callback(self, msg):
         odom = Odometry()
@@ -89,18 +84,7 @@ class ZedOdometry(Node):
         odom.header.frame_id = msg.header.frame_id if self.use_zed_frame_id else self.odom_frame
         odom.child_frame_id = self.base_frame
 
-        if self.zero_initial_position:
-            if self.initial_position is None:
-                self.initial_position = (
-                    msg.pose.position.x,
-                    msg.pose.position.y,
-                    msg.pose.position.z,
-                )
-            odom.pose.pose.position.x = msg.pose.position.x - self.initial_position[0]
-            odom.pose.pose.position.y = msg.pose.position.y - self.initial_position[1]
-            odom.pose.pose.position.z = msg.pose.position.z - self.initial_position[2]
-        else:
-            odom.pose.pose.position = msg.pose.position
+        odom.pose.pose.position = msg.pose.position
         odom.pose.pose.orientation = normalize_quaternion(msg.pose.orientation)
         odom.pose.covariance = self.pose_covariance
         odom.twist.covariance = self.twist_covariance

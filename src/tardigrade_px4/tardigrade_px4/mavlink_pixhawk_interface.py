@@ -1,4 +1,3 @@
-import math
 import threading
 
 import rclpy
@@ -31,26 +30,6 @@ def covariance_upper_triangle(position_variance, orientation_variance):
     ]
 
 
-def quaternion_to_euler(q):
-    w, x, y, z = q
-
-    sinr_cosp = 2.0 * (w * x + y * z)
-    cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-    roll = math.atan2(sinr_cosp, cosr_cosp)
-
-    sinp = 2.0 * (w * y - z * x)
-    if abs(sinp) >= 1.0:
-        pitch = math.copysign(math.pi / 2.0, sinp)
-    else:
-        pitch = math.asin(sinp)
-
-    siny_cosp = 2.0 * (w * z + x * y)
-    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-    yaw = math.atan2(siny_cosp, cosy_cosp)
-
-    return roll, pitch, yaw
-
-
 class MavlinkPixhawkInterface(Node):
     def __init__(self):
         super().__init__('mavlink_pixhawk_interface')
@@ -61,8 +40,6 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('source_component', 191)
         self.declare_parameter('offboard_thrust', 0.0)
         self.declare_parameter('configure_px4_params', False)
-        self.declare_parameter('relax_px4_arm_checks', False)
-        self.declare_parameter('force_arm', False)
         self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
         self.declare_parameter('send_visual_odometry', True)
         self.declare_parameter('visual_odometry_rate_hz', 30.0)
@@ -71,7 +48,6 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('visual_orientation_variance', 0.05)
         self.declare_parameter('visual_velocity_variance', 999.0)
         self.declare_parameter('visual_odometry_quality', 100)
-        self.declare_parameter('visual_odometry_mavlink_message', 'vision_position_estimate')
 
         self.device = self.get_parameter('device').value
         self.baudrate = self.get_parameter('baudrate').value
@@ -79,8 +55,6 @@ class MavlinkPixhawkInterface(Node):
         source_component = self.get_parameter('source_component').value
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
         self.configure_px4_params = bool(self.get_parameter('configure_px4_params').value)
-        self.relax_px4_arm_checks = bool(self.get_parameter('relax_px4_arm_checks').value)
-        self.force_arm = bool(self.get_parameter('force_arm').value)
         self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
         self.visual_odometry_rate_hz = float(self.get_parameter('visual_odometry_rate_hz').value)
@@ -89,9 +63,6 @@ class MavlinkPixhawkInterface(Node):
         visual_orientation_variance = float(self.get_parameter('visual_orientation_variance').value)
         visual_velocity_variance = float(self.get_parameter('visual_velocity_variance').value)
         self.visual_odometry_quality = int(self.get_parameter('visual_odometry_quality').value)
-        self.visual_odometry_mavlink_message = (
-            self.get_parameter('visual_odometry_mavlink_message').value.lower()
-        )
 
         self.mav = connect_mavlink(
             self.device,
@@ -166,17 +137,8 @@ class MavlinkPixhawkInterface(Node):
         self.get_logger().info('Publishing: /tardigrade/status')
         if self.send_visual_odometry:
             self.get_logger().info(f'Sending visual odometry from: {self.visual_odometry_topic}')
-            self.get_logger().info(f'Visual odometry MAVLink message: {self.visual_odometry_mavlink_message}')
         if self.configure_px4_params:
             self.get_logger().warn('PX4 runtime parameter configuration is enabled')
-        if self.relax_px4_arm_checks:
-            self.get_logger().error(
-                'PX4 arming checks will be relaxed in RAM. Use only for bench testing with thrusters disabled.'
-            )
-        if self.force_arm:
-            self.get_logger().error(
-                'MAVLink force-arm is enabled. Use only for bench testing with thrusters disabled.'
-            )
 
     def read_mavlink(self):
         while True:
@@ -267,23 +229,10 @@ class MavlinkPixhawkInterface(Node):
             'COM_RC_IN_MODE': (4.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'COM_ARM_WO_GPS': (1.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'COM_ARM_MIS_REQ': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
-            # ZED-only localization needs PX4 to use the camera yaw as well as
-            # position; otherwise EKF can accept position data but keep drifting
-            # in its own heading frame.
-            'EKF2_EV_CTRL': (11.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            'EKF2_EV_CTRL': (3.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'EKF2_HGT_REF': (3.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'EKF2_EV_QMIN': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_REAL32),
         }
-
-        if self.relax_px4_arm_checks:
-            # This is a bench-test escape hatch for boards that receive visual
-            # odometry but still refuse arming because PX4's pre-arm estimator
-            # checks are not satisfied. Do not use this as the normal in-water
-            # configuration.
-            params.update({
-                'COM_ARM_CHK': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
-                'CBRK_USB_CHK': (197848.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
-            })
 
         for name, (value, param_type) in params.items():
             self.mav.mav.param_set_send(
@@ -329,47 +278,6 @@ class MavlinkPixhawkInterface(Node):
         velocity = enu_to_ned_point(msg.twist.twist.linear)
         angular_velocity = flu_to_frd_vector(msg.twist.twist.angular)
 
-        message_mode = self.visual_odometry_mavlink_message
-        sent_any = False
-
-        if message_mode in ('vision_position_estimate', 'vision', 'both'):
-            roll, pitch, yaw = quaternion_to_euler(q)
-            vision_args = (
-                now_us(),
-                position[0],
-                position[1],
-                position[2],
-                roll,
-                pitch,
-                yaw,
-            )
-
-            try:
-                self.mav.mav.vision_position_estimate_send(
-                    *vision_args,
-                    self.visual_pose_covariance,
-                    0,
-                )
-            except TypeError:
-                self.mav.mav.vision_position_estimate_send(*vision_args)
-
-            sent_any = True
-
-        if message_mode not in ('vision_position_estimate', 'vision', 'both', 'odometry'):
-            self.get_logger().warn(
-                f'Unknown visual_odometry_mavlink_message "{message_mode}", using odometry'
-            )
-            message_mode = 'odometry'
-
-        if message_mode in ('odometry', 'both'):
-            self.publish_mavlink_odometry(position, q, velocity, angular_velocity)
-            sent_any = True
-
-        if sent_any:
-            with self.lock:
-                self.visual_odometry_sent_count += 1
-
-    def publish_mavlink_odometry(self, position, q, velocity, angular_velocity):
         odometry_args = (
             now_us(),
             mavutil.mavlink.MAV_FRAME_LOCAL_FRD,
@@ -405,6 +313,9 @@ class MavlinkPixhawkInterface(Node):
         else:
             self.mav.mav.odometry_send(*odometry_args)
 
+        with self.lock:
+            self.visual_odometry_sent_count += 1
+
     def publish_debug_diagnostics(self):
         self.request_diagnostic_streams()
 
@@ -439,8 +350,6 @@ class MavlinkPixhawkInterface(Node):
                 'EKF2_EV_CTRL',
                 'EKF2_HGT_REF',
                 'EKF2_EV_QMIN',
-                'COM_ARM_CHK',
-                'CBRK_USB_CHK',
             ]
             param_summary = ','.join(
                 f'{name}={px4_param_values[name]:.3g}'
@@ -481,7 +390,6 @@ class MavlinkPixhawkInterface(Node):
 
     def handle_set_armed(self, request, response):
         arm_value = 1.0 if request.armed else 0.0
-        force_arm_code = 21196.0 if request.armed and self.force_arm else 0.0
 
         self.mav.mav.command_long_send(
             self.target_system,
@@ -489,7 +397,7 @@ class MavlinkPixhawkInterface(Node):
             mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
             0,
             arm_value,
-            force_arm_code,
+            0.0,
             0.0,
             0.0,
             0.0,
