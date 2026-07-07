@@ -4,7 +4,6 @@ import rclpy
 from rclpy.node import Node
 from pymavlink import mavutil
 
-from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from tardigrade_interfaces.msg import RobotStatus
 from tardigrade_interfaces.srv import SetArmed, SetExternalControl
@@ -18,13 +17,9 @@ from tardigrade_px4.mavlink_common import (
 
 
 PX4_CUSTOM_MAIN_MODE_OFFBOARD = 6
-MAV_FRAME_BODY_NED = 8
-# Ignore position, acceleration, and yaw; use vx/vy/vz plus yaw rate.
-VELOCITY_SETPOINT_TYPE_MASK = 1 | 2 | 4 | 64 | 128 | 256 | 1024
 
 
 def covariance_upper_triangle(position_variance, orientation_variance):
-    # MAVLink ODOMETRY wants only the upper triangle of the 6x6 covariance.
     return [
         position_variance,
         0.0, position_variance,
@@ -39,20 +34,11 @@ class MavlinkPixhawkInterface(Node):
     def __init__(self):
         super().__init__('mavlink_pixhawk_interface')
 
-        # Connection and safety knobs. Keep max_* at zero for a no-motion dry
-        # run; increase one axis at a time only when thrusters are made safe.
         self.declare_parameter('device', '/dev/ttyACM0')
         self.declare_parameter('baudrate', 921600)
         self.declare_parameter('source_system', 43)
         self.declare_parameter('source_component', 191)
         self.declare_parameter('offboard_thrust', 0.0)
-        self.declare_parameter('offboard_setpoint_mode', 'attitude')
-        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
-        self.declare_parameter('cmd_vel_timeout_sec', 0.5)
-        self.declare_parameter('max_forward_speed', 0.0)
-        self.declare_parameter('max_lateral_speed', 0.0)
-        self.declare_parameter('max_vertical_speed', 0.0)
-        self.declare_parameter('max_yaw_rate', 0.0)
         self.declare_parameter('configure_px4_params', False)
         self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
         self.declare_parameter('send_visual_odometry', True)
@@ -63,20 +49,11 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('visual_velocity_variance', 999.0)
         self.declare_parameter('visual_odometry_quality', 100)
 
-        # Read the launch parameters once at startup. Re-launch the node to
-        # change serial ports, speed clamps, or offboard setpoint mode.
         self.device = self.get_parameter('device').value
         self.baudrate = self.get_parameter('baudrate').value
         source_system = self.get_parameter('source_system').value
         source_component = self.get_parameter('source_component').value
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
-        self.offboard_setpoint_mode = self.get_parameter('offboard_setpoint_mode').value.lower()
-        self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
-        self.cmd_vel_timeout_sec = float(self.get_parameter('cmd_vel_timeout_sec').value)
-        self.max_forward_speed = float(self.get_parameter('max_forward_speed').value)
-        self.max_lateral_speed = float(self.get_parameter('max_lateral_speed').value)
-        self.max_vertical_speed = float(self.get_parameter('max_vertical_speed').value)
-        self.max_yaw_rate = float(self.get_parameter('max_yaw_rate').value)
         self.configure_px4_params = bool(self.get_parameter('configure_px4_params').value)
         self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
@@ -110,16 +87,9 @@ class MavlinkPixhawkInterface(Node):
         self.last_local_position_ns = None
         self.last_estimator_status = None
         self.last_estimator_status_ns = None
-        # Latest requested teleop velocity. If it gets stale, velocity commands
-        # automatically decay to zero in get_active_cmd_vel().
-        self.latest_cmd_vel = Twist()
-        self.latest_cmd_vel_received_ns = None
-        self.cmd_vel_received_count = 0
         self.external_control_enabled = False
         self.boot_time_ns = self.get_clock().now().nanoseconds
         self.lock = threading.Lock()
-        # PX4 trusts low variances more. Linear velocity is deliberately high
-        # because the current ZED/VectorNav odometry path does not estimate it.
         self.visual_pose_covariance = covariance_upper_triangle(
             visual_position_variance,
             visual_orientation_variance,
@@ -153,12 +123,6 @@ class MavlinkPixhawkInterface(Node):
             self.visual_odometry_callback,
             10,
         )
-        self.cmd_vel_sub = self.create_subscription(
-            Twist,
-            self.cmd_vel_topic,
-            self.cmd_vel_callback,
-            10,
-        )
 
         self.read_timer = self.create_timer(0.02, self.read_mavlink)
         self.status_timer = self.create_timer(0.2, self.publish_robot_status)
@@ -171,8 +135,6 @@ class MavlinkPixhawkInterface(Node):
         self.get_logger().info(f'Opening MAVLink serial: {self.device} @ {self.baudrate}')
         self.get_logger().info('Services: /tardigrade/set_armed, /tardigrade/set_external_control')
         self.get_logger().info('Publishing: /tardigrade/status')
-        self.get_logger().info(f'Offboard setpoint mode: {self.offboard_setpoint_mode}')
-        self.get_logger().info(f'Subscribing teleop velocity: {self.cmd_vel_topic}')
         if self.send_visual_odometry:
             self.get_logger().info(f'Sending visual odometry from: {self.visual_odometry_topic}')
         if self.configure_px4_params:
@@ -212,15 +174,6 @@ class MavlinkPixhawkInterface(Node):
         if not self.external_control_enabled:
             return
 
-        # The default attitude mode is the proven arming heartbeat. Velocity
-        # mode is opt-in for teleop testing.
-        if self.offboard_setpoint_mode == 'velocity':
-            self.publish_velocity_setpoint()
-            return
-
-        self.publish_attitude_setpoint()
-
-    def publish_attitude_setpoint(self):
         self.mav.mav.set_attitude_target_send(
             self.time_boot_ms(),
             self.target_system,
@@ -231,58 +184,6 @@ class MavlinkPixhawkInterface(Node):
             0.0,
             0.0,
             self.offboard_thrust,
-        )
-
-    def clamp(self, value, limit):
-        limit = abs(limit)
-        if value > limit:
-            return limit
-        if value < -limit:
-            return -limit
-        return value
-
-    def get_active_cmd_vel(self):
-        with self.lock:
-            cmd = self.latest_cmd_vel
-            received_ns = self.latest_cmd_vel_received_ns
-
-        if received_ns is None:
-            return Twist()
-
-        age_sec = (
-            self.get_clock().now().nanoseconds - received_ns
-        ) / 1_000_000_000.0
-        if age_sec > self.cmd_vel_timeout_sec:
-            return Twist()
-
-        return cmd
-
-    def publish_velocity_setpoint(self):
-        cmd = self.get_active_cmd_vel()
-
-        # Convert ROS FLU body command into MAVLink BODY_NED/FRD signs.
-        vx = self.clamp(cmd.linear.x, self.max_forward_speed)
-        vy = self.clamp(-cmd.linear.y, self.max_lateral_speed)
-        vz = self.clamp(-cmd.linear.z, self.max_vertical_speed)
-        yaw_rate = self.clamp(-cmd.angular.z, self.max_yaw_rate)
-
-        self.mav.mav.set_position_target_local_ned_send(
-            self.time_boot_ms(),
-            self.target_system,
-            self.target_component,
-            getattr(mavutil.mavlink, 'MAV_FRAME_BODY_NED', MAV_FRAME_BODY_NED),
-            VELOCITY_SETPOINT_TYPE_MASK,
-            0.0,
-            0.0,
-            0.0,
-            vx,
-            vy,
-            vz,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            yaw_rate,
         )
 
     def request_message_interval(self, message_id, rate_hz):
@@ -315,9 +216,6 @@ class MavlinkPixhawkInterface(Node):
         self.diagnostic_streams_requested = True
 
     def configure_required_px4_params(self):
-        # This is the bench workaround for the Pixhawk whose param save path is
-        # broken. These PARAM_SET writes are RAM-only and must be resent after
-        # each Pixhawk reboot.
         if not self.configure_px4_params or self.px4_params_sent:
             return
 
@@ -359,12 +257,6 @@ class MavlinkPixhawkInterface(Node):
             self.latest_visual_odometry = msg
             self.latest_visual_odometry_received_ns = self.get_clock().now().nanoseconds
 
-    def cmd_vel_callback(self, msg):
-        with self.lock:
-            self.latest_cmd_vel = msg
-            self.latest_cmd_vel_received_ns = self.get_clock().now().nanoseconds
-            self.cmd_vel_received_count += 1
-
     def publish_visual_odometry(self):
         if not self.send_visual_odometry:
             return
@@ -386,7 +278,6 @@ class MavlinkPixhawkInterface(Node):
         velocity = enu_to_ned_point(msg.twist.twist.linear)
         angular_velocity = flu_to_frd_vector(msg.twist.twist.angular)
 
-        # PX4's MAVLink external-vision path expects local FRD/NED odometry.
         odometry_args = (
             now_us(),
             mavutil.mavlink.MAV_FRAME_LOCAL_FRD,
@@ -426,8 +317,6 @@ class MavlinkPixhawkInterface(Node):
             self.visual_odometry_sent_count += 1
 
     def publish_debug_diagnostics(self):
-        # These logs are for bench debugging: they confirm PX4 param readback,
-        # visual odometry freshness, local position, and teleop command flow.
         self.request_diagnostic_streams()
 
         with self.lock:
@@ -439,8 +328,6 @@ class MavlinkPixhawkInterface(Node):
             estimator_status_ns = self.last_estimator_status_ns
             visual_received_ns = self.latest_visual_odometry_received_ns
             visual_sent_count = self.visual_odometry_sent_count
-            cmd_vel_received_ns = self.latest_cmd_vel_received_ns
-            cmd_vel_received_count = self.cmd_vel_received_count
             px4_params_sent = self.px4_params_sent
 
         now_ns = self.get_clock().now().nanoseconds
@@ -453,10 +340,6 @@ class MavlinkPixhawkInterface(Node):
             visual_age_ms = (now_ns - visual_received_ns) / 1_000_000.0
             parts.append(f'visual_odom_age_ms={visual_age_ms:.0f}')
             parts.append(f'visual_odom_sent={visual_sent_count}')
-        if cmd_vel_received_ns is not None:
-            cmd_age_ms = (now_ns - cmd_vel_received_ns) / 1_000_000.0
-            parts.append(f'cmd_vel_age_ms={cmd_age_ms:.0f}')
-            parts.append(f'cmd_vel_received={cmd_vel_received_count}')
 
         if self.configure_px4_params:
             parts.append(f'px4_params_sent={px4_params_sent}')
@@ -568,8 +451,6 @@ class MavlinkPixhawkInterface(Node):
             status_text = self.last_status_text
             visual_received_ns = self.latest_visual_odometry_received_ns
             visual_sent_count = self.visual_odometry_sent_count
-            cmd_vel_received_ns = self.latest_cmd_vel_received_ns
-            cmd_vel_received_count = self.cmd_vel_received_count
             px4_params_sent = self.px4_params_sent
 
         msg.px4_connected = heartbeat is not None
@@ -587,9 +468,6 @@ class MavlinkPixhawkInterface(Node):
             if visual_received_ns is not None:
                 age_ms = (self.get_clock().now().nanoseconds - visual_received_ns) / 1_000_000.0
                 msg.detail += f'; visual_odom_age_ms={age_ms:.0f}; visual_odom_sent={visual_sent_count}'
-            if cmd_vel_received_ns is not None:
-                age_ms = (self.get_clock().now().nanoseconds - cmd_vel_received_ns) / 1_000_000.0
-                msg.detail += f'; cmd_vel_age_ms={age_ms:.0f}; cmd_vel_received={cmd_vel_received_count}'
             if self.configure_px4_params:
                 msg.detail += f'; px4_params_sent={px4_params_sent}'
         else:
