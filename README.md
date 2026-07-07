@@ -28,13 +28,14 @@ Current external source layout:
 ```text
 src/px4_msgs              PX4 ROS 2 messages, submodule branch release/1.14
 src/vectornav             VectorNav driver/messages, submodule branch ros2
-src/zed-ros2-interfaces   Stereolabs interfaces, submodule commit for humble-v4.0.8
 src/zed-ros2-wrapper      Stereolabs wrapper, submodule commit for humble-v4.0.8
+  zed-ros2-interfaces     Stereolabs interfaces, nested wrapper submodule
 ```
 
-Git records submodules by exact commit. The ZED commits correspond to the
-`humble-v4.0.8` tags, so a recursive clone checks out the same known-good ZED
-sources without a separate `git clone` or `vcs import` step.
+Git records submodules by exact commit. The ZED wrapper commit corresponds to
+the `humble-v4.0.8` tag, and its own nested submodule fetches the matching ZED
+interfaces source. A recursive clone checks out the same known-good ZED sources
+without a separate `git clone` or `vcs import` step.
 
 ### Docker
 
@@ -375,6 +376,10 @@ matching `.gitmodules` entry. This makes full recursive submodule commands warn
 or fail on that path. It is unrelated to the ZED, VectorNav, and PX4 submodules,
 but should be cleaned up before relying on recursive submodule status checks in
 automation.
+
+If an older checkout has a top-level `src/zed-ros2-interfaces` directory, remove
+it before building. The only ZED interfaces package should live at
+`src/zed-ros2-wrapper/zed-ros2-interfaces`.
 
 ### Pixhawk/PX4 note
 

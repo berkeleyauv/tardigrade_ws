@@ -32,17 +32,26 @@ git submodule update --init --recursive
 sudo docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml build
 ```
 
-The ZED wrapper and interfaces are tracked as submodules:
+The ZED wrapper is tracked as a top-level submodule:
 
 ```bash
 src/zed-ros2-wrapper
-src/zed-ros2-interfaces
 ```
 
-They are pinned to the commits for Stereolabs `humble-v4.0.8`, so do not clone
-the ZED repositories manually into `src/`. If an older Jetson checkout already
-has manually cloned ZED directories, move them aside before running
-`git submodule update --init --recursive`.
+The wrapper contains its own nested `zed-ros2-interfaces` submodule:
+
+```bash
+src/zed-ros2-wrapper/zed-ros2-interfaces
+```
+
+The wrapper is pinned to the Stereolabs `humble-v4.0.8` tag commit, so do not
+clone the ZED repositories manually into `src/`. If an older Jetson checkout has
+a top-level `src/zed-ros2-interfaces`, remove it before building:
+
+```bash
+rm -rf src/zed-ros2-interfaces
+git submodule update --init --recursive
+```
 
 The Jetson host must have the ZED SDK installed at `/usr/local/zed`. Check it:
 

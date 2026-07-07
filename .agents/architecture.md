@@ -32,10 +32,11 @@ As of July 6, 2026:
 - Because PX4 params do not persist, `configure_px4_params:=true` is required
   after Pixhawk reboot for bench arming.
 - ZED wrapper support is documented in `docs/jetson_zed_px4_startup.md`.
-- ZED wrapper source is now tracked as submodules pinned to the
-  `humble-v4.0.8` tag commits:
+- ZED wrapper source is now tracked as a top-level submodule pinned to the
+  `humble-v4.0.8` tag commit:
   - `src/zed-ros2-wrapper`
-  - `src/zed-ros2-interfaces`
+  The wrapper's own nested submodule provides:
+  - `src/zed-ros2-wrapper/zed-ros2-interfaces`
 - Docker startup is split into a local-safe base Compose file and a Jetson
   hardware override:
   - `docker/compose.yaml`
@@ -77,17 +78,22 @@ The Stereolabs ZED ROS 2 wrapper is used as an external dependency on the
 Jetson. The current known working direction is documented in
 `docs/jetson_zed_px4_startup.md`.
 
-The wrapper and interfaces are Git submodules, not manually cloned source
-directories:
+The wrapper is a Git submodule, not a manually cloned source directory:
 
 ```text
 src/zed-ros2-wrapper
-src/zed-ros2-interfaces
 ```
 
-They are pinned by exact submodule commits that correspond to the
-`humble-v4.0.8` tags. A recursive clone or `git submodule update --init
---recursive` should fetch them.
+It is pinned by exact submodule commit corresponding to the `humble-v4.0.8` tag.
+The wrapper contains its own nested `zed-ros2-interfaces` submodule, so a
+recursive clone or `git submodule update --init --recursive` should fetch:
+
+```text
+src/zed-ros2-wrapper/zed-ros2-interfaces
+```
+
+Do not add or keep a duplicate top-level `src/zed-ros2-interfaces`; it causes
+Colcon duplicate-package errors.
 
 The main pose topic is:
 

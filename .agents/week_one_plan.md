@@ -36,8 +36,9 @@ docs/thruster_mapping.md
 - Local development startup is separated from Jetson hardware startup:
   - `docker/compose.yaml` is the laptop/local-safe base container.
   - `docker/compose.jetson.yaml` is the Jetson/ZED/Pixhawk hardware override.
-- ZED wrapper source is tracked as Git submodules pinned to the `humble-v4.0.8`
-  tag commits, not as manual Jetson-only clones.
+- ZED wrapper source is tracked as a Git submodule pinned to the `humble-v4.0.8`
+  tag commit, not as a manual Jetson-only clone. Its nested
+  `zed-ros2-interfaces` submodule provides the interfaces package.
 - ZED wrapper can publish `/zed/zed_node/pose` when the ZED is stable on USB3.
 - VectorNav publishes `/vectornav/imu`.
 - `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`.
@@ -301,8 +302,10 @@ Perception/autonomy:
 - Read `docs/thruster_mapping.md` before changing teleop or actuator behavior.
 - Keep `docker/compose.yaml` local-safe. Put Jetson/ZED/Pixhawk mounts in
   `docker/compose.jetson.yaml`.
-- Keep ZED source as submodules unless the team explicitly changes dependency
-  strategy.
+- Keep ZED source as the top-level `src/zed-ros2-wrapper` submodule unless the
+  team explicitly changes dependency strategy. Do not add a duplicate top-level
+  `src/zed-ros2-interfaces`; the wrapper already contains it as a nested
+  submodule.
 - `.legacy_inspect` is a stale gitlink without a `.gitmodules` entry; avoid
   treating it as an active package.
 - Keep PX4-specific details inside `tardigrade_px4`.
