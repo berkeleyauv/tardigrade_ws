@@ -229,7 +229,10 @@ class MavlinkPixhawkInterface(Node):
             'COM_RC_IN_MODE': (4.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'COM_ARM_WO_GPS': (1.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'COM_ARM_MIS_REQ': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
-            'EKF2_EV_CTRL': (3.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            # ZED-only localization needs PX4 to use the camera yaw as well as
+            # position; otherwise EKF can accept position data but keep drifting
+            # in its own heading frame.
+            'EKF2_EV_CTRL': (11.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'EKF2_HGT_REF': (3.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'EKF2_EV_QMIN': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_REAL32),
         }
