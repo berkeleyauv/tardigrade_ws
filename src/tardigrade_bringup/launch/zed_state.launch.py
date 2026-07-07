@@ -11,6 +11,7 @@ def generate_launch_description():
     base_frame = LaunchConfiguration('base_frame')
     position_variance = LaunchConfiguration('position_variance')
     orientation_variance = LaunchConfiguration('orientation_variance')
+    zero_initial_position = LaunchConfiguration('zero_initial_position')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -43,6 +44,11 @@ def generate_launch_description():
             default_value='0.05',
             description='Diagonal covariance value for ZED orientation',
         ),
+        DeclareLaunchArgument(
+            'zero_initial_position',
+            default_value='true',
+            description='Subtract the first ZED pose so PX4 receives a near-zero local origin',
+        ),
 
         Node(
             package='tardigrade_state_estimation',
@@ -56,6 +62,7 @@ def generate_launch_description():
                 'base_frame': base_frame,
                 'position_variance': position_variance,
                 'orientation_variance': orientation_variance,
+                'zero_initial_position': zero_initial_position,
             }],
         ),
     ])

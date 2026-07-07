@@ -18,6 +18,7 @@ def generate_launch_description():
     orientation_variance = LaunchConfiguration('orientation_variance')
     angular_velocity_variance = LaunchConfiguration('angular_velocity_variance')
     imu_timeout_sec = LaunchConfiguration('imu_timeout_sec')
+    zero_initial_position = LaunchConfiguration('zero_initial_position')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -75,6 +76,11 @@ def generate_launch_description():
             default_value='0.25',
             description='Maximum VectorNav IMU age before falling back to ZED orientation',
         ),
+        DeclareLaunchArgument(
+            'zero_initial_position',
+            default_value='true',
+            description='Subtract the first ZED pose so PX4 receives a near-zero local origin',
+        ),
 
         # Raw VectorNav driver: talks to the serial device.
         Node(
@@ -112,6 +118,7 @@ def generate_launch_description():
                 'orientation_variance': orientation_variance,
                 'angular_velocity_variance': angular_velocity_variance,
                 'imu_timeout_sec': imu_timeout_sec,
+                'zero_initial_position': zero_initial_position,
             }],
         ),
     ])

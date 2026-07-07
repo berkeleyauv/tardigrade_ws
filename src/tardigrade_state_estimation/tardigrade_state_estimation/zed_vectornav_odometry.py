@@ -108,6 +108,7 @@ class ZedVectornavOdometry(Node):
         self.declare_parameter('imu_timeout_sec', 0.25)
         self.declare_parameter('use_zed_orientation_if_imu_stale', True)
         self.declare_parameter('use_zed_frame_id', False)
+        self.declare_parameter('zero_initial_position', True)
 
         self.zed_pose_topic = self.get_parameter('zed_pose_topic').value
         self.imu_topic = self.get_parameter('imu_topic').value
@@ -122,9 +123,11 @@ class ZedVectornavOdometry(Node):
             self.get_parameter('use_zed_orientation_if_imu_stale').value
         )
         self.use_zed_frame_id = bool(self.get_parameter('use_zed_frame_id').value)
+        self.zero_initial_position = bool(self.get_parameter('zero_initial_position').value)
 
         self.latest_imu = None
         self.latest_imu_received_ns = None
+        self.initial_position = None
 
         # ZED provides position. VectorNav provides orientation/rates. We mark
         # linear velocity as unknown because this node is not estimating it.
@@ -160,6 +163,8 @@ class ZedVectornavOdometry(Node):
         self.get_logger().info(f'Subscribing ZED pose: {self.zed_pose_topic}')
         self.get_logger().info(f'Subscribing VectorNav IMU: {self.imu_topic}')
         self.get_logger().info(f'Publishing fused odometry: {self.odom_topic}')
+        if self.zero_initial_position:
+            self.get_logger().info('Zeroing odometry position to first ZED pose')
 
     def imu_callback(self, msg):
         self.latest_imu = msg
@@ -182,7 +187,18 @@ class ZedVectornavOdometry(Node):
         odom.header.frame_id = msg.header.frame_id if self.use_zed_frame_id else self.odom_frame
         odom.child_frame_id = self.base_frame
 
-        odom.pose.pose.position = msg.pose.position
+        if self.zero_initial_position:
+            if self.initial_position is None:
+                self.initial_position = (
+                    msg.pose.position.x,
+                    msg.pose.position.y,
+                    msg.pose.position.z,
+                )
+            odom.pose.pose.position.x = msg.pose.position.x - self.initial_position[0]
+            odom.pose.pose.position.y = msg.pose.position.y - self.initial_position[1]
+            odom.pose.pose.position.z = msg.pose.position.z - self.initial_position[2]
+        else:
+            odom.pose.pose.position = msg.pose.position
         odom.twist.covariance = self.twist_covariance
 
         # Preferred path: ZED position + VectorNav orientation/angular velocity.
