@@ -61,6 +61,7 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('source_component', 191)
         self.declare_parameter('offboard_thrust', 0.0)
         self.declare_parameter('configure_px4_params', False)
+        self.declare_parameter('relax_px4_arm_checks', False)
         self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
         self.declare_parameter('send_visual_odometry', True)
         self.declare_parameter('visual_odometry_rate_hz', 30.0)
@@ -77,6 +78,7 @@ class MavlinkPixhawkInterface(Node):
         source_component = self.get_parameter('source_component').value
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
         self.configure_px4_params = bool(self.get_parameter('configure_px4_params').value)
+        self.relax_px4_arm_checks = bool(self.get_parameter('relax_px4_arm_checks').value)
         self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
         self.visual_odometry_rate_hz = float(self.get_parameter('visual_odometry_rate_hz').value)
@@ -165,6 +167,10 @@ class MavlinkPixhawkInterface(Node):
             self.get_logger().info(f'Visual odometry MAVLink message: {self.visual_odometry_mavlink_message}')
         if self.configure_px4_params:
             self.get_logger().warn('PX4 runtime parameter configuration is enabled')
+        if self.relax_px4_arm_checks:
+            self.get_logger().error(
+                'PX4 arming checks will be relaxed in RAM. Use only for bench testing with thrusters disabled.'
+            )
 
     def read_mavlink(self):
         while True:
@@ -262,6 +268,16 @@ class MavlinkPixhawkInterface(Node):
             'EKF2_HGT_REF': (3.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
             'EKF2_EV_QMIN': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_REAL32),
         }
+
+        if self.relax_px4_arm_checks:
+            # This is a bench-test escape hatch for boards that receive visual
+            # odometry but still refuse arming because PX4's pre-arm estimator
+            # checks are not satisfied. Do not use this as the normal in-water
+            # configuration.
+            params.update({
+                'COM_ARM_CHK': (0.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+                'CBRK_USB_CHK': (197848.0, mavutil.mavlink.MAV_PARAM_TYPE_INT32),
+            })
 
         for name, (value, param_type) in params.items():
             self.mav.mav.param_set_send(
@@ -417,6 +433,8 @@ class MavlinkPixhawkInterface(Node):
                 'EKF2_EV_CTRL',
                 'EKF2_HGT_REF',
                 'EKF2_EV_QMIN',
+                'COM_ARM_CHK',
+                'CBRK_USB_CHK',
             ]
             param_summary = ','.join(
                 f'{name}={px4_param_values[name]:.3g}'
