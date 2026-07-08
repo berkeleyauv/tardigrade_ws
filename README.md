@@ -97,15 +97,19 @@ ros2 launch tardigrade_bringup mock.launch.py
 Useful local checks:
 
 ```bash
-colcon build --symlink-install
+colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
 colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_bringup
 ```
+
+The ZED wrapper source is present locally, but `zed_components`, `zed_wrapper`,
+and `zed_ros2` require the Stereolabs ZED SDK. Build those only on the Jetson or
+another machine with the ZED SDK installed/mounted.
 
 If build output gets stale:
 
 ```bash
 rm -rf build install log
-colcon build --symlink-install
+colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
 ```
 
 ## Pixhawk Arming Process

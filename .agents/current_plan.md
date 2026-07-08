@@ -27,13 +27,17 @@ Inside the container:
 
 ```bash
 cd /ws
-colcon build --symlink-install
+colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
 source install/setup.bash
 ros2 launch tardigrade_bringup mock.launch.py
 ```
 
 Use `docker/compose.yaml` alone for MacBook/local work. Use
 `docker/compose.jetson.yaml` only on the Jetson hardware bench.
+
+The ZED wrapper source is present in local clones, but the SDK-backed packages
+`zed_components`, `zed_wrapper`, and `zed_ros2` should be skipped on machines
+without the Stereolabs ZED SDK.
 
 ## Known Hardware State
 

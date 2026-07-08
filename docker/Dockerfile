@@ -57,5 +57,5 @@ RUN chmod +x /ros_entrypoint.sh \
     && echo "source /opt/ros/foxy/setup.bash" >> /root/.bashrc \
     && echo "[ -f /ws/install/setup.bash ] && source /ws/install/setup.bash" >> /root/.bashrc
 
-ENTRYPOINT ["/ros_entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/ros_entrypoint.sh"]
 CMD ["bash"]

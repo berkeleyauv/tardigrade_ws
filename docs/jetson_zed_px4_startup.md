@@ -167,6 +167,16 @@ Warnings about old `/ws/install/...` paths after deleting `install/` usually
 mean the shell sourced an old workspace before the clean. Open a fresh container
 shell or continue if the build is otherwise progressing.
 
+On a laptop/local container without the Stereolabs ZED SDK, skip the SDK-backed
+ZED packages:
+
+```bash
+colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
+```
+
+Do not use that skip command for Jetson hardware bringup; the Jetson path needs
+the ZED wrapper packages to build and run.
+
 ## Hardware Checks
 
 On the Jetson host:
