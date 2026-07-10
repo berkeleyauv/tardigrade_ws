@@ -11,18 +11,29 @@ class ZedRecorder(Node):
     def __init__(self):
         super().__init__('zed_camera_recorder')
         
+        # Default FPS set to 60 unless otherwise specified
+        self.declare_parameter('fps', 60)
+        fps_param = self.get_parameter('fps').get_parameter_value().integer_value
+        
+        self.res = {
+            15: (2208, 1242),
+            30: (1920, 1080),
+            60: (1280, 720),
+            100: (672, 376)
+        }
+
+        if fps_param not in self.res:
+            self.get_logger().error(f"FPS {fps_param} not supported by ZED. Defaulting to 60fps.")
+            fps_param = 60
+            
+        target_resolution = self.res[fps_param]
+
         self.image_topic = '/zed/zed_node/rgb/image_rect_color'
         
         self.subscription = self.create_subscription(
-            Image,
-            self.image_topic,
-            self.image_callback,
-            10)
+            Image, self.image_topic, self.image_callback, 10)
             
         self.bridge = CvBridge()
-        
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        filename = f"tardigrade_cam_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
         
         home_dir = str(Path.home())
         save_dir = os.path.join(home_dir, 'tardigrade_videos')
@@ -32,10 +43,11 @@ class ZedRecorder(Node):
         filename = f"tardigrade_cam_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
         full_path = os.path.join(save_dir, filename)
         
-        # !!Assuming 720p at 30fps!!
-        self.out = cv2.VideoWriter(full_path, fourcc, 30.0, (1280, 720))
+        self.out = cv2.VideoWriter(full_path, fourcc, float(fps_param), target_resolution)
+        
         self.get_logger().info(f"Subscribed to {self.image_topic}")
-        self.get_logger().info(f"Recording started: saving to {full_path}")
+        self.get_logger().info(f"Recording locked at {target_resolution[0]}x{target_resolution[1]} @ {fps_param}fps")
+        self.get_logger().info(f"Saving to {full_path}")
 
     def image_callback(self, msg):
         try:
