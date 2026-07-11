@@ -242,7 +242,8 @@ replacement for QGroundControl warning banners.
 ```
 
 Service that enables the offboard setpoint stream and sends the PX4 Offboard
-mode command.
+mode command after a warmup. This mirrors the legacy bringup pattern: PX4 sees
+a live setpoint stream first, then receives the Offboard mode command.
 
 ```text
 /tardigrade/set_armed
@@ -388,14 +389,11 @@ Enable external control:
 ros2 service call /tardigrade/set_external_control tardigrade_interfaces/srv/SetExternalControl "{enabled: true}"
 ```
 
-PX4 Offboard normally requires a setpoint stream before or while entering
-Offboard. If the first attempt does not stick, wait two seconds and send the
-external-control request again:
-
-```bash
-sleep 2
-ros2 service call /tardigrade/set_external_control tardigrade_interfaces/srv/SetExternalControl "{enabled: true}"
-```
+The service starts the setpoint stream immediately, waits
+`offboard_warmup_sec`, then sends the Offboard mode command up to
+`offboard_command_retries` times. Defaults are a 1 second warmup and 3 mode
+command attempts. This is based on the old `offboard_heartbeat.py` behavior
+that waited for about ten 10 Hz setpoint ticks before entering Offboard.
 
 Check status:
 
@@ -409,6 +407,7 @@ Useful values:
 last_ack_command=176
 last_ack_result=0
 custom_mode=6
+offboard_mode_commands=...
 ```
 
 `176/0` means PX4 accepted the Offboard mode command packet. `custom_mode=6`
@@ -488,9 +487,17 @@ PX4 Offboard is not just a mode command. PX4 expects:
 - no blocking failsafe/prearm condition.
 
 In this repo, `/tardigrade/set_external_control` enables the setpoint stream
-and sends the Offboard command. If Offboard does not stick, call it once, wait
-two seconds, then call it again. If that works, the code should be changed to
-delay the mode command until the stream has been running.
+and sends the Offboard command after a warmup. Tune these only after checking
+visual odometry and PX4 status text:
+
+```bash
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_warmup_sec:=1.5 \
+  -p offboard_command_retries:=5
+```
 
 ## Terminal Debugging Without QGroundControl
 

@@ -44,6 +44,9 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('send_visual_odometry', True)
         self.declare_parameter('visual_odometry_rate_hz', 30.0)
         self.declare_parameter('visual_odometry_timeout_sec', 0.5)
+        self.declare_parameter('offboard_warmup_sec', 1.0)
+        self.declare_parameter('offboard_command_retry_sec', 1.0)
+        self.declare_parameter('offboard_command_retries', 3)
         self.declare_parameter('visual_position_variance', 0.05)
         self.declare_parameter('visual_orientation_variance', 0.05)
         self.declare_parameter('visual_velocity_variance', 999.0)
@@ -59,6 +62,9 @@ class MavlinkPixhawkInterface(Node):
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
         self.visual_odometry_rate_hz = float(self.get_parameter('visual_odometry_rate_hz').value)
         self.visual_odometry_timeout_sec = float(self.get_parameter('visual_odometry_timeout_sec').value)
+        self.offboard_warmup_sec = float(self.get_parameter('offboard_warmup_sec').value)
+        self.offboard_command_retry_sec = float(self.get_parameter('offboard_command_retry_sec').value)
+        self.offboard_command_retries = int(self.get_parameter('offboard_command_retries').value)
         visual_position_variance = float(self.get_parameter('visual_position_variance').value)
         visual_orientation_variance = float(self.get_parameter('visual_orientation_variance').value)
         visual_velocity_variance = float(self.get_parameter('visual_velocity_variance').value)
@@ -88,6 +94,9 @@ class MavlinkPixhawkInterface(Node):
         self.last_estimator_status = None
         self.last_estimator_status_ns = None
         self.external_control_enabled = False
+        self.external_control_started_ns = None
+        self.offboard_mode_command_count = 0
+        self.last_offboard_mode_command_ns = None
         self.boot_time_ns = self.get_clock().now().nanoseconds
         self.lock = threading.Lock()
         self.visual_pose_covariance = covariance_upper_triangle(
@@ -137,6 +146,12 @@ class MavlinkPixhawkInterface(Node):
         self.get_logger().info('Publishing: /tardigrade/status')
         if self.send_visual_odometry:
             self.get_logger().info(f'Sending visual odometry from: {self.visual_odometry_topic}')
+        self.get_logger().info(
+            'Offboard enable behavior: '
+            f'warmup={self.offboard_warmup_sec:.1f}s, '
+            f'retries={self.offboard_command_retries}, '
+            f'retry_period={self.offboard_command_retry_sec:.1f}s'
+        )
         if self.configure_px4_params:
             self.get_logger().warn('PX4 runtime parameter configuration is enabled')
 
@@ -184,6 +199,50 @@ class MavlinkPixhawkInterface(Node):
             0.0,
             0.0,
             self.offboard_thrust,
+        )
+        self.maybe_send_offboard_mode_command()
+
+    def maybe_send_offboard_mode_command(self):
+        now_ns = self.get_clock().now().nanoseconds
+        if self.external_control_started_ns is None:
+            return
+
+        warmup_ns = int(self.offboard_warmup_sec * 1_000_000_000)
+        if now_ns - self.external_control_started_ns < warmup_ns:
+            return
+
+        if self.offboard_mode_command_count >= self.offboard_command_retries:
+            return
+
+        retry_ns = int(self.offboard_command_retry_sec * 1_000_000_000)
+        if (
+            self.last_offboard_mode_command_ns is not None
+            and now_ns - self.last_offboard_mode_command_ns < retry_ns
+        ):
+            return
+
+        self.send_offboard_mode_command()
+        self.offboard_mode_command_count += 1
+        self.last_offboard_mode_command_ns = now_ns
+
+    def send_offboard_mode_command(self):
+        self.mav.mav.command_long_send(
+            self.target_system,
+            self.target_component,
+            mavutil.mavlink.MAV_CMD_DO_SET_MODE,
+            0,
+            float(mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),
+            float(PX4_CUSTOM_MAIN_MODE_OFFBOARD),
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )
+        self.get_logger().warn(
+            'Sent MAVLink OFFBOARD mode command '
+            f'({self.offboard_mode_command_count + 1}/'
+            f'{self.offboard_command_retries})'
         )
 
     def request_message_interval(self, message_id, rate_hz):
@@ -414,22 +473,18 @@ class MavlinkPixhawkInterface(Node):
             self.external_control_enabled = request.enabled
 
             if request.enabled:
+                self.external_control_started_ns = self.get_clock().now().nanoseconds
+                self.offboard_mode_command_count = 0
+                self.last_offboard_mode_command_ns = None
                 self.publish_offboard_setpoint()
-                self.mav.mav.command_long_send(
-                    self.target_system,
-                    self.target_component,
-                    mavutil.mavlink.MAV_CMD_DO_SET_MODE,
-                    0,
-                    float(mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),
-                    float(PX4_CUSTOM_MAIN_MODE_OFFBOARD),
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
+                response.message = (
+                    'External control setpoint stream enabled; '
+                    'OFFBOARD mode command will be sent after warmup'
                 )
-                response.message = 'MAVLink OFFBOARD mode command sent'
             else:
+                self.external_control_started_ns = None
+                self.offboard_mode_command_count = 0
+                self.last_offboard_mode_command_ns = None
                 response.message = 'External control setpoint stream disabled'
 
             response.success = True
@@ -468,6 +523,11 @@ class MavlinkPixhawkInterface(Node):
             if visual_received_ns is not None:
                 age_ms = (self.get_clock().now().nanoseconds - visual_received_ns) / 1_000_000.0
                 msg.detail += f'; visual_odom_age_ms={age_ms:.0f}; visual_odom_sent={visual_sent_count}'
+            if self.external_control_enabled:
+                msg.detail += (
+                    f'; offboard_mode_commands={self.offboard_mode_command_count}'
+                    f'/{self.offboard_command_retries}'
+                )
             if self.configure_px4_params:
                 msg.detail += f'; px4_params_sent={px4_params_sent}'
         else:
