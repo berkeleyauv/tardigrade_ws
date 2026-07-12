@@ -21,6 +21,10 @@ MAV_RESULT_NAMES = {
     6: 'CANCELLED',
 }
 
+MAV_CMD_ACTUATOR_TEST = getattr(mavutil.mavlink, 'MAV_CMD_ACTUATOR_TEST', 310)
+ACTUATOR_FUNCTION_MOTOR1 = 101
+
+
 class RawTerminal:
     def __enter__(self):
         if not sys.stdin.isatty():
@@ -48,6 +52,7 @@ class MotorToggleTest(Node):
         self.declare_parameter('source_system', 44)
         self.declare_parameter('source_component', 191)
         self.declare_parameter('motor', 3)
+        self.declare_parameter('actuator_function', 0)
         self.declare_parameter('throttle_percent', 10.0)
         self.declare_parameter('command_timeout_sec', 0.75)
         self.declare_parameter('resend_rate_hz', 4.0)
@@ -57,6 +62,7 @@ class MotorToggleTest(Node):
         source_system = int(self.get_parameter('source_system').value)
         source_component = int(self.get_parameter('source_component').value)
         self.motor = int(self.get_parameter('motor').value)
+        self.actuator_function_override = int(self.get_parameter('actuator_function').value)
         self.throttle_percent = float(self.get_parameter('throttle_percent').value)
         self.command_timeout_sec = float(self.get_parameter('command_timeout_sec').value)
         self.resend_period_sec = 1.0 / max(float(self.get_parameter('resend_rate_hz').value), 0.1)
@@ -79,9 +85,10 @@ class MotorToggleTest(Node):
 
     @property
     def actuator_output_function(self):
-        # MAVLink ACTUATOR_OUTPUT_FUNCTION_MOTOR1 starts at 1, so motor 3 maps
-        # directly to output function 3.
-        return float(self.motor)
+        if self.actuator_function_override > 0:
+            return float(self.actuator_function_override)
+        # PX4 actuator functions start at 101 for Motor 1, so motor 3 is 103.
+        return float(ACTUATOR_FUNCTION_MOTOR1 + self.motor - 1)
 
     def wait_for_pixhawk(self):
         self.get_logger().info(f'Opening MAVLink serial: {self.device} @ {self.baudrate}')
@@ -98,7 +105,7 @@ class MotorToggleTest(Node):
         self.mav.mav.command_long_send(
             self.target_system,
             self.target_component,
-            mavutil.mavlink.MAV_CMD_ACTUATOR_TEST,
+            MAV_CMD_ACTUATOR_TEST,
             0,
             float(value),
             float(timeout_sec),
@@ -134,7 +141,7 @@ class MotorToggleTest(Node):
             msg = self.mav.recv_match(type='COMMAND_ACK', blocking=False)
             if msg is None:
                 return
-            if msg.command != mavutil.mavlink.MAV_CMD_ACTUATOR_TEST:
+            if msg.command != MAV_CMD_ACTUATOR_TEST:
                 continue
             if self.last_ack == (msg.command, msg.result):
                 continue
@@ -146,7 +153,9 @@ class MotorToggleTest(Node):
         self.wait_for_pixhawk()
         self.get_logger().warn('Bench test only: secure the vehicle and keep clear of thrusters.')
         self.get_logger().info(
-            f'Press space to toggle motor {self.motor}; throttle={self.throttle_percent:.1f}%; '
+            f'Press space to toggle motor {self.motor} '
+            f'(actuator_function={int(self.actuator_output_function)}); '
+            f'throttle={self.throttle_percent:.1f}%; '
             'press q to quit.'
         )
 
