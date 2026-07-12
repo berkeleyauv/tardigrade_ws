@@ -170,6 +170,9 @@ Useful ACKs:
 - `mavlink_pixhawk_interface` is the current hardware Pixhawk path.
 - `pixhawk_interface` is the older PX4 ROS 2 `/fmu/*` path for mock/uXRCE work.
 - `px4_msgs` is not required for the MAVLink hardware path.
+- `behavior_trees/pathing_mission.xml` is a Groot/BehaviorTree.CPP pathing
+  design artifact. Its node contracts are described in
+  `docs/pathing_behavior_tree.md`.
 - `.legacy_inspect` was stale git metadata and should not be restored.
 - Do not command real thrust until `config/thruster_map.yaml` and
   `docs/thruster_mapping.md` have been verified against the physical vehicle.
