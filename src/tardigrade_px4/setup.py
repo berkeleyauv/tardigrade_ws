@@ -28,6 +28,7 @@ setup(
             'mavlink_odometry_to_px4 = tardigrade_px4.mavlink_odometry_to_px4:main',
             'mavlink_pixhawk_interface = tardigrade_px4.mavlink_pixhawk_interface:main',
             'keyboard_cmd_vel = tardigrade_px4.keyboard_cmd_vel:main',
+            'motor_toggle_test = tardigrade_px4.motor_toggle_test:main',
         ],
     },
 )
