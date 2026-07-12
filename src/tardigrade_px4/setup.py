@@ -29,6 +29,7 @@ setup(
             'mavlink_pixhawk_interface = tardigrade_px4.mavlink_pixhawk_interface:main',
             'keyboard_cmd_vel = tardigrade_px4.keyboard_cmd_vel:main',
             'motor_toggle_test = tardigrade_px4.motor_toggle_test:main',
+            'prequal_mission = tardigrade_px4.prequal_mission:main',
         ],
     },
 )

@@ -165,6 +165,29 @@ Useful ACKs:
 400/2  arm denied
 ```
 
+## Pre-Qualification Mission
+
+The starter pre-qualification script is:
+
+```bash
+ros2 run tardigrade_px4 prequal_mission
+```
+
+By default this is a dry run: it checks Pixhawk status and odometry but does
+not arm or publish motion. The real run uses `dry_run:=false` after the ZED,
+odometry bridge, and `mavlink_pixhawk_interface` are already running in
+velocity mode.
+
+The real run can include `target_depth_m`, which is positive downward from the
+robot's starting odometry `z`; the mission descends to that depth and holds it
+throughout the path.
+
+Detailed commands live in:
+
+```text
+docs/jetson_zed_px4_startup.md
+```
+
 ## Important Notes
 
 - `mavlink_pixhawk_interface` is the current hardware Pixhawk path.

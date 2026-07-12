@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from pymavlink import mavutil
 
+from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from tardigrade_interfaces.msg import RobotStatus
 from tardigrade_interfaces.srv import SetArmed, SetExternalControl
@@ -17,6 +18,16 @@ from tardigrade_px4.mavlink_common import (
 
 
 PX4_CUSTOM_MAIN_MODE_OFFBOARD = 6
+MAV_FRAME_BODY_NED = getattr(mavutil.mavlink, 'MAV_FRAME_BODY_NED', 8)
+SETPOINT_TYPEMASK_VELOCITY_ONLY = (
+    1      # ignore x position
+    | 2    # ignore y position
+    | 4    # ignore z position
+    | 64   # ignore x acceleration
+    | 128  # ignore y acceleration
+    | 256  # ignore z acceleration
+    | 1024 # ignore yaw angle; use yaw rate instead
+)
 
 
 def covariance_upper_triangle(position_variance, orientation_variance):
@@ -39,6 +50,13 @@ class MavlinkPixhawkInterface(Node):
         self.declare_parameter('source_system', 43)
         self.declare_parameter('source_component', 191)
         self.declare_parameter('offboard_thrust', 0.0)
+        self.declare_parameter('offboard_setpoint_mode', 'attitude')
+        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
+        self.declare_parameter('cmd_vel_timeout_sec', 0.5)
+        self.declare_parameter('max_forward_speed', 0.0)
+        self.declare_parameter('max_lateral_speed', 0.0)
+        self.declare_parameter('max_vertical_speed', 0.0)
+        self.declare_parameter('max_yaw_rate', 0.0)
         self.declare_parameter('configure_px4_params', False)
         self.declare_parameter('visual_odometry_topic', '/tardigrade/state/odometry')
         self.declare_parameter('send_visual_odometry', True)
@@ -57,6 +75,13 @@ class MavlinkPixhawkInterface(Node):
         source_system = self.get_parameter('source_system').value
         source_component = self.get_parameter('source_component').value
         self.offboard_thrust = self.get_parameter('offboard_thrust').value
+        self.offboard_setpoint_mode = self.get_parameter('offboard_setpoint_mode').value
+        self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
+        self.cmd_vel_timeout_sec = float(self.get_parameter('cmd_vel_timeout_sec').value)
+        self.max_forward_speed = float(self.get_parameter('max_forward_speed').value)
+        self.max_lateral_speed = float(self.get_parameter('max_lateral_speed').value)
+        self.max_vertical_speed = float(self.get_parameter('max_vertical_speed').value)
+        self.max_yaw_rate = float(self.get_parameter('max_yaw_rate').value)
         self.configure_px4_params = bool(self.get_parameter('configure_px4_params').value)
         self.visual_odometry_topic = self.get_parameter('visual_odometry_topic').value
         self.send_visual_odometry = self.get_parameter('send_visual_odometry').value
@@ -93,6 +118,9 @@ class MavlinkPixhawkInterface(Node):
         self.last_local_position_ns = None
         self.last_estimator_status = None
         self.last_estimator_status_ns = None
+        self.latest_cmd_vel = Twist()
+        self.latest_cmd_vel_received_ns = None
+        self.cmd_vel_received_count = 0
         self.external_control_enabled = False
         self.external_control_started_ns = None
         self.offboard_mode_command_count = 0
@@ -132,6 +160,12 @@ class MavlinkPixhawkInterface(Node):
             self.visual_odometry_callback,
             10,
         )
+        self.cmd_vel_sub = self.create_subscription(
+            Twist,
+            self.cmd_vel_topic,
+            self.cmd_vel_callback,
+            10,
+        )
 
         self.read_timer = self.create_timer(0.02, self.read_mavlink)
         self.status_timer = self.create_timer(0.2, self.publish_robot_status)
@@ -144,6 +178,10 @@ class MavlinkPixhawkInterface(Node):
         self.get_logger().info(f'Opening MAVLink serial: {self.device} @ {self.baudrate}')
         self.get_logger().info('Services: /tardigrade/set_armed, /tardigrade/set_external_control')
         self.get_logger().info('Publishing: /tardigrade/status')
+        self.get_logger().info(
+            f'Offboard setpoint mode: {self.offboard_setpoint_mode}; '
+            f'subscribing cmd_vel: {self.cmd_vel_topic}'
+        )
         if self.send_visual_odometry:
             self.get_logger().info(f'Sending visual odometry from: {self.visual_odometry_topic}')
         self.get_logger().info(
@@ -189,6 +227,11 @@ class MavlinkPixhawkInterface(Node):
         if not self.external_control_enabled:
             return
 
+        if self.offboard_setpoint_mode == 'velocity':
+            self.publish_velocity_setpoint()
+            self.maybe_send_offboard_mode_command()
+            return
+
         self.mav.mav.set_attitude_target_send(
             self.time_boot_ms(),
             self.target_system,
@@ -201,6 +244,63 @@ class MavlinkPixhawkInterface(Node):
             self.offboard_thrust,
         )
         self.maybe_send_offboard_mode_command()
+
+    def publish_velocity_setpoint(self):
+        cmd = self.current_clamped_cmd_vel()
+        self.mav.mav.set_position_target_local_ned_send(
+            self.time_boot_ms(),
+            self.target_system,
+            self.target_component,
+            MAV_FRAME_BODY_NED,
+            SETPOINT_TYPEMASK_VELOCITY_ONLY,
+            0.0,
+            0.0,
+            0.0,
+            cmd.linear.x,
+            -cmd.linear.y,
+            -cmd.linear.z,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -cmd.angular.z,
+        )
+
+    def current_clamped_cmd_vel(self):
+        now_ns = self.get_clock().now().nanoseconds
+        with self.lock:
+            cmd = self.latest_cmd_vel
+            received_ns = self.latest_cmd_vel_received_ns
+
+        if received_ns is None:
+            return Twist()
+
+        age_sec = (now_ns - received_ns) / 1_000_000_000.0
+        if age_sec > self.cmd_vel_timeout_sec:
+            return Twist()
+
+        clamped = Twist()
+        clamped.linear.x = self.clamp(
+            cmd.linear.x,
+            -self.max_forward_speed,
+            self.max_forward_speed,
+        )
+        clamped.linear.y = self.clamp(
+            cmd.linear.y,
+            -self.max_lateral_speed,
+            self.max_lateral_speed,
+        )
+        clamped.linear.z = self.clamp(
+            cmd.linear.z,
+            -self.max_vertical_speed,
+            self.max_vertical_speed,
+        )
+        clamped.angular.z = self.clamp(cmd.angular.z, -self.max_yaw_rate, self.max_yaw_rate)
+        return clamped
+
+    @staticmethod
+    def clamp(value, min_value, max_value):
+        return min(max(float(value), min_value), max_value)
 
     def maybe_send_offboard_mode_command(self):
         now_ns = self.get_clock().now().nanoseconds
@@ -316,6 +416,12 @@ class MavlinkPixhawkInterface(Node):
             self.latest_visual_odometry = msg
             self.latest_visual_odometry_received_ns = self.get_clock().now().nanoseconds
 
+    def cmd_vel_callback(self, msg):
+        with self.lock:
+            self.latest_cmd_vel = msg
+            self.latest_cmd_vel_received_ns = self.get_clock().now().nanoseconds
+            self.cmd_vel_received_count += 1
+
     def publish_visual_odometry(self):
         if not self.send_visual_odometry:
             return
@@ -388,6 +494,8 @@ class MavlinkPixhawkInterface(Node):
             visual_received_ns = self.latest_visual_odometry_received_ns
             visual_sent_count = self.visual_odometry_sent_count
             px4_params_sent = self.px4_params_sent
+            cmd_vel_received_ns = self.latest_cmd_vel_received_ns
+            cmd_vel_received_count = self.cmd_vel_received_count
 
         now_ns = self.get_clock().now().nanoseconds
         parts = []
@@ -399,6 +507,14 @@ class MavlinkPixhawkInterface(Node):
             visual_age_ms = (now_ns - visual_received_ns) / 1_000_000.0
             parts.append(f'visual_odom_age_ms={visual_age_ms:.0f}')
             parts.append(f'visual_odom_sent={visual_sent_count}')
+
+        if self.offboard_setpoint_mode == 'velocity':
+            if cmd_vel_received_ns is not None:
+                cmd_age_ms = (now_ns - cmd_vel_received_ns) / 1_000_000.0
+                parts.append(f'cmd_vel_age_ms={cmd_age_ms:.0f}')
+                parts.append(f'cmd_vel_received={cmd_vel_received_count}')
+            else:
+                parts.append('cmd_vel_received=0')
 
         if self.configure_px4_params:
             parts.append(f'px4_params_sent={px4_params_sent}')
@@ -507,6 +623,8 @@ class MavlinkPixhawkInterface(Node):
             visual_received_ns = self.latest_visual_odometry_received_ns
             visual_sent_count = self.visual_odometry_sent_count
             px4_params_sent = self.px4_params_sent
+            cmd_vel_received_ns = self.latest_cmd_vel_received_ns
+            cmd_vel_received_count = self.cmd_vel_received_count
 
         msg.px4_connected = heartbeat is not None
         msg.external_control_enabled = self.external_control_enabled
@@ -528,6 +646,17 @@ class MavlinkPixhawkInterface(Node):
                     f'; offboard_mode_commands={self.offboard_mode_command_count}'
                     f'/{self.offboard_command_retries}'
                 )
+            if self.offboard_setpoint_mode == 'velocity':
+                if cmd_vel_received_ns is not None:
+                    age_ms = (
+                        self.get_clock().now().nanoseconds - cmd_vel_received_ns
+                    ) / 1_000_000.0
+                    msg.detail += (
+                        f'; cmd_vel_age_ms={age_ms:.0f}; '
+                        f'cmd_vel_received={cmd_vel_received_count}'
+                    )
+                else:
+                    msg.detail += '; cmd_vel_received=0'
             if self.configure_px4_params:
                 msg.detail += f'; px4_params_sent={px4_params_sent}'
         else:

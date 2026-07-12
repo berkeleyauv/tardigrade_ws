@@ -655,3 +655,71 @@ cmd_vel_received=...
 
 Do not command real thrust until `config/thruster_map.yaml` and
 `docs/thruster_mapping.md` have been checked against the vehicle.
+
+## Pre-Qualification Path
+
+The pre-qualification mission node drives this simple sequence:
+
+```text
+arm and enter external control
+descend to the requested depth below the starting odometry z
+drive forward by odometry distance
+turn around by odometry yaw
+drive forward the same distance back
+stop and optionally disarm
+```
+
+It publishes robot-level commands on:
+
+```text
+/tardigrade/cmd_vel
+```
+
+The Pixhawk interface must be started in velocity mode with explicit nonzero
+speed clamps. Start conservatively:
+
+```bash
+ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
+  -p device:=/dev/ttyACM0 \
+  -p baudrate:=921600 \
+  -p configure_px4_params:=true \
+  -p offboard_setpoint_mode:=velocity \
+  -p max_forward_speed:=0.10 \
+  -p max_lateral_speed:=0.00 \
+  -p max_vertical_speed:=0.05 \
+  -p max_yaw_rate:=0.20
+```
+
+`max_vertical_speed` must be nonzero for the mission to descend or hold depth.
+Set it back to `0.00` for no-motion vertical dry checks.
+
+Dry-run the mission first. This checks that `/tardigrade/status` and
+`/tardigrade/state/odometry` are available, but it does not arm or publish
+motion:
+
+```bash
+ros2 run tardigrade_px4 prequal_mission
+```
+
+For the real pre-qualification run, use:
+
+```bash
+ros2 run tardigrade_px4 prequal_mission --ros-args \
+  -p dry_run:=false \
+  -p target_depth_m:=0.5 \
+  -p vertical_speed_mps:=0.05 \
+  -p depth_tolerance_m:=0.05 \
+  -p forward_distance_m:=1.0 \
+  -p forward_speed_mps:=0.10 \
+  -p yaw_rate_radps:=0.20 \
+  -p disarm_when_done:=true
+```
+
+`target_depth_m` is positive downward from the robot's starting odometry `z`.
+The mission records the current `z` after arming, descends to
+`start_z - target_depth_m`, then keeps adding a vertical `/tardigrade/cmd_vel`
+correction during the forward, turn, return, and settle phases.
+
+The mission refuses to move until `/tardigrade/status` reports that PX4 is
+connected, external control is enabled, and the Pixhawk is armed. If any phase
+times out, it publishes a zero `/tardigrade/cmd_vel` command and exits.
