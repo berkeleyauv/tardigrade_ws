@@ -21,13 +21,6 @@ MAV_RESULT_NAMES = {
     6: 'CANCELLED',
 }
 
-MOTOR_TEST_ORDER = {
-    'default': 0,
-    'sequence': 1,
-    'board': 2,
-}
-
-
 class RawTerminal:
     def __enter__(self):
         if not sys.stdin.isatty():
@@ -55,10 +48,9 @@ class MotorToggleTest(Node):
         self.declare_parameter('source_system', 44)
         self.declare_parameter('source_component', 191)
         self.declare_parameter('motor', 3)
-        self.declare_parameter('throttle_percent', 5.0)
+        self.declare_parameter('throttle_percent', 10.0)
         self.declare_parameter('command_timeout_sec', 0.75)
         self.declare_parameter('resend_rate_hz', 4.0)
-        self.declare_parameter('test_order', 'board')
 
         self.device = self.get_parameter('device').value
         self.baudrate = int(self.get_parameter('baudrate').value)
@@ -68,11 +60,6 @@ class MotorToggleTest(Node):
         self.throttle_percent = float(self.get_parameter('throttle_percent').value)
         self.command_timeout_sec = float(self.get_parameter('command_timeout_sec').value)
         self.resend_period_sec = 1.0 / max(float(self.get_parameter('resend_rate_hz').value), 0.1)
-        test_order_name = str(self.get_parameter('test_order').value).lower()
-        self.test_order = MOTOR_TEST_ORDER.get(test_order_name)
-        if self.test_order is None:
-            valid = ', '.join(sorted(MOTOR_TEST_ORDER))
-            raise ValueError(f'Unknown test_order "{test_order_name}". Valid values: {valid}')
 
         if self.motor < 1:
             raise ValueError('motor must be 1 or greater')
@@ -90,6 +77,12 @@ class MotorToggleTest(Node):
         self.running = False
         self.last_ack = None
 
+    @property
+    def actuator_output_function(self):
+        # MAVLink ACTUATOR_OUTPUT_FUNCTION_MOTOR1 starts at 1, so motor 3 maps
+        # directly to output function 3.
+        return float(self.motor)
+
     def wait_for_pixhawk(self):
         self.get_logger().info(f'Opening MAVLink serial: {self.device} @ {self.baudrate}')
         heartbeat = self.mav.wait_heartbeat(timeout=10)
@@ -101,25 +94,25 @@ class MotorToggleTest(Node):
             f'Pixhawk heartbeat from system={self.target_system}, component={self.target_component}'
         )
 
-    def send_motor_test(self, throttle_percent, timeout_sec):
+    def send_actuator_test(self, value, timeout_sec):
         self.mav.mav.command_long_send(
             self.target_system,
             self.target_component,
-            mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST,
+            mavutil.mavlink.MAV_CMD_ACTUATOR_TEST,
             0,
-            float(self.motor),
-            float(getattr(mavutil.mavlink, 'MOTOR_TEST_THROTTLE_PERCENT', 0)),
-            float(throttle_percent),
+            float(value),
             float(timeout_sec),
-            1.0,
-            float(self.test_order),
+            0.0,
+            0.0,
+            self.actuator_output_function,
+            0.0,
             0.0,
         )
 
     def stop_motor(self):
         self.running = False
         for _ in range(3):
-            self.send_motor_test(0.0, 0.0)
+            self.send_actuator_test(float('nan'), 0.0)
             self.drain_command_acks()
             time.sleep(0.05)
         self.get_logger().info(f'Motor {self.motor} OFF')
@@ -130,7 +123,7 @@ class MotorToggleTest(Node):
             return
 
         self.running = True
-        self.send_motor_test(self.throttle_percent, self.command_timeout_sec)
+        self.send_actuator_test(self.throttle_percent / 100.0, self.command_timeout_sec)
         self.get_logger().warn(
             f'Motor {self.motor} ON at {self.throttle_percent:.1f}% '
             f'(space toggles off, q quits)'
@@ -141,13 +134,13 @@ class MotorToggleTest(Node):
             msg = self.mav.recv_match(type='COMMAND_ACK', blocking=False)
             if msg is None:
                 return
-            if msg.command != mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST:
+            if msg.command != mavutil.mavlink.MAV_CMD_ACTUATOR_TEST:
                 continue
             if self.last_ack == (msg.command, msg.result):
                 continue
             self.last_ack = (msg.command, msg.result)
             result = MAV_RESULT_NAMES.get(msg.result, str(msg.result))
-            self.get_logger().info(f'Motor test ACK: {result} ({msg.result})')
+            self.get_logger().info(f'Actuator test ACK: {result} ({msg.result})')
 
     def run(self):
         self.wait_for_pixhawk()
@@ -169,7 +162,7 @@ class MotorToggleTest(Node):
 
                     now = time.monotonic()
                     if self.running and now >= next_send_time:
-                        self.send_motor_test(self.throttle_percent, self.command_timeout_sec)
+                        self.send_actuator_test(self.throttle_percent / 100.0, self.command_timeout_sec)
                         next_send_time = now + self.resend_period_sec
 
                     self.drain_command_acks()
