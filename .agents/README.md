@@ -31,9 +31,12 @@ it for context, but do not treat it as the current task list.
 
 ```text
 README.md
+SETUP.md
+SCRIPTS.md
 docs/jetson_zed_px4_startup.md
 docs/thruster_mapping.md
 ```
 
-Keep the README concise. Put detailed hardware procedures in
+Keep the README concise. Put short setup and command references in `SETUP.md`
+and `SCRIPTS.md`. Put detailed hardware procedures in
 `docs/jetson_zed_px4_startup.md`.
