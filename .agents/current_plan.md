@@ -108,6 +108,9 @@ work is to publish good ROS topics, debug images, metrics, and layouts.
   a later upgrade.
 - Use `ros2 launch tardigrade_bringup mock_foxglove.launch.py` for the current
   local visualization loop.
+- Use `ros2 launch tardigrade_bringup zed_vectornav_foxglove.launch.py` on the
+  Jetson after the ZED wrapper is already running to visualize ZED pose,
+  VectorNav IMU, and `/tardigrade/state/odometry` together.
 - Standardize perception debug topics for gate/slalom detections and overlay
   images.
 - Add fake ROS nodes for status, odometry, and perception.

@@ -70,6 +70,12 @@ To start the mock stack and rosbridge together for Foxglove:
 ros2 launch tardigrade_bringup mock_foxglove.launch.py
 ```
 
+For Jetson ZED + VectorNav visualization, start the ZED wrapper first, then:
+
+```bash
+ros2 launch tardigrade_bringup zed_vectornav_foxglove.launch.py
+```
+
 ## Foxglove
 
 For ROS 2 Foxy, use rosbridge first. The container exposes rosbridge's default

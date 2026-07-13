@@ -16,12 +16,15 @@ freshness, and debug detail.
 
 ```text
 /tardigrade/state/odometry
+/zed/zed_node/pose
 /vectornav/imu
 /tf
 /tf_static
 ```
 
-Show pose, orientation, frame tree, and IMU behavior.
+Show ZED pose, VectorNav IMU behavior, and the fused robot odometry topic.
+`/tardigrade/state/odometry` uses ZED position plus fresh VectorNav orientation
+when available.
 
 ## Commands
 
@@ -70,4 +73,3 @@ Target topics:
 ```
 
 These do not exist yet. Add them when the first mission runner exists.
-

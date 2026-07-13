@@ -31,6 +31,12 @@ For local mock testing, start the mock PX4 stack and rosbridge together:
 ros2 launch tardigrade_bringup mock_foxglove.launch.py
 ```
 
+For Jetson ZED + VectorNav visualization, start the ZED wrapper first, then:
+
+```bash
+ros2 launch tardigrade_bringup zed_vectornav_foxglove.launch.py
+```
+
 Then connect Foxglove using the Rosbridge connection option:
 
 ```text
