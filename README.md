@@ -4,10 +4,16 @@ This repo is a ROS 2 Foxy workspace for the Tardigrade AUV. The normal
 development path is Docker-based so laptops and the Jetson use the same ROS
 toolchain.
 
-The current hardware path is:
+The Pixhawk hardware path is:
 
 ```text
 ZED pose + VectorNav IMU -> /tardigrade/state/odometry -> USB MAVLink -> Pixhawk/PX4
+```
+
+The ESP32 thruster test path is:
+
+```text
+/tardigrade/cmd_vel -> tardigrade_esp/esp_thruster_bridge -> USB serial -> ESP32 PWM -> ESCs
 ```
 
 Most day-to-day work can happen locally without the ZED, VectorNav, or Pixhawk.
@@ -98,7 +104,7 @@ Useful local checks:
 
 ```bash
 colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
-colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_bringup
+colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_esp tardigrade_bringup
 ```
 
 The ZED wrapper source is present locally, but `zed_components`, `zed_wrapper`,
@@ -188,11 +194,46 @@ Detailed commands live in:
 docs/jetson_zed_px4_startup.md
 ```
 
+## ESP32 Thruster Path
+
+The ESP32 path is the fastest way to bench-test ESC PWM without depending on
+Pixhawk arming or Offboard mode.
+
+Flash:
+
+```text
+firmware/esp32_thruster_pwm/esp32_thruster_pwm.ino
+```
+
+Build and run inside the Jetson container:
+
+```bash
+colcon build --symlink-install --packages-select tardigrade_esp
+source install/setup.bash
+ros2 run tardigrade_esp esp_thruster_bridge --ros-args \
+  -p serial_port:=/dev/ttyUSB0 \
+  -p config_file:=/ws/config/esp_thruster_map.json
+```
+
+Then publish `/tardigrade/cmd_vel`, for example:
+
+```bash
+ros2 run tardigrade_px4 keyboard_cmd_vel
+```
+
+The full procedure is documented in:
+
+```text
+docs/esp_thruster_bringup.md
+```
+
 ## Important Notes
 
 - `mavlink_pixhawk_interface` is the current hardware Pixhawk path.
 - `pixhawk_interface` is the older PX4 ROS 2 `/fmu/*` path for mock/uXRCE work.
 - `px4_msgs` is not required for the MAVLink hardware path.
+- `tardigrade_esp` is the ESP32 USB serial PWM path for direct ESC/thruster
+  testing.
 - `behavior_trees/pathing_mission.xml` is a Groot/BehaviorTree.CPP pathing
   design artifact. Its node contracts are described in
   `docs/pathing_behavior_tree.md`.

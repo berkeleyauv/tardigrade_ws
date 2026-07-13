@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "protocol": {
+    "neutral_us": 1500,
+    "min_us": 1100,
+    "max_us": 1900,
+    "max_delta_us": 200
+  },
+  "thrusters": [
+    {
+      "name": "front_left_horizontal",
+      "esp_pin": 18,
+      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": -1.0}
+    },
+    {
+      "name": "front_right_horizontal",
+      "esp_pin": 19,
+      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": 1.0}
+    },
+    {
+      "name": "rear_left_horizontal",
+      "esp_pin": 21,
+      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": -1.0}
+    },
+    {
+      "name": "rear_right_horizontal",
+      "esp_pin": 22,
+      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": 1.0}
+    },
+    {
+      "name": "front_left_vertical",
+      "esp_pin": 23,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
+    },
+    {
+      "name": "front_right_vertical",
+      "esp_pin": 25,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
+    },
+    {
+      "name": "rear_left_vertical",
+      "esp_pin": 26,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
+    },
+    {
+      "name": "rear_right_vertical",
+      "esp_pin": 27,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
+    }
+  ]
+}
