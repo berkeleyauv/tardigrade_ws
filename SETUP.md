@@ -64,6 +64,46 @@ After building and sourcing:
 ros2 launch tardigrade_bringup mock.launch.py
 ```
 
+To start the mock stack and rosbridge together for Foxglove:
+
+```bash
+ros2 launch tardigrade_bringup mock_foxglove.launch.py
+```
+
+## Foxglove
+
+For ROS 2 Foxy, use rosbridge first. The container exposes rosbridge's default
+port, `9090`.
+
+Start rosbridge inside the container:
+
+```bash
+ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
+```
+
+Connect Foxglove Studio or the Foxglove web app with the Rosbridge connection
+option:
+
+```text
+ws://localhost:9090
+```
+
+On the Jetson, use the Jetson's IP address instead of `localhost`.
+
+For local Docker use, start the container with `./docker-build.sh`. It passes
+Compose's `--service-ports` flag so the container's rosbridge port is reachable
+from the Mac host.
+
+Foxglove's preferred `foxglove_bridge` can be revisited later. ROS 2 Foxy does
+not provide `ros-foxy-foxglove-bridge` in the standard package index, so that
+path requires a source build.
+
+If `foxglove_bridge` is built from source, the launch command is:
+
+```bash
+ros2 launch tardigrade_bringup foxglove_bridge.launch.py
+```
+
 ## Common Checks
 
 ```bash

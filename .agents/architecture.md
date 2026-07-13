@@ -212,7 +212,8 @@ Current important files:
 - `Dockerfile`: builds the ROS Foxy environment.
 - `compose.yaml`: base local-development service. This is safe to run on a
   MacBook or other non-Jetson machine because it only mounts the workspace. It
-  exposes Foxglove port `28765`.
+  exposes rosbridge port `9090` for the Foxglove MVP and Foxglove WebSocket
+  port `8765` for a future `foxglove_bridge` path.
 - `compose.jetson.yaml`: Jetson/ZED/Pixhawk override. This adds host networking,
   privileged device access, `/dev`, USB, ZED SDK, CUDA, and Tegra library
   mounts.
@@ -263,6 +264,23 @@ direct PX4 topics.
 
 Foxglove is the intended pool-test UI path. Avoid building a custom webapp
 unless Foxglove fails a specific, documented requirement.
+
+For ROS 2 Foxy, the first connection path is rosbridge:
+
+```bash
+ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
+```
+
+Connect Foxglove using the Rosbridge connection type at:
+
+```text
+ws://localhost:9090
+```
+
+The preferred `foxglove_bridge` can be revisited later. The apt package
+`ros-foxy-foxglove-bridge` does not exist in the standard ROS package index,
+and source-building current upstream has required extra dependencies such as
+`rosx_introspection` and `resource_retriever`.
 
 The repo should grow toward:
 

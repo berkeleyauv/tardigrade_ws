@@ -102,8 +102,12 @@ work is to publish good ROS topics, debug images, metrics, and layouts.
 ## Next Useful Local Work
 
 - Add a `foxglove/` or `config/foxglove/` directory with a committed layout.
-- Add/run `foxglove_bridge` in the container once the Foxy dependency path is
-  confirmed.
+- Use `rosbridge_suite` first for Foxglove on ROS 2 Foxy. The preferred
+  `foxglove_bridge` package is not available as `ros-foxy-foxglove-bridge`,
+  and the source-build path has missing dependencies that should be treated as
+  a later upgrade.
+- Use `ros2 launch tardigrade_bringup mock_foxglove.launch.py` for the current
+  local visualization loop.
 - Standardize perception debug topics for gate/slalom detections and overlay
   images.
 - Add fake ROS nodes for status, odometry, and perception.
