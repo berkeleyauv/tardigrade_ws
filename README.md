@@ -243,6 +243,8 @@ The full procedure is documented in:
 
 ```text
 docs/esp_thruster_bringup.md
+```
+
 ## Local Simulation Backend
 
 Before Unity exists, run the ROS-only fake backend:
@@ -273,9 +275,6 @@ docs/unity_simulation_plan.md
   testing.
 - Unity simulation should use the same robot-level ROS contract as hardware.
   See `docs/unity_simulation_plan.md`.
-- `behavior_trees/pathing_mission.xml` is a Groot/BehaviorTree.CPP pathing
-  design artifact. Its node contracts are described in
-  `docs/pathing_behavior_tree.md`.
 - `.legacy_inspect` was stale git metadata and should not be restored.
 - Do not command real thrust until `config/thruster_map.yaml` and
   `docs/thruster_mapping.md` have been verified against the physical vehicle.
