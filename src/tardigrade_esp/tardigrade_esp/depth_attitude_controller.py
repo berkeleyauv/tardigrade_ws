@@ -4,6 +4,7 @@ import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from std_msgs.msg import Float64
 
 
 def clamp(value, limit):
@@ -27,6 +28,7 @@ class DepthAttitudeController(Node):
         self.declare_parameter('input_cmd_topic', '/tardigrade/cmd_vel/manual')
         self.declare_parameter('output_cmd_topic', '/tardigrade/cmd_vel')
         self.declare_parameter('odometry_topic', '/tardigrade/state/odometry')
+        self.declare_parameter('depth_target_topic', '/tardigrade/depth_target')
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('cmd_timeout_sec', 0.5)
         self.declare_parameter('odometry_timeout_sec', 0.3)
@@ -51,6 +53,7 @@ class DepthAttitudeController(Node):
         self.input_cmd_topic = self.get_parameter('input_cmd_topic').value
         self.output_cmd_topic = self.get_parameter('output_cmd_topic').value
         self.odometry_topic = self.get_parameter('odometry_topic').value
+        self.depth_target_topic = self.get_parameter('depth_target_topic').value
         control_rate_hz = float(self.get_parameter('control_rate_hz').value)
         self.cmd_timeout_sec = float(self.get_parameter('cmd_timeout_sec').value)
         self.odometry_timeout_sec = float(
@@ -91,6 +94,7 @@ class DepthAttitudeController(Node):
         self.latest_odom = None
         self.latest_odom_ns = None
         self.target_z = None
+        self.external_target_z = None
         self.depth_integral = 0.0
         self.attitude_target_captured = False
         self.last_control_ns = None
@@ -106,6 +110,12 @@ class DepthAttitudeController(Node):
             Odometry,
             self.odometry_topic,
             self.odom_callback,
+            10,
+        )
+        self.depth_target_sub = self.create_subscription(
+            Float64,
+            self.depth_target_topic,
+            self.depth_target_callback,
             10,
         )
         self.cmd_pub = self.create_publisher(Twist, self.output_cmd_topic, 10)
@@ -131,6 +141,10 @@ class DepthAttitudeController(Node):
     def odometry_callback(self, msg):
         self.latest_odom = msg
         self.latest_odom_ns = self.get_clock().now().nanoseconds
+
+    def depth_target_callback(self, msg):
+        self.external_target_z = float(msg.data)
+        self.target_z = self.external_target_z
 
     def is_fresh(self, received_ns, timeout_sec, now_ns):
         if received_ns is None:
@@ -158,7 +172,9 @@ class DepthAttitudeController(Node):
             self.cmd_pub.publish(Twist())
             return
 
-        if self.target_z is None:
+        if self.external_target_z is not None:
+            self.target_z = self.external_target_z
+        elif self.target_z is None:
             self.target_z = self.latest_odom.pose.pose.position.z
             self.get_logger().info(f'Depth target captured: z={self.target_z:.3f} m')
 
@@ -172,8 +188,10 @@ class DepthAttitudeController(Node):
         output.linear.y = self.latest_cmd.linear.y
         output.angular.z = self.latest_cmd.angular.z
 
-        # Manual z is a target-depth rate. Releasing r/f holds the new depth.
-        self.target_z += self.latest_cmd.linear.z * dt
+        # Manual z is a target-depth rate unless an autonomous absolute target
+        # has been supplied. Releasing r/f holds the new depth.
+        if self.external_target_z is None:
+            self.target_z += self.latest_cmd.linear.z * dt
 
         position = self.latest_odom.pose.pose.position
         twist = self.latest_odom.twist.twist

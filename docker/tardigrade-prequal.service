@@ -1,0 +1,16 @@
+[Unit]
+Description=Tardigrade automatic prequalification bringup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=TARDIGRADE_ENV_FILE=/etc/tardigrade/prequal.env
+ExecStart=/bin/bash /home/auv/Developer/tardigrade_ws/docker/run_prequal_autostart.sh
+ExecStop=-/usr/bin/docker stop -t 5 tardigrade-prequal
+Restart=no
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

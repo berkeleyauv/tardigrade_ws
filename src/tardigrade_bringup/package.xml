@@ -14,12 +14,14 @@
   <depend>launch_ros</depend>
   <depend>robot_localization</depend>
   <depend>tardigrade_esp</depend>
+  <depend>tardigrade_mission</depend>
   <depend>rosbridge_server</depend>
   <depend>tardigrade_sim</depend>
   <depend>tardigrade_state_estimation</depend>
   <depend>tardigrade_teleop</depend>
   <depend>tf2_ros</depend>
   <depend>vectornav</depend>
+  <exec_depend>zed_wrapper</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
