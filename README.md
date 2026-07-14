@@ -243,9 +243,6 @@ docs/unity_simulation_plan.md
   colcon.
 - Unity simulation should use the same robot-level ROS contract as hardware.
   See `docs/unity_simulation_plan.md`.
-- `behavior_trees/pathing_mission.xml` is a Groot/BehaviorTree.CPP pathing
-  design artifact. Its node contracts are described in
-  `docs/pathing_behavior_tree.md`.
 - `.legacy_inspect` was stale git metadata and should not be restored.
 - Do not command real thrust until `src/tardigrade_esp/config/esp_thruster_map.json` and
   `docs/thruster_mapping.md` have been verified against the physical vehicle.
