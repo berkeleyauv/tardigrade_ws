@@ -114,6 +114,13 @@ ros2 run tardigrade_esp esp_thruster_bridge
 Current ESP32 serial bridge. This is the main actuator path for converting
 `/tardigrade/cmd_vel` into PWM commands.
 
+Monitoring output:
+
+```text
+/tardigrade/thrusters/pwm
+/tardigrade/esp/status
+```
+
 ```bash
 ros2 run tardigrade_esp esp_thruster_test
 ```
@@ -190,6 +197,15 @@ src/tardigrade_bringup/config/zed_vectornav_ekf.yaml
 It uses ZED visual odometry for position/linear velocity and VectorNav IMU data
 for orientation/angular velocity. IMU linear acceleration is intentionally not
 fused yet.
+
+The EKF launch assumes the VectorNav is mounted FRD on the robot:
+
+```text
+X forward, Y right, Z down
+```
+
+ROS `base_link` remains FLU, so the launch publishes a default
+`base_link -> vectornav` static transform with quaternion `(1, 0, 0, 0)`.
 
 ## Docker Helpers
 

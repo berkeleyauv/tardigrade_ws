@@ -17,6 +17,13 @@ def generate_launch_description():
     odom_frame = LaunchConfiguration('odom_frame')
     base_frame = LaunchConfiguration('base_frame')
     imu_frame = LaunchConfiguration('imu_frame')
+    vectornav_x = LaunchConfiguration('vectornav_x')
+    vectornav_y = LaunchConfiguration('vectornav_y')
+    vectornav_z = LaunchConfiguration('vectornav_z')
+    vectornav_qx = LaunchConfiguration('vectornav_qx')
+    vectornav_qy = LaunchConfiguration('vectornav_qy')
+    vectornav_qz = LaunchConfiguration('vectornav_qz')
+    vectornav_qw = LaunchConfiguration('vectornav_qw')
     publish_tf = LaunchConfiguration('publish_tf')
     publish_vectornav_static_tf = LaunchConfiguration(
         'publish_vectornav_static_tf'
@@ -70,6 +77,41 @@ def generate_launch_description():
             description='Frame ID used by the VectorNav IMU messages',
         ),
         DeclareLaunchArgument(
+            'vectornav_x',
+            default_value='0.0',
+            description='VectorNav x offset from base_link in meters',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_y',
+            default_value='0.0',
+            description='VectorNav y offset from base_link in meters',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_z',
+            default_value='0.0',
+            description='VectorNav z offset from base_link in meters',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_qx',
+            default_value='1.0',
+            description='base_link -> VectorNav quaternion x',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_qy',
+            default_value='0.0',
+            description='base_link -> VectorNav quaternion y',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_qz',
+            default_value='0.0',
+            description='base_link -> VectorNav quaternion z',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_qw',
+            default_value='0.0',
+            description='base_link -> VectorNav quaternion w',
+        ),
+        DeclareLaunchArgument(
             'publish_tf',
             default_value='true',
             description='Publish the EKF odom -> base_link transform',
@@ -77,7 +119,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'publish_vectornav_static_tf',
             default_value='true',
-            description='Publish an identity base_link -> VectorNav static transform',
+            description='Publish the base_link -> VectorNav static transform',
         ),
 
         Node(
@@ -87,8 +129,13 @@ def generate_launch_description():
             output='screen',
             condition=IfCondition(publish_vectornav_static_tf),
             arguments=[
-                '0', '0', '0',
-                '0', '0', '0',
+                vectornav_x,
+                vectornav_y,
+                vectornav_z,
+                vectornav_qx,
+                vectornav_qy,
+                vectornav_qz,
+                vectornav_qw,
                 base_frame,
                 imu_frame,
             ],

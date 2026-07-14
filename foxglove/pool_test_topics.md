@@ -54,10 +54,16 @@ Useful fields:
 
 ```text
 /tardigrade/cmd_vel
+/tardigrade/thrusters/pwm
+/tardigrade/esp/status
 ```
 
 Current robot-level velocity command. Useful for checking teleop/autonomy
 intent before worrying about physical motion.
+
+The ESP topics show what the bridge is sending to the firmware. They are
+monitoring-only and should be plotted next to `/tardigrade/cmd_vel` during
+bench and pool checks.
 
 ## Cameras
 

@@ -108,6 +108,18 @@ ros2 run tardigrade_teleop keyboard_cmd_vel
 Keyboard commands publish `/tardigrade/cmd_vel`; the ESP bridge converts those
 commands into PWM.
 
+Monitoring topics:
+
+```text
+/tardigrade/thrusters/pwm
+/tardigrade/esp/status
+```
+
+These are read-only/debug topics for Foxglove. `/tardigrade/thrusters/pwm`
+contains the last PWM command for slots 1-8. `/tardigrade/esp/status` is a JSON
+string with serial health, stale-command state, command age, PWM limits, and the
+last write error if one occurs.
+
 ## Tune The Mixer
 
 Edit:
@@ -192,6 +204,17 @@ ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
   port:=/dev/serial/by-id/YOUR_VECTORNAV_PORT baud:=115200 \
   use_zed_orientation_if_imu_stale:=false
 ```
+
+Mount the VectorNav in FRD orientation:
+
+```text
+VectorNav +X  robot forward
+VectorNav +Y  robot right
+VectorNav +Z  robot down
+```
+
+ROS command and `base_link` conventions remain FLU. The EKF launch publishes
+the needed `base_link -> vectornav` static transform by default.
 
 Before connecting thruster power, move and tilt the robot by hand while
 checking that `z` increases upward and roll/pitch change smoothly:

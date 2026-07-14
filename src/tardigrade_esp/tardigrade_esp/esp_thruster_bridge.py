@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import rclpy
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
+from std_msgs.msg import Int32MultiArray, String
 
 try:
     import serial
@@ -67,6 +68,8 @@ class EspThrusterBridge(Node):
         )
 
         self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
+        self.declare_parameter('pwm_topic', '/tardigrade/thrusters/pwm')
+        self.declare_parameter('status_topic', '/tardigrade/esp/status')
         self.declare_parameter('serial_port', '/dev/ttyUSB0')
         self.declare_parameter('baudrate', 115200)
         self.declare_parameter('config_file', default_config)
@@ -76,6 +79,8 @@ class EspThrusterBridge(Node):
         self.declare_parameter('log_every_n', 20)
 
         self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
+        self.pwm_topic = self.get_parameter('pwm_topic').value
+        self.status_topic = self.get_parameter('status_topic').value
         self.serial_port = self.get_parameter('serial_port').value
         self.baudrate = int(self.get_parameter('baudrate').value)
         self.config_file = self.get_parameter('config_file').value
@@ -95,6 +100,9 @@ class EspThrusterBridge(Node):
         self.latest_cmd = Twist()
         self.latest_cmd_time_ns = None
         self.send_count = 0
+        self.last_pwm_values = [self.neutral_us] * len(self.thrusters)
+        self.last_write_ok = False
+        self.last_error = ''
         self.lock = threading.Lock()
 
         if serial is None:
@@ -113,6 +121,8 @@ class EspThrusterBridge(Node):
             self.cmd_callback,
             10,
         )
+        self.pwm_pub = self.create_publisher(Int32MultiArray, self.pwm_topic, 10)
+        self.status_pub = self.create_publisher(String, self.status_topic, 10)
 
         period = 1.0 / max(send_rate_hz, 1.0)
         self.timer = self.create_timer(period, self.send_thruster_command)
@@ -122,6 +132,8 @@ class EspThrusterBridge(Node):
             f'Connected ESP serial: {self.serial_port} @ {self.baudrate}'
         )
         self.get_logger().info(f'Subscribing: {self.cmd_vel_topic}')
+        self.get_logger().info(f'Publishing PWM monitor: {self.pwm_topic}')
+        self.get_logger().info(f'Publishing ESP status: {self.status_topic}')
         self.get_logger().info(
             'PWM limits: '
             f'neutral={self.neutral_us}, min={self.min_us}, '
@@ -173,8 +185,9 @@ class EspThrusterBridge(Node):
         else:
             pwm_values = self.mix_cmd_vel(cmd)
 
-        self.write_pwm(pwm_values)
+        write_ok = self.write_pwm(pwm_values)
         self.send_count += 1
+        self.publish_monitoring(pwm_values, stale, write_ok)
 
         if self.log_every_n > 0 and self.send_count % self.log_every_n == 0:
             self.get_logger().info(
@@ -207,7 +220,52 @@ class EspThrusterBridge(Node):
 
     def write_pwm(self, pwm_values):
         message = 'PWM ' + ' '.join(str(value) for value in pwm_values) + '\n'
-        self.serial.write(message.encode('ascii'))
+        try:
+            self.serial.write(message.encode('ascii'))
+        except Exception as exc:
+            self.last_write_ok = False
+            self.last_error = str(exc)
+            self.get_logger().error(f'ESP serial write failed: {exc}')
+            return False
+
+        self.last_pwm_values = list(pwm_values)
+        self.last_write_ok = True
+        self.last_error = ''
+        return True
+
+    def command_age_sec(self):
+        if self.latest_cmd_time_ns is None:
+            return None
+        return (
+            self.get_clock().now().nanoseconds - self.latest_cmd_time_ns
+        ) / 1_000_000_000.0
+
+    def publish_monitoring(self, pwm_values, stale, write_ok):
+        pwm_msg = Int32MultiArray()
+        pwm_msg.data = [int(value) for value in pwm_values]
+        self.pwm_pub.publish(pwm_msg)
+
+        status = {
+            'serial_connected': bool(
+                hasattr(self, 'serial') and self.serial.is_open
+            ),
+            'last_write_ok': bool(write_ok),
+            'stale_command': bool(stale),
+            'last_command_age_sec': self.command_age_sec(),
+            'send_count': self.send_count,
+            'serial_port': self.serial_port,
+            'baudrate': self.baudrate,
+            'neutral_us': self.neutral_us,
+            'min_us': self.min_us,
+            'max_us': self.max_us,
+            'max_delta_us': self.max_delta_us,
+            'pwm': [int(value) for value in pwm_values],
+            'thrusters': [thruster.name for thruster in self.thrusters],
+            'last_error': self.last_error,
+        }
+        status_msg = String()
+        status_msg.data = json.dumps(status, sort_keys=True)
+        self.status_pub.publish(status_msg)
 
 
 def main(args=None):

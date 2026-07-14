@@ -184,6 +184,27 @@ looks stable. The starter config fuses ZED position/linear velocity with
 VectorNav orientation/angular velocity and does not fuse IMU linear
 acceleration yet.
 
+The VectorNav is mounted in FRD orientation by default:
+
+```text
+VectorNav +X  robot forward
+VectorNav +Y  robot right
+VectorNav +Z  robot down
+```
+
+ROS `base_link` remains FLU:
+
+```text
+base_link +X  robot forward
+base_link +Y  robot left
+base_link +Z  robot up
+```
+
+`zed_vectornav_ekf.launch.py` publishes a default `base_link -> vectornav`
+static transform with quaternion `(x=1, y=0, z=0, w=0)`, which is a 180 degree
+rotation about X. Override `vectornav_x`, `vectornav_y`, and `vectornav_z` once
+the sensor's physical offset from the robot origin is measured.
+
 ## Common Checks
 
 ```bash
