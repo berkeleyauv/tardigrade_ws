@@ -21,7 +21,9 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/GateDetection.msg"
   "msg/RobotStatus.msg"
+  "msg/SlalomMarkerDetection.msg"
   "srv/SetArmed.srv"
   "srv/SetExternalControl.srv"
   DEPENDENCIES builtin_interfaces

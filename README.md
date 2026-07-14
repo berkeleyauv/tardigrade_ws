@@ -188,11 +188,34 @@ Detailed commands live in:
 docs/jetson_zed_px4_startup.md
 ```
 
+## Local Simulation Backend
+
+Before Unity exists, run the ROS-only fake backend:
+
+```bash
+ros2 run tardigrade_sim fake_unity_backend
+```
+
+Then run shared mission logic against it:
+
+```bash
+ros2 run tardigrade_mission gate_mission
+```
+
+This is the contract Unity should later satisfy. Details live in:
+
+```text
+docs/local_sim_backend.md
+docs/unity_simulation_plan.md
+```
+
 ## Important Notes
 
 - `mavlink_pixhawk_interface` is the current hardware Pixhawk path.
 - `pixhawk_interface` is the older PX4 ROS 2 `/fmu/*` path for mock/uXRCE work.
 - `px4_msgs` is not required for the MAVLink hardware path.
+- Unity simulation should use the same robot-level ROS contract as hardware.
+  See `docs/unity_simulation_plan.md`.
 - `behavior_trees/pathing_mission.xml` is a Groot/BehaviorTree.CPP pathing
   design artifact. Its node contracts are described in
   `docs/pathing_behavior_tree.md`.

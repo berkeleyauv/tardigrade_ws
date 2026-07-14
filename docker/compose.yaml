@@ -11,6 +11,8 @@ services:
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+    ports:
+      - "${ROS_TCP_PORT:-10000}:10000"
     volumes:
       - ${WORKSPACE:-..}:/ws
     command: bash
