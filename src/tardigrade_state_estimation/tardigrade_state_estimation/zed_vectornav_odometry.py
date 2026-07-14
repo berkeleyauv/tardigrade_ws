@@ -105,6 +105,8 @@ class ZedVectornavOdometry(Node):
         self.declare_parameter('position_variance', 0.05)
         self.declare_parameter('orientation_variance', 0.02)
         self.declare_parameter('angular_velocity_variance', 0.02)
+        self.declare_parameter('linear_velocity_variance', 0.10)
+        self.declare_parameter('velocity_filter_alpha', 0.25)
         self.declare_parameter('imu_timeout_sec', 0.25)
         self.declare_parameter('use_zed_orientation_if_imu_stale', True)
         self.declare_parameter('use_zed_frame_id', False)
@@ -118,6 +120,13 @@ class ZedVectornavOdometry(Node):
         self.position_variance = float(self.get_parameter('position_variance').value)
         self.orientation_variance = float(self.get_parameter('orientation_variance').value)
         angular_velocity_variance = float(self.get_parameter('angular_velocity_variance').value)
+        linear_velocity_variance = float(
+            self.get_parameter('linear_velocity_variance').value
+        )
+        self.velocity_filter_alpha = max(0.0, min(
+            1.0,
+            float(self.get_parameter('velocity_filter_alpha').value),
+        ))
         self.imu_timeout_sec = float(self.get_parameter('imu_timeout_sec').value)
         self.use_zed_orientation_if_imu_stale = bool(
             self.get_parameter('use_zed_orientation_if_imu_stale').value
@@ -128,15 +137,18 @@ class ZedVectornavOdometry(Node):
         self.latest_imu = None
         self.latest_imu_received_ns = None
         self.initial_position = None
+        self.previous_position = None
+        self.previous_pose_received_ns = None
+        self.filtered_velocity = [0.0, 0.0, 0.0]
 
-        # ZED provides position. VectorNav provides orientation/rates. We mark
-        # linear velocity as unknown because this node is not estimating it.
+        # ZED provides position and filtered finite-difference velocity.
+        # VectorNav provides orientation and angular rates.
         self.pose_covariance = covariance_6d(
             self.position_variance,
             self.orientation_variance,
         )
         self.twist_covariance = covariance_6d(
-            999.0,
+            linear_velocity_variance,
             angular_velocity_variance,
         )
 
@@ -182,6 +194,7 @@ class ZedVectornavOdometry(Node):
         return age_sec <= self.imu_timeout_sec
 
     def pose_callback(self, msg):
+        now_ns = self.get_clock().now().nanoseconds
         odom = Odometry()
         odom.header.stamp = msg.header.stamp
         odom.header.frame_id = msg.header.frame_id if self.use_zed_frame_id else self.odom_frame
@@ -199,6 +212,27 @@ class ZedVectornavOdometry(Node):
             odom.pose.pose.position.z = msg.pose.position.z - self.initial_position[2]
         else:
             odom.pose.pose.position = msg.pose.position
+
+        position = odom.pose.pose.position
+        if self.previous_position is not None and self.previous_pose_received_ns is not None:
+            dt = (now_ns - self.previous_pose_received_ns) / 1_000_000_000.0
+            if 0.001 <= dt <= 0.5:
+                raw_velocity = [
+                    (position.x - self.previous_position[0]) / dt,
+                    (position.y - self.previous_position[1]) / dt,
+                    (position.z - self.previous_position[2]) / dt,
+                ]
+                alpha = self.velocity_filter_alpha
+                self.filtered_velocity = [
+                    alpha * raw + (1.0 - alpha) * old
+                    for raw, old in zip(raw_velocity, self.filtered_velocity)
+                ]
+
+        odom.twist.twist.linear.x = self.filtered_velocity[0]
+        odom.twist.twist.linear.y = self.filtered_velocity[1]
+        odom.twist.twist.linear.z = self.filtered_velocity[2]
+        self.previous_position = (position.x, position.y, position.z)
+        self.previous_pose_received_ns = now_ns
         odom.twist.covariance = self.twist_covariance
 
         # Preferred path: ZED position + VectorNav orientation/angular velocity.

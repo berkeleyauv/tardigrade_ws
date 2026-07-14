@@ -8,7 +8,15 @@ const int MAX_US = 1900;
 const unsigned long COMMAND_TIMEOUT_MS = 500;
 
 const int THRUSTER_PINS[THRUSTER_COUNT] = {
-  18, 19, 21, 22, 23, 25, 26, 27
+  // esc1: thruster 8, front left vectored
+  // esc2: thruster 7, front left vertical
+  // esc3: thruster 6, front right vectored
+  // esc4: thruster 5, front right vertical
+  // esc5: thruster 1, back left vectored
+  // esc6: thruster 2, back left vertical
+  // esc7: thruster 3, back right vertical
+  // esc8: thruster 4, back right vectored
+  21, 19, 27, 18, 5, 14, 12, 26
 };
 
 Servo thrusters[THRUSTER_COUNT];

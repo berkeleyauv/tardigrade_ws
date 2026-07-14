@@ -17,7 +17,12 @@ def generate_launch_description():
     position_variance = LaunchConfiguration('position_variance')
     orientation_variance = LaunchConfiguration('orientation_variance')
     angular_velocity_variance = LaunchConfiguration('angular_velocity_variance')
+    linear_velocity_variance = LaunchConfiguration('linear_velocity_variance')
+    velocity_filter_alpha = LaunchConfiguration('velocity_filter_alpha')
     imu_timeout_sec = LaunchConfiguration('imu_timeout_sec')
+    use_zed_orientation_if_imu_stale = LaunchConfiguration(
+        'use_zed_orientation_if_imu_stale'
+    )
     zero_initial_position = LaunchConfiguration('zero_initial_position')
 
     return LaunchDescription([
@@ -72,9 +77,24 @@ def generate_launch_description():
             description='Diagonal covariance value for VectorNav angular velocity',
         ),
         DeclareLaunchArgument(
+            'linear_velocity_variance',
+            default_value='0.10',
+            description='Diagonal covariance value for filtered ZED velocity',
+        ),
+        DeclareLaunchArgument(
+            'velocity_filter_alpha',
+            default_value='0.25',
+            description='Low-pass alpha for velocity derived from ZED position',
+        ),
+        DeclareLaunchArgument(
             'imu_timeout_sec',
             default_value='0.25',
             description='Maximum VectorNav IMU age before falling back to ZED orientation',
+        ),
+        DeclareLaunchArgument(
+            'use_zed_orientation_if_imu_stale',
+            default_value='true',
+            description='Continue with ZED attitude when VectorNav data is stale',
         ),
         DeclareLaunchArgument(
             'zero_initial_position',
@@ -117,7 +137,12 @@ def generate_launch_description():
                 'position_variance': position_variance,
                 'orientation_variance': orientation_variance,
                 'angular_velocity_variance': angular_velocity_variance,
+                'linear_velocity_variance': linear_velocity_variance,
+                'velocity_filter_alpha': velocity_filter_alpha,
                 'imu_timeout_sec': imu_timeout_sec,
+                'use_zed_orientation_if_imu_stale': (
+                    use_zed_orientation_if_imu_stale
+                ),
                 'zero_initial_position': zero_initial_position,
             }],
         ),

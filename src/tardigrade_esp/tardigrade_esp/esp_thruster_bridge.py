@@ -20,6 +20,8 @@ class Thruster:
     surge: float
     sway: float
     heave: float
+    roll: float
+    pitch: float
     yaw: float
 
 
@@ -42,6 +44,8 @@ def load_thruster_config(path):
                 surge=float(mix.get('surge', 0.0)),
                 sway=float(mix.get('sway', 0.0)),
                 heave=float(mix.get('heave', 0.0)),
+                roll=float(mix.get('roll', 0.0)),
+                pitch=float(mix.get('pitch', 0.0)),
                 yaw=float(mix.get('yaw', 0.0)),
             )
         )
@@ -186,6 +190,8 @@ class EspThrusterBridge(Node):
                 thruster.surge * cmd.linear.x
                 + thruster.sway * cmd.linear.y
                 + thruster.heave * cmd.linear.z
+                + thruster.roll * cmd.angular.x
+                + thruster.pitch * cmd.angular.y
                 + thruster.yaw * cmd.angular.z
             )
             normalized = clamp(normalized, -1.0, 1.0)

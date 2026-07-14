@@ -320,7 +320,7 @@ ros2 topic hz /tardigrade/state/odometry
 position          ZED
 orientation       VectorNav when fresh, otherwise ZED fallback
 angular velocity  VectorNav
-linear velocity   not estimated
+linear velocity   filtered derivative of ZED position
 ```
 
 If the VectorNav is unavailable and you only need ZED pose:

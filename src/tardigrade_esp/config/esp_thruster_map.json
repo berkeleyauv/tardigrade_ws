@@ -4,48 +4,56 @@
     "neutral_us": 1500,
     "min_us": 1100,
     "max_us": 1900,
-    "max_delta_us": 200
+    "max_delta_us": 50
   },
   "thrusters": [
     {
-      "name": "front_left_horizontal",
-      "esp_pin": 18,
-      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": -1.0}
-    },
-    {
-      "name": "front_right_horizontal",
-      "esp_pin": 19,
-      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": 1.0}
-    },
-    {
-      "name": "rear_left_horizontal",
+      "slot": 1,
+      "name": "thruster_8_front_left_vectored",
       "esp_pin": 21,
-      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": -1.0}
+      "mix": {"surge": 1.0, "sway": -1.0, "heave": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": -1.0}
     },
     {
-      "name": "rear_right_horizontal",
-      "esp_pin": 22,
-      "mix": {"surge": 1.0, "sway": 0.0, "heave": 0.0, "yaw": 1.0}
+      "slot": 2,
+      "name": "thruster_7_front_left_vertical",
+      "esp_pin": 19,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "roll": 1.0, "pitch": -1.0, "yaw": 0.0}
     },
     {
-      "name": "front_left_vertical",
-      "esp_pin": 23,
-      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
-    },
-    {
-      "name": "front_right_vertical",
-      "esp_pin": 25,
-      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
-    },
-    {
-      "name": "rear_left_vertical",
-      "esp_pin": 26,
-      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
-    },
-    {
-      "name": "rear_right_vertical",
+      "slot": 3,
+      "name": "thruster_6_front_right_vectored",
       "esp_pin": 27,
-      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "yaw": 0.0}
+      "mix": {"surge": 1.0, "sway": 1.0, "heave": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": 1.0}
+    },
+    {
+      "slot": 4,
+      "name": "thruster_5_front_right_vertical",
+      "esp_pin": 18,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "roll": -1.0, "pitch": -1.0, "yaw": 0.0}
+    },
+    {
+      "slot": 5,
+      "name": "thruster_1_back_left_vectored",
+      "esp_pin": 5,
+      "mix": {"surge": 1.0, "sway": 1.0, "heave": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": -1.0}
+    },
+    {
+      "slot": 6,
+      "name": "thruster_2_back_left_vertical",
+      "esp_pin": 14,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "roll": 1.0, "pitch": 1.0, "yaw": 0.0}
+    },
+    {
+      "slot": 7,
+      "name": "thruster_3_back_right_vertical",
+      "esp_pin": 12,
+      "mix": {"surge": 0.0, "sway": 0.0, "heave": 1.0, "roll": -1.0, "pitch": 1.0, "yaw": 0.0}
+    },
+    {
+      "slot": 8,
+      "name": "thruster_4_back_right_vectored",
+      "esp_pin": 26,
+      "mix": {"surge": 1.0, "sway": -1.0, "heave": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": 1.0}
     }
   ]
 }

@@ -27,6 +27,7 @@ setup(
         'console_scripts': [
             'esp_thruster_bridge = tardigrade_esp.esp_thruster_bridge:main',
             'esp_thruster_test = tardigrade_esp.esp_thruster_test:main',
+            'depth_attitude_controller = tardigrade_esp.depth_attitude_controller:main',
         ],
     },
 )

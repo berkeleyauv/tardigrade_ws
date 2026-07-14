@@ -10,6 +10,7 @@
   <!-- Launch files here start nodes from these runtime packages. -->
   <depend>launch</depend>
   <depend>launch_ros</depend>
+  <depend>tardigrade_esp</depend>
   <depend>tardigrade_px4</depend>
   <depend>tardigrade_state_estimation</depend>
   <depend>vectornav</depend>
