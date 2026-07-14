@@ -1,7 +1,6 @@
 # Foxglove
 
-Foxglove is the intended pool-test and bench-test UI for Tardigrade. Do not
-start a custom dashboard unless Foxglove fails a specific requirement.
+Foxglove is the intended pool-test and bench-test UI for Tardigrade.
 
 The first goal is a useful cockpit:
 
@@ -54,20 +53,68 @@ ws://JETSON_IP:9090
 
 ## Launching Data Sources
 
-Keep robot data sources and visualization separate. For example:
+Keep robot data sources and visualization separate. Start and stop rosbridge
+without restarting sensors or state estimation.
+
+For local mock topics:
+
+```bash
+ros2 launch tardigrade_bringup mock.launch.py
+```
+
+For Jetson ZED + VectorNav odometry, start the ZED wrapper first:
+
+```bash
+ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+```
+
+Then start VectorNav plus the combined odometry node:
 
 ```bash
 ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
 ```
 
-starts VectorNav plus ZED/VectorNav odometry after the ZED wrapper is already
-running.
+That publishes:
+
+```text
+/tardigrade/state/odometry
+```
+
+The current combined estimate is simple:
+
+```text
+position          ZED
+orientation       VectorNav when fresh, otherwise ZED fallback
+angular velocity  VectorNav
+linear velocity   not estimated
+```
 
 ```bash
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```
 
 starts the visualization bridge.
+
+## 3D Frames And Odometry
+
+Foxglove's 3D frame dropdown comes from `/tf` and `/tf_static`, not directly
+from every topic. `/tardigrade/state/odometry` is a `nav_msgs/Odometry` topic,
+but it does not currently publish an `odom -> base_link` TF transform.
+
+That means:
+
+- raw values can be viewed in Raw Messages or Plot panels,
+- the odometry topic can be added as an object/topic in 3D if supported,
+- `base_link` may not appear as a selectable TF frame yet,
+- moving the VectorNav changes IMU orientation and fused odometry orientation,
+  but it will not move `map` or `odom`.
+
+Next code improvement for better 3D visualization:
+
+```text
+publish /tf: odom -> base_link
+publish /tf_static: base_link -> zed_camera_link and base_link -> vectornav_link
+```
 
 ## Foxglove Bridge Later
 
@@ -141,6 +188,8 @@ Suggested files:
 ```text
 foxglove/layouts/pool_test.json
 foxglove/layouts/bench_debug.json
+foxglove/layouts/zed.json
+foxglove/layouts/state_estimation.json
 ```
 
 Do not spend time on custom Foxglove extensions yet. Start with standard panels:

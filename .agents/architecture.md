@@ -285,7 +285,7 @@ and source-building current upstream has required extra dependencies such as
 The repo should grow toward:
 
 - committed Foxglove layout files,
-- a standard Foxglove bridge launch path,
+- a standard rosbridge launch path for Foxy,
 - camera and debug-image topics,
 - gate/slalom detection topics,
 - `/tf`, odometry, IMU, command, and status panels,

@@ -26,6 +26,21 @@ Show ZED pose, VectorNav IMU behavior, and the fused robot odometry topic.
 `/tardigrade/state/odometry` uses ZED position plus fresh VectorNav orientation
 when available.
 
+Current caveat: this odometry topic does not yet publish an `odom -> base_link`
+TF transform. Use Raw Messages and Plot panels first; add it to the 3D panel as
+an odometry topic if available. A future TF publisher should make `base_link`
+visible in the frame tree.
+
+Useful fields:
+
+```text
+/vectornav/imu.orientation
+/vectornav/imu.angular_velocity
+/tardigrade/state/odometry.pose.pose.position
+/tardigrade/state/odometry.pose.pose.orientation
+/tardigrade/state/odometry.twist.twist.angular
+```
+
 ## Commands
 
 ```text

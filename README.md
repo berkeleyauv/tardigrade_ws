@@ -100,6 +100,18 @@ Run the mock bringup first when working without hardware:
 ros2 launch tardigrade_bringup mock.launch.py
 ```
 
+For local Foxglove visualization, start rosbridge in another container shell:
+
+```bash
+ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
+```
+
+Then connect Foxglove with the Rosbridge connection type:
+
+```text
+ws://localhost:9090
+```
+
 Useful local checks:
 
 ```bash
@@ -125,12 +137,13 @@ The short version of the Jetson/Pixhawk arming flow is:
 2. Build and source the workspace inside `/ws`.
 3. Start the ZED wrapper.
 4. Start `zed_vectornav_state.launch.py` to publish `/tardigrade/state/odometry`.
-5. Start `mavlink_pixhawk_interface` on `/dev/ttyACM0`.
-6. Confirm `/tardigrade/status` shows PX4 connected, fresh visual odometry, and
+5. Start `foxglove_rosbridge.launch.py` if using Foxglove from a laptop.
+6. Start `mavlink_pixhawk_interface` on `/dev/ttyACM0`.
+7. Confirm `/tardigrade/status` shows PX4 connected, fresh visual odometry, and
    PX4 local position.
-7. Enable external control/Offboard.
-8. Arm.
-9. Disarm before touching hardware.
+8. Enable external control/Offboard.
+9. Arm.
+10. Disarm before touching hardware.
 
 The detailed procedure, terminal layout, expected logs, and troubleshooting
 checks live here:

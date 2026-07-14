@@ -69,7 +69,9 @@ ros2 launch tardigrade_bringup mock.launch.py
 For ROS 2 Foxy, use rosbridge first. The container exposes rosbridge's default
 port, `9090`.
 
-Start rosbridge inside the container:
+Start rosbridge inside the container. Keep this separate from sensor/state
+launch files so visualization can be restarted without touching the robot data
+sources:
 
 ```bash
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
@@ -104,6 +106,37 @@ If `foxglove_bridge` is built from source, the launch command is:
 
 ```bash
 ros2 launch tardigrade_bringup foxglove_bridge.launch.py
+```
+
+## Jetson ZED + VectorNav
+
+Start the ZED wrapper first:
+
+```bash
+ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+```
+
+Start VectorNav plus the ZED/VectorNav odometry node separately:
+
+```bash
+ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
+  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0 \
+  baud:=115200
+```
+
+The output topic is:
+
+```text
+/tardigrade/state/odometry
+```
+
+This is currently a simple combined estimate:
+
+```text
+position          ZED
+orientation       VectorNav when fresh, otherwise ZED fallback
+angular velocity  VectorNav
+linear velocity   not estimated
 ```
 
 ## Common Checks
