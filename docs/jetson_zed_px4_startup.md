@@ -142,7 +142,7 @@ If Compose is not working, use the fallback script from the Jetson host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_zed.sh
+sudo env WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_hardware.sh
 ```
 
 ## Build The Workspace
@@ -253,7 +253,8 @@ Service that sends the MAVLink arm/disarm command.
 
 ## Terminal Layout
 
-Use at least four terminals.
+Use separate terminals for sensors, state estimation, visualization, and PX4.
+Keeping launch files single-purpose makes hardware debugging much easier.
 
 ### Terminal 1: ZED
 
@@ -329,7 +330,48 @@ If the VectorNav is unavailable and you only need ZED pose:
 ros2 launch tardigrade_bringup zed_state.launch.py
 ```
 
-### Terminal 3: Pixhawk MAVLink Interface
+### Terminal 3: Foxglove Rosbridge
+
+Inside the container:
+
+```bash
+cd /ws
+source install/setup.bash
+ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
+```
+
+On the Jetson hardware container, Docker uses host networking. `docker ps` will
+not show a `9090->9090/tcp` mapping. From your laptop, connect Foxglove with
+the Rosbridge connection type:
+
+```text
+ws://JETSON_IP:9090
+```
+
+For the current bench network, the Jetson IP has been seen as:
+
+```text
+192.168.3.2
+```
+
+Use `hostname -I` on the Jetson host to confirm the current address.
+
+Useful Foxglove topics:
+
+```text
+/zed/zed_node/pose
+/vectornav/imu
+/tardigrade/state/odometry
+/tardigrade/status
+/tardigrade/cmd_vel
+```
+
+Note: `/tardigrade/state/odometry` does not currently publish an `odom ->
+base_link` TF transform. View it with Raw Messages, Plot, or an Odometry/3D
+topic display if available. A future TF publisher should make `base_link`
+appear directly in the TF frame tree.
+
+### Terminal 4: Pixhawk MAVLink Interface
 
 Inside the container:
 
@@ -365,7 +407,7 @@ local_position=none
 visual_odom_age_ms is stale or missing
 ```
 
-### Terminal 4: Status, Offboard, Arm
+### Terminal 5: Status, Offboard, Arm
 
 Inside the container:
 
@@ -547,7 +589,7 @@ docker compose: command not found
 ```
 
 Install the Docker Compose plugin for the Jetson's Docker install, or use
-`docker/run_jetson_zed.sh` as the fallback.
+`docker/run_jetson_hardware.sh` as the fallback.
 
 ```text
 open /home/auv/docker/compose.yaml: no such file or directory

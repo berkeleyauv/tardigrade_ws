@@ -1,0 +1,114 @@
+{
+  "configById": {
+    "3D!18i6zy7": {
+      "layers": {
+        "845139cb-26bc-40b3-8161-8ab60af4baf5": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "845139cb-26bc-40b3-8161-8ab60af4baf5",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "cameraState": {
+        "perspective": true,
+        "distance": 19.999999999999996,
+        "phi": 60.00000000000001,
+        "thetaOffset": 60.00000000000001,
+        "targetOffset": [
+          -0.00470969468605668,
+          -0.017576819856500663,
+          -7.142689312480403e-19
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {}
+    },
+    "Indicator!gfvki": {
+      "path": "/tardigrade/status.armed",
+      "style": "bulb",
+      "fontSize": 36,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "false",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "True"
+        }
+      ]
+    },
+    "RawMessages!2f99x31": {
+      "defaultExpanded": false,
+      "topicPath": "/fmu/out/vehicle_status"
+    },
+    "RawMessages!os6rgs": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/status"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": "3D!18i6zy7",
+    "second": {
+      "first": "Indicator!gfvki",
+      "second": {
+        "first": "RawMessages!2f99x31",
+        "second": "RawMessages!os6rgs",
+        "direction": "column",
+        "splitPercentage": 44.05228758169934
+      },
+      "direction": "column",
+      "splitPercentage": 12.270642201834862
+    },
+    "direction": "row",
+    "splitPercentage": 78.17764165390506
+  }
+}

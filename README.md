@@ -20,6 +20,12 @@ Most day-to-day work can happen locally without the ZED, VectorNav, or Pixhawk.
 The Jetson/Pixhawk arming procedure is documented as a runbook because it has
 hardware-specific requirements and failure modes.
 
+## Repo Guides
+
+- `SETUP.md`: short setup instructions for local Docker and Jetson use.
+- `SCRIPTS.md`: helper scripts, launch files, and ROS console scripts.
+- `docs/`: lightweight runbooks and notes that should version with the code.
+
 ## Clone
 
 Clone recursively so the vendor submodules are present:
@@ -49,16 +55,16 @@ contains the matching nested interfaces package.
 
 ## Docker Setup
 
-Build the development image:
+Build and start the development container:
 
 ```bash
-docker compose -f docker/compose.yaml build
+./docker-build.sh --build
 ```
 
-Start a local development container:
+Start the development container after the image already exists:
 
 ```bash
-docker compose -f docker/compose.yaml run --rm tardigrade
+./docker-build.sh
 ```
 
 Inside the container:
@@ -67,7 +73,7 @@ Inside the container:
 cd /ws
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install
+./build.sh
 source install/setup.bash
 ```
 
@@ -78,8 +84,8 @@ For Jetson hardware work, use the Jetson override from the Jetson host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
-  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
+sudo env WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  ./docker-build.sh --jetson
 ```
 
 `WORKSPACE` is the host path mounted into the container at `/ws`. The Jetson
@@ -89,7 +95,7 @@ and Tegra library mounts. Do not use the Jetson override on a MacBook.
 If Compose is unavailable on the Jetson, the fallback script remains:
 
 ```bash
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_zed.sh
+sudo env WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_hardware.sh
 ```
 
 ## Local Development
@@ -100,11 +106,23 @@ Run the mock bringup first when working without hardware:
 ros2 launch tardigrade_bringup mock.launch.py
 ```
 
+For local Foxglove visualization, start rosbridge in another container shell:
+
+```bash
+ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
+```
+
+Then connect Foxglove with the Rosbridge connection type:
+
+```text
+ws://localhost:9090
+```
+
 Useful local checks:
 
 ```bash
-colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
-colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_esp tardigrade_bringup
+./build.sh
+colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_bringup
 ```
 
 The ZED wrapper source is present locally, but `zed_components`, `zed_wrapper`,
@@ -114,8 +132,7 @@ another machine with the ZED SDK installed/mounted.
 If build output gets stale:
 
 ```bash
-rm -rf build install log
-colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
+./build.sh --clean
 ```
 
 ## Pixhawk Arming Process
@@ -126,12 +143,13 @@ The short version of the Jetson/Pixhawk arming flow is:
 2. Build and source the workspace inside `/ws`.
 3. Start the ZED wrapper.
 4. Start `zed_vectornav_state.launch.py` to publish `/tardigrade/state/odometry`.
-5. Start `mavlink_pixhawk_interface` on `/dev/ttyACM0`.
-6. Confirm `/tardigrade/status` shows PX4 connected, fresh visual odometry, and
+5. Start `foxglove_rosbridge.launch.py` if using Foxglove from a laptop.
+6. Start `mavlink_pixhawk_interface` on `/dev/ttyACM0`.
+7. Confirm `/tardigrade/status` shows PX4 connected, fresh visual odometry, and
    PX4 local position.
-7. Enable external control/Offboard.
-8. Arm.
-9. Disarm before touching hardware.
+8. Enable external control/Offboard.
+9. Arm.
+10. Disarm before touching hardware.
 
 The detailed procedure, terminal layout, expected logs, and troubleshooting
 checks live here:
@@ -225,6 +243,25 @@ The full procedure is documented in:
 
 ```text
 docs/esp_thruster_bringup.md
+## Local Simulation Backend
+
+Before Unity exists, run the ROS-only fake backend:
+
+```bash
+ros2 run tardigrade_sim fake_unity_backend
+```
+
+Then run shared mission logic against it:
+
+```bash
+ros2 run tardigrade_mission gate_mission
+```
+
+This is the contract Unity should later satisfy. Details live in:
+
+```text
+docs/local_sim_backend.md
+docs/unity_simulation_plan.md
 ```
 
 ## Important Notes
@@ -234,6 +271,8 @@ docs/esp_thruster_bringup.md
 - `px4_msgs` is not required for the MAVLink hardware path.
 - `tardigrade_esp` is the ESP32 USB serial PWM path for direct ESC/thruster
   testing.
+- Unity simulation should use the same robot-level ROS contract as hardware.
+  See `docs/unity_simulation_plan.md`.
 - `behavior_trees/pathing_mission.xml` is a Groot/BehaviorTree.CPP pathing
   design artifact. Its node contracts are described in
   `docs/pathing_behavior_tree.md`.

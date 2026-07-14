@@ -11,6 +11,11 @@ services:
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+    ports:
+      - ${ROSBRIDGE_PORT:-9090}:9090
+      - ${FOXGLOVE_PORT:-8765}:8765
+      - ${FOXGLOVE_PORT:-28765}:28765
+      - "${ROS_TCP_PORT:-10000}:10000"
     volumes:
       - ${WORKSPACE:-..}:/ws
     command: bash
