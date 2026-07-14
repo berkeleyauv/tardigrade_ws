@@ -64,18 +64,6 @@ After building and sourcing:
 ros2 launch tardigrade_bringup mock.launch.py
 ```
 
-To start the mock stack and rosbridge together for Foxglove:
-
-```bash
-ros2 launch tardigrade_bringup mock_foxglove.launch.py
-```
-
-For Jetson ZED + VectorNav visualization, start the ZED wrapper first, then:
-
-```bash
-ros2 launch tardigrade_bringup zed_vectornav_foxglove.launch.py
-```
-
 ## Foxglove
 
 For ROS 2 Foxy, use rosbridge first. The container exposes rosbridge's default
@@ -99,6 +87,14 @@ On the Jetson, use the Jetson's IP address instead of `localhost`.
 For local Docker use, start the container with `./docker-build.sh`. It passes
 Compose's `--service-ports` flag so the container's rosbridge port is reachable
 from the Mac host.
+
+For Jetson hardware Docker, the container uses host networking. In that mode,
+`docker ps` will not show `9090->9090/tcp`; rosbridge listens directly on the
+Jetson's network. Connect from your Mac with:
+
+```text
+ws://JETSON_IP:9090
+```
 
 Foxglove's preferred `foxglove_bridge` can be revisited later. ROS 2 Foxy does
 not provide `ros-foxy-foxglove-bridge` in the standard package index, so that

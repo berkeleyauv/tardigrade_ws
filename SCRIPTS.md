@@ -61,12 +61,6 @@ ros2 launch tardigrade_bringup mock.launch.py
 Starts the local mock stack for development without hardware.
 
 ```bash
-ros2 launch tardigrade_bringup mock_foxglove.launch.py
-```
-
-Starts the local mock stack plus rosbridge for Foxglove.
-
-```bash
 ros2 launch tardigrade_bringup zed_state.launch.py
 ```
 
@@ -83,13 +77,6 @@ ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
 ```
 
 Starts the combined ZED + VectorNav odometry path.
-
-```bash
-ros2 launch tardigrade_bringup zed_vectornav_foxglove.launch.py
-```
-
-Starts the combined ZED + VectorNav odometry path plus rosbridge for Foxglove.
-This assumes the ZED wrapper is already running.
 
 ```bash
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py

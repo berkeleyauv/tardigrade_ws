@@ -25,18 +25,6 @@ Start rosbridge inside the container with:
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```
 
-For local mock testing, start the mock PX4 stack and rosbridge together:
-
-```bash
-ros2 launch tardigrade_bringup mock_foxglove.launch.py
-```
-
-For Jetson ZED + VectorNav visualization, start the ZED wrapper first, then:
-
-```bash
-ros2 launch tardigrade_bringup zed_vectornav_foxglove.launch.py
-```
-
 Then connect Foxglove using the Rosbridge connection option:
 
 ```text
@@ -55,6 +43,31 @@ you:
 
 If the container was started another way, check `docker ps` on the host and
 confirm it shows `9090->9090/tcp`.
+
+On Jetson hardware, the Compose override uses host networking. In that mode,
+`docker ps` will not show a `9090->9090/tcp` port mapping. Connect to the
+Jetson directly:
+
+```text
+ws://JETSON_IP:9090
+```
+
+## Launching Data Sources
+
+Keep robot data sources and visualization separate. For example:
+
+```bash
+ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
+```
+
+starts VectorNav plus ZED/VectorNav odometry after the ZED wrapper is already
+running.
+
+```bash
+ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
+```
+
+starts the visualization bridge.
 
 ## Foxglove Bridge Later
 

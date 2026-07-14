@@ -106,11 +106,9 @@ work is to publish good ROS topics, debug images, metrics, and layouts.
   `foxglove_bridge` package is not available as `ros-foxy-foxglove-bridge`,
   and the source-build path has missing dependencies that should be treated as
   a later upgrade.
-- Use `ros2 launch tardigrade_bringup mock_foxglove.launch.py` for the current
-  local visualization loop.
-- Use `ros2 launch tardigrade_bringup zed_vectornav_foxglove.launch.py` on the
-  Jetson after the ZED wrapper is already running to visualize ZED pose,
-  VectorNav IMU, and `/tardigrade/state/odometry` together.
+- Keep state-estimation launch files separate from visualization launch files.
+  Use `zed_vectornav_state.launch.py` for ZED + VectorNav odometry and
+  `foxglove_rosbridge.launch.py` for Foxglove access.
 - Standardize perception debug topics for gate/slalom detections and overlay
   images.
 - Add fake ROS nodes for status, odometry, and perception.

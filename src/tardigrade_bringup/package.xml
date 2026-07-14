@@ -9,7 +9,9 @@
 
   <!-- Launch files here start nodes from these runtime packages. -->
   <depend>launch</depend>
+  <depend>launch_xml</depend>
   <depend>launch_ros</depend>
+  <depend>rosbridge_server</depend>
   <depend>tardigrade_px4</depend>
   <depend>tardigrade_state_estimation</depend>
   <depend>vectornav</depend>
