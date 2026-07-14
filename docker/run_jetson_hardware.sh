@@ -19,6 +19,7 @@ if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; t
   RUNTIME_ARGS+=(--runtime nvidia)
 fi
 
+# /dev mounts provide ZED, VectorNav, ESP32, and other USB/serial devices.
 docker run -it --rm \
   --name "$NAME" \
   --network host \

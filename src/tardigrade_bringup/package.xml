@@ -8,13 +8,17 @@
   <license>TODO: License declaration</license>
 
   <!-- Launch files here start nodes from these runtime packages. -->
+  <depend>ament_index_python</depend>
   <depend>launch</depend>
   <depend>launch_xml</depend>
   <depend>launch_ros</depend>
+  <depend>robot_localization</depend>
   <depend>tardigrade_esp</depend>
   <depend>rosbridge_server</depend>
-  <depend>tardigrade_px4</depend>
+  <depend>tardigrade_sim</depend>
   <depend>tardigrade_state_estimation</depend>
+  <depend>tardigrade_teleop</depend>
+  <depend>tf2_ros</depend>
   <depend>vectornav</depend>
 
   <test_depend>ament_copyright</test_depend>

@@ -1,13 +1,13 @@
 # Thruster Mapping
 
 Use this guide when the robot's real wiring does not match the old diagram.
-That is fine. What matters is that the physical robot, PX4 actuator setup, and
-ROS assumptions agree.
+That is fine. What matters is that the physical robot, ESP output map, and ROS
+assumptions agree.
 
 The source-of-truth file is:
 
 ```text
-config/thruster_map.yaml
+src/tardigrade_esp/config/esp_thruster_map.json
 ```
 
 ## What The YAML Means
@@ -15,13 +15,11 @@ config/thruster_map.yaml
 The current control path is:
 
 ```text
-keyboard_cmd_vel -> /tardigrade/cmd_vel -> mavlink_pixhawk_interface -> PX4 -> thrusters
+keyboard_cmd_vel -> /tardigrade/cmd_vel -> esp_thruster_bridge -> ESP32 -> thrusters
 ```
 
-ROS commands body motion. PX4 decides which physical thrusters produce that
-motion. The YAML does not control the robot yet; it documents the physical
-setup so the PX4 configuration can be checked and so future ROS allocator code
-can use the same map.
+ROS commands body motion. `esp_thruster_bridge` maps those commands to PWM
+slots using `esp_thruster_map.json`.
 
 Use ROS body-frame FLU in the YAML:
 
@@ -35,12 +33,12 @@ For each thruster, record:
 
 - `thruster_id`: your team's physical label on the robot.
 - `diagram_label`: old diagram number, if the thruster still corresponds to it.
-- `pixhawk_output`: exact signal output, such as `MAIN1`, `MAIN2`, or `AUX1`.
+- `slot`: ESP PWM output slot.
+- `pin`: ESP32 GPIO pin for that slot.
 - `physical_location`: where it is mounted on the robot.
 - `role`: horizontal, vertical, or angled.
 - `position_m`: measured from the chosen vehicle origin, ideally center of mass.
 - `force_direction_when_positive`: unit-ish direction in ROS FLU when positive.
-- `px4_reversed`: whether PX4 reverses that output.
 - `observed_positive_motion`: what happened during the motor test.
 
 ## Establish The Physical Map
@@ -55,12 +53,11 @@ For each thruster, record:
    The labels do not need to match the old diagram. They just need to be
    visible and stable.
 
-3. Trace each ESC signal wire to the Pixhawk.
+3. Trace each ESC signal wire to the ESP32 output.
 
-   Fill `pixhawk_output` in `config/thruster_map.yaml`. Example: if physical
-   thruster 3 is plugged into Pixhawk MAIN5, set `pixhawk_output: MAIN5`.
+   Fill the ESP slot/pin in `esp_thruster_map.json`.
 
-4. Use QGroundControl actuator or motor test one output at a time.
+4. Use `esp_thruster_test` one output at a time.
 
    For each output, record which physical thruster moves and what direction it
    pushes for a positive command. Do not test multiple thrusters at once while
@@ -88,50 +85,44 @@ force_direction_when_positive:
 
    means positive command pushes the robot upward.
 
-6. Fix wrong behavior at the PX4 actuator setup level first.
+6. Fix wrong behavior at the ESP map or physical wiring level first.
 
    If the wrong thruster moves, the output assignment is wrong. If the right
    thruster moves in the wrong direction, reverse that output or correct the ESC
    direction. The ROS teleop code should not be used to hide a bad physical map.
 
-7. Repeat after Pixhawk reboot.
+7. Repeat after ESP firmware or wiring changes.
 
-   The bench Pixhawk currently fails `param save`, so PX4 actuator changes may
-   not persist. Keep this YAML current so the setup can be restored quickly.
+   Keep the JSON map current so setup can be restored quickly.
 
 ## Teleop Verification
 
-After the YAML and PX4 actuator setup match, use the no-motion dry run first:
+After the ESP slot map matches the physical robot, run the bridge with thruster
+power disconnected first:
 
 ```bash
-ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
-  -p device:=/dev/ttyACM0 \
-  -p baudrate:=921600 \
-  -p configure_px4_params:=true \
-  -p offboard_setpoint_mode:=velocity
+ros2 run tardigrade_esp esp_thruster_bridge --ros-args \
+  -p serial_port:=/dev/ttyUSB0 \
+  -p config_file:=/ws/config/esp_thruster_map.json
 ```
 
 In another container terminal:
 
 ```bash
-ros2 run tardigrade_px4 keyboard_cmd_vel
+ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
-The Pixhawk interface should show `cmd_vel_received=...`. With no speed clamps,
-the command path is active but all motion is clamped to zero.
+The ESP bridge should log incoming commands and serial writes. With thruster
+power disconnected, this verifies the ROS command path without motion.
 
-Only after that, add very small nonzero clamps and test one axis at a time:
+Only after that, connect power in a physically safe setup and test one output or
+one axis at a time:
 
 ```bash
-ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
-  -p device:=/dev/ttyACM0 \
-  -p baudrate:=921600 \
-  -p configure_px4_params:=true \
-  -p offboard_setpoint_mode:=velocity \
-  -p max_forward_speed:=0.10 \
-  -p max_lateral_speed:=0.10 \
-  -p max_vertical_speed:=0.05 \
-  -p max_yaw_rate:=0.20
+ros2 run tardigrade_esp esp_thruster_test --ros-args \
+  -p serial_port:=/dev/ttyUSB0 \
+  -p test_us:=1600 \
+  -p hold_sec:=1.0
 ```
 
 Expected first-axis checks:
@@ -147,5 +138,5 @@ a  -> yaw left
 d  -> yaw right
 ```
 
-If an axis is wrong, stop and fix the physical/PX4 mapping before increasing
+If an axis is wrong, stop and fix the physical/ESP mapping before increasing
 speed limits.

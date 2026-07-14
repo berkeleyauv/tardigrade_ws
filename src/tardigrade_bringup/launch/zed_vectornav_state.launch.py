@@ -49,7 +49,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'odom_topic',
             default_value='/tardigrade/state/odometry',
-            description='Odometry topic consumed by the PX4 MAVLink interface',
+            description='Robot odometry output topic',
         ),
         DeclareLaunchArgument(
             'odom_frame',
@@ -99,7 +99,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'zero_initial_position',
             default_value='true',
-            description='Subtract the first ZED pose so PX4 receives a near-zero local origin',
+            description='Subtract the first ZED pose to start near the local origin',
         ),
 
         # Raw VectorNav driver: talks to the serial device.
@@ -122,7 +122,7 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Fused odometry publisher consumed by mavlink_pixhawk_interface.
+        # Simple fused odometry publisher kept for comparison with the EKF path.
         Node(
             package='tardigrade_state_estimation',
             executable='zed_vectornav_odometry',

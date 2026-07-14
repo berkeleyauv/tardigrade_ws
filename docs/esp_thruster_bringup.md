@@ -102,7 +102,7 @@ ros2 run tardigrade_esp esp_thruster_bridge --ros-args \
 Terminal 2:
 
 ```bash
-ros2 run tardigrade_px4 keyboard_cmd_vel
+ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
 Keyboard commands publish `/tardigrade/cmd_vel`; the ESP bridge converts those
@@ -172,7 +172,7 @@ Build the changed packages inside the Jetson container:
 cd /ws
 source /opt/ros/foxy/setup.bash
 colcon build --symlink-install --packages-select \
-  tardigrade_state_estimation tardigrade_esp tardigrade_bringup tardigrade_px4
+  tardigrade_state_estimation tardigrade_esp tardigrade_teleop tardigrade_bringup
 source install/setup.bash
 ```
 
@@ -214,7 +214,7 @@ input, not directly to the ESP bridge:
 
 ```bash
 source /ws/install/setup.bash
-ros2 run tardigrade_px4 keyboard_cmd_vel --ros-args \
+ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
   -p cmd_vel_topic:=/tardigrade/cmd_vel/manual \
   -p linear_step:=0.25 \
   -p vertical_step:=0.05

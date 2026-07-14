@@ -22,7 +22,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'odom_topic',
             default_value='/tardigrade/state/odometry',
-            description='Odometry topic consumed by the PX4 bridge',
+            description='Robot odometry output topic',
         ),
         DeclareLaunchArgument(
             'odom_frame',

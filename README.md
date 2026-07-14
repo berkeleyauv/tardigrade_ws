@@ -4,21 +4,23 @@ This repo is a ROS 2 Foxy workspace for the Tardigrade AUV. The normal
 development path is Docker-based so laptops and the Jetson use the same ROS
 toolchain.
 
-The Pixhawk hardware path is:
+The current ESP32 hardware path is:
 
 ```text
-ZED pose + VectorNav IMU -> /tardigrade/state/odometry -> USB MAVLink -> Pixhawk/PX4
+ZED + VectorNav -> EKF/state estimate -> /tardigrade/cmd_vel -> ESP32 PWM -> ESCs
 ```
 
-The ESP32 thruster test path is:
+The retired Pixhawk/PX4 path is preserved as legacy code, but `./build.sh`
+skips it by default.
 
 ```text
-/tardigrade/cmd_vel -> tardigrade_esp/esp_thruster_bridge -> USB serial -> ESP32 PWM -> ESCs
+src/legacy/px4_msgs       Legacy PX4 ROS 2 messages
+src/legacy/tardigrade_px4 Legacy Pixhawk/PX4 code
+src/legacy/COLCON_IGNORE  keeps legacy packages out of colcon builds
 ```
 
-Most day-to-day work can happen locally without the ZED, VectorNav, or Pixhawk.
-The Jetson/Pixhawk arming procedure is documented as a runbook because it has
-hardware-specific requirements and failure modes.
+Most day-to-day work can happen locally without the ZED, VectorNav, ESP32, or
+thrusters.
 
 ## Repo Guides
 
@@ -44,7 +46,9 @@ git submodule update --init --recursive
 Tracked external source layout:
 
 ```text
-src/px4_msgs              PX4 ROS 2 messages for legacy/mock uXRCE paths
+src/legacy/px4_msgs       Legacy PX4 ROS 2 messages; ignored by colcon
+src/legacy/tardigrade_px4 Legacy Pixhawk/PX4 code; ignored by colcon
+src/tardigrade_teleop     Keyboard/operator teleop tools
 src/vectornav             VectorNav ROS 2 driver/messages
 src/zed-ros2-wrapper      Stereolabs ZED wrapper pinned to humble-v4.0.8
   zed-ros2-interfaces     Nested submodule owned by zed-ros2-wrapper
@@ -89,8 +93,10 @@ sudo env WORKSPACE=/home/auv/Developer/tardigrade_ws \
 ```
 
 `WORKSPACE` is the host path mounted into the container at `/ws`. The Jetson
-override adds host networking, privileged device access, USB, ZED SDK, CUDA,
-and Tegra library mounts. Do not use the Jetson override on a MacBook.
+override adds host networking, privileged device access, `/dev`, USB, ZED SDK,
+CUDA, and Tegra library mounts. ESP serial devices such as `/dev/ttyUSB*`,
+`/dev/ttyACM*`, and `/dev/serial/by-id/*` are available inside the container
+through the `/dev` mount. Do not use the Jetson override on a MacBook.
 
 If Compose is unavailable on the Jetson, the fallback script remains:
 
@@ -122,7 +128,7 @@ Useful local checks:
 
 ```bash
 ./build.sh
-colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_bringup
+colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_esp tardigrade_teleop tardigrade_bringup
 ```
 
 The ZED wrapper source is present locally, but `zed_components`, `zed_wrapper`,
@@ -135,87 +141,45 @@ If build output gets stale:
 ./build.sh --clean
 ```
 
-## Pixhawk Arming Process
+## ESP Hardware Process
 
-The short version of the Jetson/Pixhawk arming flow is:
+The short version of the Jetson/ESP flow is:
 
 1. Start the Jetson hardware container.
 2. Build and source the workspace inside `/ws`.
 3. Start the ZED wrapper.
-4. Start `zed_vectornav_state.launch.py` to publish `/tardigrade/state/odometry`.
-5. Start `foxglove_rosbridge.launch.py` if using Foxglove from a laptop.
-6. Start `mavlink_pixhawk_interface` on `/dev/ttyACM0`.
-7. Confirm `/tardigrade/status` shows PX4 connected, fresh visual odometry, and
-   PX4 local position.
-8. Enable external control/Offboard.
-9. Arm.
-10. Disarm before touching hardware.
+4. Start VectorNav.
+5. Start `zed_vectornav_ekf.launch.py` and watch
+   `/tardigrade/state/odometry/filtered`.
+6. Start `foxglove_rosbridge.launch.py` if using Foxglove from a laptop.
+7. Start `esp_thruster_bridge` with the ESP serial port and thruster map.
+8. Start teleop or a controller that publishes `/tardigrade/cmd_vel`.
+9. Keep thruster power disconnected until sensor, command, and mapping checks
+   look sane.
 
-The detailed procedure, terminal layout, expected logs, and troubleshooting
-checks live here:
+The ESP runbook lives here:
 
 ```text
-docs/jetson_zed_px4_startup.md
+docs/esp_thruster_bringup.md
 ```
 
-Core commands once the sensors are running:
+Core commands once sensors are running:
 
 ```bash
-ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
-  -p device:=/dev/ttyACM0 \
-  -p baudrate:=921600 \
-  -p configure_px4_params:=true
+ros2 run tardigrade_esp esp_thruster_bridge --ros-args \
+  -p serial_port:=/dev/ttyUSB0 \
+  -p config_file:=/ws/config/esp_thruster_map.json
 ```
 
 In another container terminal:
 
 ```bash
-ros2 topic echo /tardigrade/status
-ros2 service call /tardigrade/set_external_control tardigrade_interfaces/srv/SetExternalControl "{enabled: true}"
-ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: true}"
-ros2 service call /tardigrade/set_armed tardigrade_interfaces/srv/SetArmed "{armed: false}"
-```
-
-Important: a ROS service response of `success: true` only means the Jetson sent
-the MAVLink command. PX4 acceptance is shown by MAVLink command ACKs in
-`/tardigrade/status.detail` and in the Pixhawk interface logs.
-
-Useful ACKs:
-
-```text
-176/0  Offboard mode command accepted
-400/0  arm/disarm command accepted
-400/1  arm temporarily rejected
-400/2  arm denied
-```
-
-## Pre-Qualification Mission
-
-The starter pre-qualification script is:
-
-```bash
-ros2 run tardigrade_px4 prequal_mission
-```
-
-By default this is a dry run: it checks Pixhawk status and odometry but does
-not arm or publish motion. The real run uses `dry_run:=false` after the ZED,
-odometry bridge, and `mavlink_pixhawk_interface` are already running in
-velocity mode.
-
-The real run can include `target_depth_m`, which is positive downward from the
-robot's starting odometry `z`; the mission descends to that depth and holds it
-throughout the path.
-
-Detailed commands live in:
-
-```text
-docs/jetson_zed_px4_startup.md
+ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
 ## ESP32 Thruster Path
 
-The ESP32 path is the fastest way to bench-test ESC PWM without depending on
-Pixhawk arming or Offboard mode.
+The ESP32 path is the active actuator path.
 
 Flash:
 
@@ -236,13 +200,20 @@ ros2 run tardigrade_esp esp_thruster_bridge --ros-args \
 Then publish `/tardigrade/cmd_vel`, for example:
 
 ```bash
-ros2 run tardigrade_px4 keyboard_cmd_vel
+ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
 The full procedure is documented in:
 
 ```text
 docs/esp_thruster_bringup.md
+```
+
+The old Pixhawk/PX4 runbook is preserved for reference only:
+
+```text
+docs/jetson_zed_px4_startup.md
+```
 ## Local Simulation Backend
 
 Before Unity exists, run the ROS-only fake backend:
@@ -266,16 +237,15 @@ docs/unity_simulation_plan.md
 
 ## Important Notes
 
-- `mavlink_pixhawk_interface` is the current hardware Pixhawk path.
-- `pixhawk_interface` is the older PX4 ROS 2 `/fmu/*` path for mock/uXRCE work.
-- `px4_msgs` is not required for the MAVLink hardware path.
-- `tardigrade_esp` is the ESP32 USB serial PWM path for direct ESC/thruster
-  testing.
+- `tardigrade_esp` is the active ESP32 USB serial PWM path.
+- `tardigrade_teleop` owns keyboard/operator velocity commands.
+- `tardigrade_px4` and `px4_msgs` live under `src/legacy/` and are ignored by
+  colcon.
 - Unity simulation should use the same robot-level ROS contract as hardware.
   See `docs/unity_simulation_plan.md`.
 - `behavior_trees/pathing_mission.xml` is a Groot/BehaviorTree.CPP pathing
   design artifact. Its node contracts are described in
   `docs/pathing_behavior_tree.md`.
 - `.legacy_inspect` was stale git metadata and should not be restored.
-- Do not command real thrust until `config/thruster_map.yaml` and
+- Do not command real thrust until `src/tardigrade_esp/config/esp_thruster_map.json` and
   `docs/thruster_mapping.md` have been verified against the physical vehicle.

@@ -1,7 +1,15 @@
 # Setup
 
 This is the short setup path for the Tardigrade ROS 2 workspace. The detailed
-Jetson/Pixhawk/ZED runbook lives in `docs/jetson_zed_px4_startup.md`.
+Jetson/ESP/ZED runbook lives in `docs/esp_thruster_bringup.md`.
+
+On the Jetson, the Docker override mounts `/dev` and `/dev/bus/usb`, so ESP,
+VectorNav, and other USB serial devices should appear inside the container at
+the same paths as the host:
+
+```bash
+ls -l /dev/ttyUSB* /dev/ttyACM* /dev/serial/by-id/
+```
 
 ## Clone
 
@@ -139,10 +147,47 @@ angular velocity  VectorNav
 linear velocity   not estimated
 ```
 
+## Experimental ZED + VectorNav EKF
+
+The first `robot_localization` EKF path is separate from the current
+`zed_vectornav_state.launch.py` path. Start the sensors first:
+
+```bash
+ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+ros2 launch tardigrade_bringup vectornav_state.launch.py \
+  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0 \
+  baud:=115200
+```
+
+Then start the EKF:
+
+```bash
+ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
+```
+
+Default inputs:
+
+```text
+/zed/zed_node/odom
+/vectornav/imu
+```
+
+Default output:
+
+```text
+/tardigrade/state/odometry/filtered
+```
+
+The filtered topic is intentionally not the main `/tardigrade/state/odometry`
+topic yet. Compare both in Foxglove first, then promote the EKF output once it
+looks stable. The starter config fuses ZED position/linear velocity with
+VectorNav orientation/angular velocity and does not fuse IMU linear
+acceleration yet.
+
 ## Common Checks
 
 ```bash
-colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_bringup
+colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_esp tardigrade_teleop tardigrade_bringup
 ```
 
 If build state gets stale:

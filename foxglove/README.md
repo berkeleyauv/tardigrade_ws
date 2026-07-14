@@ -9,7 +9,7 @@ The first goal is a useful cockpit:
 - ZED odometry
 - VectorNav IMU
 - `/tf`
-- Pixhawk status
+- ESP/control status
 - command topics
 - autonomy state once autonomy exists
 
@@ -89,6 +89,21 @@ angular velocity  VectorNav
 linear velocity   not estimated
 ```
 
+There is also an experimental `robot_localization` EKF path:
+
+```bash
+ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
+```
+
+It reads `/zed/zed_node/odom` and `/vectornav/imu`, then publishes:
+
+```text
+/tardigrade/state/odometry/filtered
+```
+
+Use this filtered topic for comparison in Foxglove before replacing the main
+`/tardigrade/state/odometry` path.
+
 ```bash
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```
@@ -115,6 +130,9 @@ Next code improvement for better 3D visualization:
 publish /tf: odom -> base_link
 publish /tf_static: base_link -> zed_camera_link and base_link -> vectornav_link
 ```
+
+The experimental EKF launch already publishes `odom -> base_link` from
+`robot_localization` when `publish_tf:=true`.
 
 ## Foxglove Bridge Later
 

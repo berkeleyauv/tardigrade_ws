@@ -15,14 +15,15 @@ Usage: ./build.sh [options]
 
 Options:
   --clean          Remove build/install/log before building.
-  --hardware       Build all packages, including ZED SDK packages.
+  --hardware       Build hardware packages, including ZED SDK packages.
   --pkg PACKAGE    Build only one package.
   --debug          Build with RelWithDebInfo.
   -h, --help       Show this help.
 
 Default:
   Builds the local development workspace and skips ZED SDK packages that only
-  build on the Jetson or a machine with the Stereolabs SDK installed.
+  build on the Jetson or a machine with the Stereolabs SDK installed. Legacy
+  Pixhawk/PX4 packages live under src/legacy, which has COLCON_IGNORE.
 EOF
 }
 
@@ -66,8 +67,14 @@ build_cmd=(colcon build --symlink-install)
 
 if [[ -n "$package" ]]; then
   build_cmd+=(--packages-select "$package")
-elif [[ "$hardware" == false ]]; then
-  build_cmd+=(--packages-skip zed_components zed_wrapper zed_ros2)
+else
+  packages_to_skip=()
+  if [[ "$hardware" == false ]]; then
+    packages_to_skip+=(zed_components zed_wrapper zed_ros2)
+  fi
+  if [[ "${#packages_to_skip[@]}" -gt 0 ]]; then
+    build_cmd+=(--packages-skip "${packages_to_skip[@]}")
+  fi
 fi
 
 if [[ "$debug" == true ]]; then
@@ -75,4 +82,3 @@ if [[ "$debug" == true ]]; then
 fi
 
 "${build_cmd[@]}"
-
