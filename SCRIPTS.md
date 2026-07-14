@@ -9,7 +9,8 @@ find the important commands without searching through package files.
 ./docker-build.sh
 ```
 
-Starts the local development container.
+Starts the local development container. For interactive Compose runs, this uses
+`--service-ports` so host tools can reach ports such as rosbridge `9090`.
 
 ```bash
 ./docker-build.sh --build
@@ -22,7 +23,8 @@ Builds the Docker image and starts the local development container.
 ```
 
 Starts the Jetson hardware container using the base Compose file plus the
-Jetson override.
+Jetson override. The Jetson override uses host networking, so `docker ps` will
+not show per-port mappings.
 
 ```bash
 ./build.sh
@@ -76,7 +78,22 @@ Starts the VectorNav state path.
 ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
 ```
 
-Starts the combined ZED + VectorNav odometry path.
+Starts the combined ZED + VectorNav odometry path. This assumes the ZED wrapper
+is already publishing `/zed/zed_node/pose`.
+
+```bash
+ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
+```
+
+Starts rosbridge on port `9090` for Foxglove's Rosbridge connection. This is
+the current Foxglove MVP path for ROS 2 Foxy.
+
+```bash
+ros2 launch tardigrade_bringup foxglove_bridge.launch.py
+```
+
+Starts `foxglove_bridge` on port `8765` if the bridge has been built from
+source or otherwise installed.
 
 ## Pixhawk / Control
 
@@ -163,5 +180,5 @@ build-hw     /ws/build.sh --hardware
 clean-build  /ws/build.sh --clean
 mock         ros2 launch tardigrade_bringup mock.launch.py
 status       ros2 topic echo /tardigrade/status
-fg           ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=28765
+fg           ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```

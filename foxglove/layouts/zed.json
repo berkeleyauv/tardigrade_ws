@@ -1,0 +1,197 @@
+{
+  "configById": {
+    "3D!18i6zy7": {
+      "layers": {
+        "845139cb-26bc-40b3-8161-8ab60af4baf5": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "845139cb-26bc-40b3-8161-8ab60af4baf5",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "cameraState": {
+        "perspective": true,
+        "distance": 6.147137354496088,
+        "phi": 67.9303028276991,
+        "thetaOffset": 117.67466517086322,
+        "targetOffset": [
+          0.13789758660173707,
+          0.48998713126739807,
+          4.0949336393302e-17
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {
+        "frame:zed_camera_center": {
+          "visible": false
+        },
+        "frame:zed_left_camera_frame": {
+          "visible": false
+        },
+        "frame:zed_left_camera_optical_frame": {
+          "visible": false
+        },
+        "frame:zed_right_camera_frame": {
+          "visible": false
+        },
+        "frame:zed_right_camera_optical_frame": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/initialpose": {
+          "visible": false
+        },
+        "/zed/zed_node/depth/depth_registered/compressed": {
+          "visible": false
+        },
+        "/zed/zed_node/left/camera_info": {
+          "visible": false
+        },
+        "/zed/zed_node/left/image_rect_color": {
+          "visible": false,
+          "frameLocked": true,
+          "cameraInfoTopic": "/zed/zed_node/left/camera_info",
+          "distance": 1,
+          "planarProjectionFactor": 0,
+          "renderMode": "default",
+          "projectionFrameId": "odom",
+          "color": "#ffffff",
+          "rectifyImage": true,
+          "pointSize": 1.5,
+          "syncModeEnabled": false
+        },
+        "/zed/zed_node/left_raw/image_raw_color": {
+          "visible": true,
+          "frameLocked": true,
+          "cameraInfoTopic": "/zed/zed_node/left_raw/camera_info",
+          "distance": 1,
+          "planarProjectionFactor": 0,
+          "renderMode": "default",
+          "projectionFrameId": "odom",
+          "color": "#ffffff",
+          "rectifyImage": true,
+          "pointSize": 1.5,
+          "syncModeEnabled": false
+        }
+      },
+      "publish": {
+        "type": "pose_estimate",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {}
+    },
+    "RawMessages!2f99x31": {
+      "defaultExpanded": false,
+      "topicPath": "/tf"
+    },
+    "RawMessages!os6rgs": {
+      "defaultExpanded": false,
+      "topicPath": "/zed/zed_node/odom"
+    },
+    "Image!3j12cj": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 60,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/right_raw/image_raw_color",
+        "calibrationTopic": "/zed/zed_node/right_raw/camera_info"
+      }
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!18i6zy7",
+    "second": {
+      "first": "RawMessages!2f99x31",
+      "second": {
+        "first": "RawMessages!os6rgs",
+        "second": "Image!3j12cj",
+        "direction": "column",
+        "splitPercentage": 62.30639760002792
+      },
+      "direction": "column",
+      "splitPercentage": 38.41743119266055
+    },
+    "splitPercentage": 74.88514548238896
+  }
+}

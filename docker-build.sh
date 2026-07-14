@@ -76,8 +76,7 @@ run_args=("${compose_files[@]}")
 if [[ "$detached" == true ]]; then
   run_args+=(up -d)
 else
-  run_args+=(run --rm tardigrade)
+  run_args+=(run --rm --service-ports tardigrade)
 fi
 
 docker compose "${run_args[@]}"
-

@@ -37,6 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-foxy-image-transport \
     ros-foxy-nmea-msgs \
     ros-foxy-robot-localization \
+    ros-foxy-rosbridge-suite \
     ros-foxy-stereo-msgs \
     ros-foxy-tf2-geometry-msgs \
     ros-foxy-tf2-ros \
