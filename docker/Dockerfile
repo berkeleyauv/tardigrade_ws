@@ -52,10 +52,11 @@ RUN pip3 install --no-cache-dir pymavlink pyserial
 WORKDIR /ws
 
 COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
+COPY docker/ros_bashrc.sh /ros_bashrc.sh
 RUN chmod +x /ros_entrypoint.sh \
+    && chmod +x /ros_bashrc.sh \
     && (rosdep init || true) \
-    && echo "source /opt/ros/foxy/setup.bash" >> /root/.bashrc \
-    && echo "[ -f /ws/install/setup.bash ] && source /ws/install/setup.bash" >> /root/.bashrc
+    && echo "source /ros_bashrc.sh" >> /root/.bashrc
 
 ENTRYPOINT ["/bin/bash", "/ros_entrypoint.sh"]
 CMD ["bash"]

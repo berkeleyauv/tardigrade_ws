@@ -142,7 +142,7 @@ If Compose is not working, use the fallback script from the Jetson host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_zed.sh
+sudo env WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_hardware.sh
 ```
 
 ## Build The Workspace
@@ -547,7 +547,7 @@ docker compose: command not found
 ```
 
 Install the Docker Compose plugin for the Jetson's Docker install, or use
-`docker/run_jetson_zed.sh` as the fallback.
+`docker/run_jetson_hardware.sh` as the fallback.
 
 ```text
 open /home/auv/docker/compose.yaml: no such file or directory

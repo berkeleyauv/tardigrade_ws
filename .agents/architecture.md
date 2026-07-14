@@ -18,12 +18,12 @@ perception, or state-estimation code.
 
 ## Current Status Snapshot
 
-As of July 7, 2026:
+As of July 13, 2026:
 
 - The working bench Pixhawk path is USB MAVLink, not Micro XRCE-DDS.
 - `mavlink_pixhawk_interface` can connect to the Pixhawk over `/dev/ttyACM0`.
-- Local development is currently the only guaranteed path because electrical
-  hardware access is blocked.
+- Local development is currently the safest path because the physical robot has
+  PDB, wiring, and thruster reliability issues.
 - The Jetson/ZED/VectorNav/Pixhawk bringup path is documented, but Offboard and
   arming are still active debugging items rather than a guaranteed procedure.
 - Verified pieces from the hardware session:
@@ -33,6 +33,8 @@ As of July 7, 2026:
   - `mavlink_pixhawk_interface` connects to PX4,
   - MAVLink visual odometry reaches PX4,
   - PX4 reports local position and estimator diagnostics.
+- The Pixhawk has been able to arm when acceptable ZED visual odometry reaches
+  it, but this should not be treated as a complete autonomy/teleop validation.
 - The Pixhawk parameter save path is broken on the current board:
   `param save` fails to export to `/fs/mtd_params`.
 - Because PX4 params do not persist, `configure_px4_params:=true` is required
@@ -47,6 +49,9 @@ As of July 7, 2026:
   hardware override:
   - `docker/compose.yaml`
   - `docker/compose.jetson.yaml`
+- Root helper scripts now wrap the common workflows:
+  - `docker-build.sh`: build/start local or Jetson containers,
+  - `build.sh`: build the ROS workspace locally or on hardware.
 - The ZED camera is the local position source.
 - The VectorNav IMU is the attitude and angular-velocity source.
 - `tardigrade_state_estimation` publishes `/tardigrade/state/odometry`.
@@ -206,15 +211,35 @@ Current important files:
 
 - `Dockerfile`: builds the ROS Foxy environment.
 - `compose.yaml`: base local-development service. This is safe to run on a
-  MacBook or other non-Jetson machine because it only mounts the workspace.
+  MacBook or other non-Jetson machine because it only mounts the workspace. It
+  exposes Foxglove port `28765`.
 - `compose.jetson.yaml`: Jetson/ZED/Pixhawk override. This adds host networking,
   privileged device access, `/dev`, USB, ZED SDK, CUDA, and Tegra library
   mounts.
-- `run_jetson_zed.sh`: legacy convenience script. It still starts the same style
-  of hardware container and auto-detects the NVIDIA Docker runtime when present.
+- `ros_entrypoint.sh`: sources ROS and the workspace when the container starts.
+- `ros_bashrc.sh`: interactive shell setup and aliases.
+- `run_jetson_hardware.sh`: raw `docker run` fallback. Use it only when Docker
+  Compose is unavailable on the Jetson.
 
 Use `compose.yaml` alone for laptop/local work. Use both Compose files together
-for Jetson hardware work.
+for Jetson hardware work. Prefer the root helper script:
+
+```bash
+./docker-build.sh
+./docker-build.sh --build
+./docker-build.sh --jetson
+```
+
+Build the workspace inside the container with:
+
+```bash
+./build.sh
+./build.sh --hardware
+./build.sh --clean
+```
+
+Do not restore `docker/run_jetson_zed.sh`; it was replaced by
+`docker/run_jetson_hardware.sh`.
 
 ### Git Metadata Notes
 
@@ -229,9 +254,27 @@ These remain planned or future-facing:
 - `tardigrade_perception`: camera perception and detector outputs.
 - `tardigrade_gate_controller`: convert detections into robot-level motion.
 - `tardigrade_behavior_tree`: future BehaviorTree.CPP orchestration.
+- `tardigrade_sim` or similar: fake ROS inputs and lightweight world simulation.
 
 Future packages should communicate through robot-level topics/services, not
 direct PX4 topics.
+
+### Foxglove / Observability
+
+Foxglove is the intended pool-test UI path. Avoid building a custom webapp
+unless Foxglove fails a specific, documented requirement.
+
+The repo should grow toward:
+
+- committed Foxglove layout files,
+- a standard Foxglove bridge launch path,
+- camera and debug-image topics,
+- gate/slalom detection topics,
+- `/tf`, odometry, IMU, command, and status panels,
+- mission/autonomy state topics once autonomy exists.
+
+The UI work should focus on publishing good ROS data and layouts, not on
+custom frontend infrastructure.
 
 ## System Data Flow
 
@@ -401,11 +444,11 @@ The active task list lives in:
 
 High-level direction:
 
-1. Keep local Docker development smooth while electrical hardware is
-   unavailable.
-2. Keep the mock path useful for interface and package work.
-3. Improve PX4/MAVLink behavior locally where possible, especially Offboard
-   timing and status diagnostics.
-4. Preserve the Jetson/Pixhawk runbook for the next hardware session.
-5. Keep real-thrust work blocked until arming, odometry, and physical thruster
+1. Keep local Docker development smooth while the robot is unreliable.
+2. Build Foxglove observability for pool and bench testing.
+3. Add fake ROS inputs so autonomy can be tested without hardware.
+4. Keep PX4/MAVLink behavior debuggable through status topics and isolated
+   tests.
+5. Preserve the Jetson/Pixhawk runbook for the next hardware session.
+6. Keep real-thrust work blocked until arming, odometry, and physical thruster
    mapping are repeatable.

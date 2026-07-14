@@ -14,6 +14,12 @@ Most day-to-day work can happen locally without the ZED, VectorNav, or Pixhawk.
 The Jetson/Pixhawk arming procedure is documented as a runbook because it has
 hardware-specific requirements and failure modes.
 
+## Repo Guides
+
+- `SETUP.md`: short setup instructions for local Docker and Jetson use.
+- `SCRIPTS.md`: helper scripts, launch files, and ROS console scripts.
+- `docs/`: lightweight runbooks and notes that should version with the code.
+
 ## Clone
 
 Clone recursively so the vendor submodules are present:
@@ -43,16 +49,16 @@ contains the matching nested interfaces package.
 
 ## Docker Setup
 
-Build the development image:
+Build and start the development container:
 
 ```bash
-docker compose -f docker/compose.yaml build
+./docker-build.sh --build
 ```
 
-Start a local development container:
+Start the development container after the image already exists:
 
 ```bash
-docker compose -f docker/compose.yaml run --rm tardigrade
+./docker-build.sh
 ```
 
 Inside the container:
@@ -61,7 +67,7 @@ Inside the container:
 cd /ws
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install
+./build.sh
 source install/setup.bash
 ```
 
@@ -72,8 +78,8 @@ For Jetson hardware work, use the Jetson override from the Jetson host:
 
 ```bash
 cd ~/Developer/tardigrade_ws
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws \
-  docker compose -f docker/compose.yaml -f docker/compose.jetson.yaml run --rm tardigrade
+sudo env WORKSPACE=/home/auv/Developer/tardigrade_ws \
+  ./docker-build.sh --jetson
 ```
 
 `WORKSPACE` is the host path mounted into the container at `/ws`. The Jetson
@@ -83,7 +89,7 @@ and Tegra library mounts. Do not use the Jetson override on a MacBook.
 If Compose is unavailable on the Jetson, the fallback script remains:
 
 ```bash
-sudo WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_zed.sh
+sudo env WORKSPACE=/home/auv/Developer/tardigrade_ws ./docker/run_jetson_hardware.sh
 ```
 
 ## Local Development
@@ -97,7 +103,7 @@ ros2 launch tardigrade_bringup mock.launch.py
 Useful local checks:
 
 ```bash
-colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
+./build.sh
 colcon test --packages-select tardigrade_interfaces tardigrade_state_estimation tardigrade_px4 tardigrade_bringup
 ```
 
@@ -108,8 +114,7 @@ another machine with the ZED SDK installed/mounted.
 If build output gets stale:
 
 ```bash
-rm -rf build install log
-colcon build --symlink-install --packages-skip zed_components zed_wrapper zed_ros2
+./build.sh --clean
 ```
 
 ## Pixhawk Arming Process
