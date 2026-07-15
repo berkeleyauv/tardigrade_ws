@@ -42,6 +42,7 @@ src/px4_msgs              PX4 ROS 2 messages for legacy/mock uXRCE paths
 src/vectornav             VectorNav ROS 2 driver/messages
 src/zed-ros2-wrapper      Stereolabs ZED wrapper pinned to humble-v4.0.8
   zed-ros2-interfaces     Nested submodule owned by zed-ros2-wrapper
+src/ROS-TCP-Endpoint      Unity ROS-TCP endpoint pinned to its ROS 2 branch
 ```
 
 Do not add a separate top-level `src/zed-ros2-interfaces`; the wrapper already

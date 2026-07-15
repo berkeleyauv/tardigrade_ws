@@ -166,13 +166,13 @@ Inside the container, build this workspace:
 cd /ws
 source /opt/ros/foxy/setup.bash
 colcon build --symlink-install --packages-select \
-  tardigrade_interfaces tardigrade_sim tardigrade_mission
+  ros_tcp_endpoint tardigrade_interfaces tardigrade_sim tardigrade_mission
 source install/setup.bash
 ```
 
-The ROS-TCP-Endpoint package is a separate ROS package from Unity. Clone or add
-it to a local sim workspace, then build it with this workspace. Once available,
-run:
+The ROS 2 branch of ROS-TCP-Endpoint is included at
+`src/ROS-TCP-Endpoint` as a submodule. Clone this repository recursively (or
+run `git submodule update --init --recursive`) before building. Once built, run:
 
 ```bash
 ros2 run ros_tcp_endpoint default_server_endpoint --ros-args \

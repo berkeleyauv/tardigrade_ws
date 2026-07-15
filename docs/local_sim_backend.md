@@ -39,7 +39,7 @@ From the local Docker container:
 cd /ws
 source /opt/ros/foxy/setup.bash
 colcon build --symlink-install --packages-select \
-  tardigrade_interfaces tardigrade_sim tardigrade_mission
+  ros_tcp_endpoint tardigrade_interfaces tardigrade_sim tardigrade_mission
 source install/setup.bash
 ```
 
