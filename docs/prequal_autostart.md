@@ -1,19 +1,18 @@
 # Automatic ESP Prequal Bringup
 
-`prequal_autonomy.launch.py` starts the ZED wrapper, VectorNav driver, fused
-odometry, depth/attitude controller, ESP thruster bridge, and the ESP-native
-prequal mission.
+`prequal_autonomy.launch.py` starts the VectorNav driver, orientation-only
+odometry, attitude controller, ESP thruster bridge, and ESP-native prequal
+mission. It does not start or subscribe to the ZED.
 
 The mission does not use the ignored legacy PX4 package. It publishes to
 `/tardigrade/cmd_vel/manual`, and the depth/attitude controller publishes the
 stabilized command consumed by the ESP bridge.
 
-The active course is 1.5 m down, 20 m outbound on the captured starting
-heading, a closed-loop 180-degree turn, and a position-seeking return to the
-saved start. Forward effort remains fixed, while a VectorNav-derived heading
-PD controller corrects yaw. Outbound completion uses along-track distance,
-and the return continually points toward the saved start instead of blindly
-running for a fixed time.
+In IMU-only mode, descent and straight legs use calibrated command durations.
+The 180-degree turn and heading during both straight legs remain closed-loop
+using VectorNav orientation and angular velocity. An IMU cannot observe depth
+or translation without unbounded integration drift, so the software cannot
+verify 1.5 m or 20 m until a pressure/depth or position sensor is added.
 
 ## Safety behavior
 
@@ -22,13 +21,14 @@ running for a fixed time.
 - After readiness, the mission publishes no command for `startup_delay_sec`,
   keeping the controller stale and the bridge at neutral.
 - Stale odometry, stale ESP status, a serial error, or a phase timeout aborts.
-- Excessive tilt, depth error, or outbound cross-track error aborts.
+- Excessive tilt aborts. Depth and cross-track checks are unavailable in
+  IMU-only mode.
 - The bridge returns to neutral if command input becomes stale.
 - A physical kill switch remains the primary emergency stop.
 
 The delay starts after all inputs become ready. Consequently movement occurs
-no earlier than 15 seconds after the software stack is ready, and normally
-later than 15 seconds after robot power-on.
+no earlier than 60 seconds after the software stack is ready, and normally
+later than one minute after robot power-on.
 
 ## Install on the Jetson
 
@@ -44,7 +44,7 @@ Inside that temporary container:
 
 ```bash
 cd /ws
-./build.sh --hardware
+./build.sh
 exit
 ```
 

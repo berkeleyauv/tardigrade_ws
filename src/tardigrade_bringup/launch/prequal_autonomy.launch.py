@@ -1,9 +1,5 @@
-import os
-
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Shutdown
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -18,6 +14,10 @@ def generate_launch_description():
     target_depth_m = LaunchConfiguration('target_depth_m')
     forward_distance_m = LaunchConfiguration('forward_distance_m')
     forward_command = LaunchConfiguration('forward_command')
+    descent_command = LaunchConfiguration('descent_command')
+    descent_duration_sec = LaunchConfiguration('descent_duration_sec')
+    outbound_duration_sec = LaunchConfiguration('outbound_duration_sec')
+    return_duration_sec = LaunchConfiguration('return_duration_sec')
     yaw_kp = LaunchConfiguration('yaw_kp')
     yaw_kd = LaunchConfiguration('yaw_kd')
     max_yaw_command = LaunchConfiguration('max_yaw_command')
@@ -28,12 +28,6 @@ def generate_launch_description():
     roll_kd = LaunchConfiguration('roll_kd')
     pitch_kp = LaunchConfiguration('pitch_kp')
     pitch_kd = LaunchConfiguration('pitch_kd')
-
-    zed_launch = os.path.join(
-        get_package_share_directory('zed_wrapper'),
-        'launch',
-        'zed_camera.launch.py',
-    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -50,10 +44,14 @@ def generate_launch_description():
             default_value='/ws/config/esp_thruster_map.json',
         ),
         DeclareLaunchArgument('dry_run', default_value='true'),
-        DeclareLaunchArgument('startup_delay_sec', default_value='15.0'),
+        DeclareLaunchArgument('startup_delay_sec', default_value='60.0'),
         DeclareLaunchArgument('target_depth_m', default_value='1.5'),
         DeclareLaunchArgument('forward_distance_m', default_value='20.0'),
         DeclareLaunchArgument('forward_command', default_value='0.20'),
+        DeclareLaunchArgument('descent_command', default_value='0.20'),
+        DeclareLaunchArgument('descent_duration_sec', default_value='8.0'),
+        DeclareLaunchArgument('outbound_duration_sec', default_value='40.0'),
+        DeclareLaunchArgument('return_duration_sec', default_value='40.0'),
         DeclareLaunchArgument('yaw_kp', default_value='0.4'),
         DeclareLaunchArgument('yaw_kd', default_value='0.1'),
         DeclareLaunchArgument('max_yaw_command', default_value='0.20'),
@@ -65,10 +63,6 @@ def generate_launch_description():
         DeclareLaunchArgument('pitch_kp', default_value='0.8'),
         DeclareLaunchArgument('pitch_kd', default_value='0.15'),
 
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(zed_launch),
-            launch_arguments={'camera_model': 'zed'}.items(),
-        ),
         Node(
             package='vectornav',
             executable='vectornav',
@@ -84,12 +78,12 @@ def generate_launch_description():
         ),
         Node(
             package='tardigrade_state_estimation',
-            executable='zed_vectornav_odometry',
-            name='zed_vectornav_odometry',
+            executable='vectornav_odometry',
+            name='vectornav_odometry',
             output='screen',
             parameters=[{
-                'use_zed_orientation_if_imu_stale': False,
-                'zero_initial_position': True,
+                'imu_topic': '/vectornav/imu',
+                'odom_topic': '/tardigrade/state/odometry',
             }],
         ),
         Node(
@@ -105,6 +99,7 @@ def generate_launch_description():
                 'roll_kd': roll_kd,
                 'pitch_kp': pitch_kp,
                 'pitch_kd': pitch_kd,
+                'enable_depth_hold': False,
             }],
         ),
         Node(
@@ -125,10 +120,15 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'dry_run': dry_run,
+                'navigation_mode': 'imu_timed',
                 'startup_delay_sec': startup_delay_sec,
                 'target_depth_m': target_depth_m,
                 'forward_distance_m': forward_distance_m,
                 'forward_command': forward_command,
+                'descent_command': descent_command,
+                'descent_duration_sec': descent_duration_sec,
+                'outbound_duration_sec': outbound_duration_sec,
+                'return_duration_sec': return_duration_sec,
                 'yaw_kp': yaw_kp,
                 'yaw_kd': yaw_kd,
                 'max_yaw_command': max_yaw_command,

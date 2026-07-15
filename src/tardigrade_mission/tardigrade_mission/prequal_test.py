@@ -34,13 +34,18 @@ class PrequalTest(Node):
         self.declare_parameter('esp_status_topic', '/tardigrade/esp/status')
         self.declare_parameter('depth_target_topic', '/tardigrade/depth_target')
         self.declare_parameter('dry_run', True)
-        self.declare_parameter('startup_delay_sec', 15.0)
+        self.declare_parameter('navigation_mode', 'position')
+        self.declare_parameter('startup_delay_sec', 60.0)
         self.declare_parameter('readiness_timeout_sec', 90.0)
         self.declare_parameter('odometry_timeout_sec', 0.5)
         self.declare_parameter('esp_status_timeout_sec', 1.0)
         self.declare_parameter('phase_timeout_sec', 240.0)
         self.declare_parameter('forward_distance_m', 20.0)
         self.declare_parameter('forward_command', 0.20)
+        self.declare_parameter('descent_command', 0.20)
+        self.declare_parameter('descent_duration_sec', 8.0)
+        self.declare_parameter('outbound_duration_sec', 40.0)
+        self.declare_parameter('return_duration_sec', 40.0)
         self.declare_parameter('target_depth_m', 1.5)
         self.declare_parameter('depth_tolerance_m', 0.05)
         self.declare_parameter('yaw_turn_rad', math.pi)
@@ -60,6 +65,11 @@ class PrequalTest(Node):
         self.esp_status_topic = self.get_parameter('esp_status_topic').value
         self.depth_target_topic = self.get_parameter('depth_target_topic').value
         self.dry_run = bool(self.get_parameter('dry_run').value)
+        self.navigation_mode = self.get_parameter('navigation_mode').value
+        if self.navigation_mode not in ('position', 'imu_timed'):
+            raise ValueError(
+                'navigation_mode must be either position or imu_timed'
+            )
         self.startup_delay_sec = float(self.get_parameter('startup_delay_sec').value)
         self.readiness_timeout_sec = float(
             self.get_parameter('readiness_timeout_sec').value
@@ -75,6 +85,18 @@ class PrequalTest(Node):
             self.get_parameter('forward_distance_m').value
         )
         self.forward_command = abs(float(self.get_parameter('forward_command').value))
+        self.descent_command = abs(float(
+            self.get_parameter('descent_command').value
+        ))
+        self.descent_duration_sec = float(
+            self.get_parameter('descent_duration_sec').value
+        )
+        self.outbound_duration_sec = float(
+            self.get_parameter('outbound_duration_sec').value
+        )
+        self.return_duration_sec = float(
+            self.get_parameter('return_duration_sec').value
+        )
         self.target_depth_m = abs(float(self.get_parameter('target_depth_m').value))
         self.depth_tolerance_m = abs(float(
             self.get_parameter('depth_tolerance_m').value
@@ -162,6 +184,7 @@ class PrequalTest(Node):
             )
         if (
             check_depth
+            and self.navigation_mode == 'position'
             and self.target_z is not None
             and abs(self.current_z() - self.target_z) > self.max_depth_error_m
         ):
@@ -194,9 +217,19 @@ class PrequalTest(Node):
         self.start_y = position.y
         self.outbound_heading = self.current_yaw()
         try:
-            self.move_to_depth()
+            if self.navigation_mode == 'imu_timed':
+                self.run_timed_descent()
+            else:
+                self.move_to_depth()
             self.stop_for(self.settle_sec, self.outbound_heading)
-            self.drive_outbound()
+            if self.navigation_mode == 'imu_timed':
+                self.drive_timed(
+                    'timed outbound',
+                    self.outbound_duration_sec,
+                    self.outbound_heading,
+                )
+            else:
+                self.drive_outbound()
             self.stop_for(self.settle_sec, self.outbound_heading)
             self.turn()
             return_heading = heading_error(
@@ -204,7 +237,14 @@ class PrequalTest(Node):
                 0.0,
             )
             self.stop_for(self.settle_sec, return_heading)
-            self.drive_home()
+            if self.navigation_mode == 'imu_timed':
+                self.drive_timed(
+                    'timed return',
+                    self.return_duration_sec,
+                    return_heading,
+                )
+            else:
+                self.drive_home()
             self.stop_for(self.settle_sec)
             self.get_logger().info('Prequal path complete')
         finally:
@@ -249,6 +289,39 @@ class PrequalTest(Node):
             command,
             check_depth=False,
         )
+
+    def run_timed_descent(self):
+        end = time.monotonic() + max(0.0, self.descent_duration_sec)
+
+        def finished():
+            return time.monotonic() >= end
+
+        def command():
+            msg = Twist()
+            msg.linear.z = -self.descent_command
+            msg.angular.z = self.heading_command(self.outbound_heading)
+            return msg
+
+        self.run_phase(
+            'timed descent',
+            finished,
+            command,
+            check_depth=False,
+        )
+
+    def drive_timed(self, label, duration_sec, heading):
+        end = time.monotonic() + max(0.0, duration_sec)
+
+        def finished():
+            return time.monotonic() >= end
+
+        def command():
+            msg = Twist()
+            msg.linear.x = self.forward_command
+            msg.angular.z = self.heading_command(heading)
+            return msg
+
+        self.run_phase(label, finished, command, check_depth=False)
 
     def drive_outbound(self):
         heading = self.outbound_heading
@@ -354,7 +427,7 @@ class PrequalTest(Node):
         self.cmd_pub.publish(Twist())
 
     def publish_depth_target(self):
-        if self.target_z is None:
+        if self.target_z is None or self.navigation_mode != 'position':
             return
         msg = Float64()
         msg.data = self.target_z
