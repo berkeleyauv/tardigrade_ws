@@ -3,6 +3,7 @@ import unittest
 
 from geometry_msgs.msg import Quaternion
 
+from tardigrade_esp.depth_attitude_controller import DepthAttitudeController
 from tardigrade_esp.depth_attitude_controller import clamp
 from tardigrade_esp.depth_attitude_controller import angle_error
 from tardigrade_esp.depth_attitude_controller import euler_from_quaternion
@@ -10,6 +11,9 @@ from tardigrade_esp.depth_attitude_controller import roll_pitch_from_quaternion
 
 
 class ControllerMathTest(unittest.TestCase):
+    def test_odometry_subscription_callback_exists(self):
+        self.assertTrue(callable(DepthAttitudeController.odom_callback))
+
     def test_clamp_is_symmetric(self):
         self.assertEqual(clamp(0.5, 0.25), 0.25)
         self.assertEqual(clamp(-0.5, 0.25), -0.25)

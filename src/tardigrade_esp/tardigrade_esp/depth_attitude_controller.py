@@ -173,7 +173,7 @@ class DepthAttitudeController(Node):
         self.latest_cmd = msg
         self.latest_cmd_ns = self.get_clock().now().nanoseconds
 
-    def odometry_callback(self, msg):
+    def odom_callback(self, msg):
         self.latest_odom = msg
         self.latest_odom_ns = self.get_clock().now().nanoseconds
 
