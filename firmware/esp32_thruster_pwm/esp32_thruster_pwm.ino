@@ -8,14 +8,14 @@ const int MAX_US = 1900;
 const unsigned long COMMAND_TIMEOUT_MS = 500;
 
 const int THRUSTER_PINS[THRUSTER_COUNT] = {
-  // esc1: thruster 8, front left vectored
-  // esc2: thruster 7, front left vertical
-  // esc3: thruster 6, front right vectored
-  // esc4: thruster 5, front right vertical
-  // esc5: thruster 1, back left vectored
-  // esc6: thruster 2, back left vertical
-  // esc7: thruster 3, back right vertical
-  // esc8: thruster 4, back right vectored
+  // esc1: thruster 1, front left vertical
+  // esc2: thruster 2, front right vertical
+  // esc3: thruster 3, back left vectored
+  // esc4: thruster 4, front right vectored
+  // esc5: thruster 5, front left vectored
+  // esc6: thruster 6, back left vertical
+  // esc7: thruster 7, back right vectored
+  // esc8: thruster 8, back right vertical
   21, 19, 27, 18, 5, 14, 12, 26
 };
 

@@ -35,14 +35,14 @@ Install the `ESP32Servo` library if needed. Select the ESP32 board and upload.
 Current slot and pin order:
 
 ```text
-slot 1  pin 21  thruster 8  front left vectored
-slot 2  pin 19  thruster 7  front left vertical
-slot 3  pin 27  thruster 6  front right vectored
-slot 4  pin 18  thruster 5  front right vertical
-slot 5  pin 5   thruster 1  back left vectored
-slot 6  pin 14  thruster 2  back left vertical
-slot 7  pin 12  thruster 3  back right vertical
-slot 8  pin 26  thruster 4  back right vectored
+slot 1  pin 21  thruster 1  front left vertical
+slot 2  pin 19  thruster 2  front right vertical
+slot 3  pin 27  thruster 3  back left vectored
+slot 4  pin 18  thruster 4  front right vectored
+slot 5  pin 5   thruster 5  front left vectored
+slot 6  pin 14  thruster 6  back left vertical
+slot 7  pin 12  thruster 7  back right vectored
+slot 8  pin 26  thruster 8  back right vertical
 ```
 
 Default PWM behavior:
@@ -149,7 +149,8 @@ Flip a coefficient sign if that thruster pushes the wrong way. Set coefficients
 to `0.0` for axes that thruster should not affect.
 
 The four non-vertical thrusters are vectored diagonally, not pure forward
-thrusters. The starter mixer assumes this X-style pattern:
+thrusters. They point outward from the vehicle interior. The starter mixer
+assumes this X-style pattern:
 
 ```text
 front left vectored    surge +, sway -, yaw -
@@ -157,6 +158,11 @@ front right vectored   surge +, sway +, yaw +
 back left vectored     surge +, sway +, yaw -
 back right vectored    surge +, sway -, yaw +
 ```
+
+These signs assume PWM above neutral produces the positive force direction for
+each listed thruster. The wiring/location map alone cannot establish propeller
+polarity. During the one-at-a-time test, reverse every nonzero mix coefficient
+for any thruster whose positive force is opposite the assumed direction.
 
 If a command moves the robot opposite of what the key says, flip the relevant
 sign for the affected thrusters. For example, if `j` should strafe left but
