@@ -36,6 +36,12 @@ def generate_launch_description():
             executable='vn_sensor_msgs',
             name='vn_sensor_msgs',
             output='screen',
+            parameters=[{
+                # Keep the driver output in its native NED/FRD convention.
+                # vectornav_odometry performs the single conversion to the
+                # ROS ENU/FLU convention used by base_link.
+                'use_enu': False,
+            }],
         ),
 
         Node(

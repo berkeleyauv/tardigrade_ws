@@ -49,9 +49,12 @@ ros2 topic hz /tardigrade/state/odometry
 ros2 topic echo /tardigrade/state/odometry --once
 ```
 
-With the robot level, verify roll and pitch are near zero. Rotate it left and
-confirm yaw increases; tilt its left side up and confirm roll decreases; raise
-its nose and confirm pitch increases. Fix mounting/frame signs before connecting
+With the robot level, verify roll and pitch are near zero. Using the ROS FLU
+right-hand convention, rotate the nose left and confirm yaw increases; tilt
+the left side up and confirm roll increases; raise the nose and confirm pitch
+decreases. `vn_sensor_msgs` intentionally leaves `/vectornav/imu` in the
+VectorNav native NED/FRD convention, and `vectornav_odometry` performs the one
+conversion to ENU/FLU. Fix mounting or frame conversion before connecting
 thrusters if any axis is wrong or discontinuous.
 
 ## 3. Test each attitude axis with propellers removed
