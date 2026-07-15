@@ -99,6 +99,12 @@ def generate_launch_description():
                 'roll_kd': roll_kd,
                 'pitch_kp': pitch_kp,
                 'pitch_kd': pitch_kd,
+                # The mission's angular.z is a desired heading rate; this
+                # inner PID closes yaw directly from VectorNav orientation.
+                'yaw_kp': 0.7,
+                'yaw_ki': 0.03,
+                'yaw_kd': 0.12,
+                'max_yaw_command': max_yaw_command,
                 'enable_depth_hold': False,
             }],
         ),

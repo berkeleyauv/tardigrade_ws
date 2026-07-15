@@ -15,6 +15,10 @@ def generate_launch_description():
     roll_kd = LaunchConfiguration('roll_kd')
     pitch_kp = LaunchConfiguration('pitch_kp')
     pitch_kd = LaunchConfiguration('pitch_kd')
+    yaw_kp = LaunchConfiguration('yaw_kp')
+    yaw_ki = LaunchConfiguration('yaw_ki')
+    yaw_kd = LaunchConfiguration('yaw_kd')
+    max_yaw_command = LaunchConfiguration('max_yaw_command')
     max_attitude_command = LaunchConfiguration('max_attitude_command')
     enable_depth_hold = LaunchConfiguration('enable_depth_hold')
     enable_attitude_hold = LaunchConfiguration('enable_attitude_hold')
@@ -36,6 +40,10 @@ def generate_launch_description():
         DeclareLaunchArgument('roll_kd', default_value='0.15'),
         DeclareLaunchArgument('pitch_kp', default_value='0.8'),
         DeclareLaunchArgument('pitch_kd', default_value='0.15'),
+        DeclareLaunchArgument('yaw_kp', default_value='0.7'),
+        DeclareLaunchArgument('yaw_ki', default_value='0.03'),
+        DeclareLaunchArgument('yaw_kd', default_value='0.12'),
+        DeclareLaunchArgument('max_yaw_command', default_value='0.25'),
         DeclareLaunchArgument('max_attitude_command', default_value='0.25'),
         DeclareLaunchArgument('enable_depth_hold', default_value='true'),
         DeclareLaunchArgument('enable_attitude_hold', default_value='true'),
@@ -57,6 +65,10 @@ def generate_launch_description():
                 'roll_kd': roll_kd,
                 'pitch_kp': pitch_kp,
                 'pitch_kd': pitch_kd,
+                'yaw_kp': yaw_kp,
+                'yaw_ki': yaw_ki,
+                'yaw_kd': yaw_kd,
+                'max_yaw_command': max_yaw_command,
                 'max_attitude_command': max_attitude_command,
                 'enable_depth_hold': enable_depth_hold,
                 'enable_attitude_hold': enable_attitude_hold,

@@ -11,14 +11,27 @@ def clamp(value, limit):
     return max(-limit, min(limit, value))
 
 
-def roll_pitch_from_quaternion(q):
+def euler_from_quaternion(q):
     roll = math.atan2(
         2.0 * (q.w * q.x + q.y * q.z),
         1.0 - 2.0 * (q.x * q.x + q.y * q.y),
     )
     pitch_term = 2.0 * (q.w * q.y - q.z * q.x)
     pitch = math.asin(max(-1.0, min(1.0, pitch_term)))
-    return roll, pitch
+    yaw = math.atan2(
+        2.0 * (q.w * q.z + q.x * q.y),
+        1.0 - 2.0 * (q.y * q.y + q.z * q.z),
+    )
+    return roll, pitch, yaw
+
+
+def roll_pitch_from_quaternion(q):
+    return euler_from_quaternion(q)[:2]
+
+
+def angle_error(target, current):
+    """Return the shortest signed angular error in radians."""
+    return math.atan2(math.sin(target - current), math.cos(target - current))
 
 
 class DepthAttitudeController(Node):
@@ -39,13 +52,20 @@ class DepthAttitudeController(Node):
         self.declare_parameter('depth_deadband_m', 0.02)
         self.declare_parameter('max_heave_command', 0.35)
         self.declare_parameter('roll_kp', 0.8)
+        self.declare_parameter('roll_ki', 0.05)
         self.declare_parameter('roll_kd', 0.15)
         self.declare_parameter('pitch_kp', 0.8)
+        self.declare_parameter('pitch_ki', 0.05)
         self.declare_parameter('pitch_kd', 0.15)
+        self.declare_parameter('yaw_kp', 0.7)
+        self.declare_parameter('yaw_ki', 0.03)
+        self.declare_parameter('yaw_kd', 0.12)
+        self.declare_parameter('attitude_integral_limit', 0.25)
         self.declare_parameter('target_roll_rad', 0.0)
         self.declare_parameter('target_pitch_rad', 0.0)
         self.declare_parameter('capture_initial_attitude_target', True)
         self.declare_parameter('max_attitude_command', 0.25)
+        self.declare_parameter('max_yaw_command', 0.25)
         self.declare_parameter('enable_depth_hold', True)
         self.declare_parameter('enable_attitude_hold', True)
         self.declare_parameter('log_rate_hz', 2.0)
@@ -72,9 +92,17 @@ class DepthAttitudeController(Node):
             self.get_parameter('max_heave_command').value
         ))
         self.roll_kp = float(self.get_parameter('roll_kp').value)
+        self.roll_ki = float(self.get_parameter('roll_ki').value)
         self.roll_kd = float(self.get_parameter('roll_kd').value)
         self.pitch_kp = float(self.get_parameter('pitch_kp').value)
+        self.pitch_ki = float(self.get_parameter('pitch_ki').value)
         self.pitch_kd = float(self.get_parameter('pitch_kd').value)
+        self.yaw_kp = float(self.get_parameter('yaw_kp').value)
+        self.yaw_ki = float(self.get_parameter('yaw_ki').value)
+        self.yaw_kd = float(self.get_parameter('yaw_kd').value)
+        self.attitude_integral_limit = abs(float(
+            self.get_parameter('attitude_integral_limit').value
+        ))
         self.target_roll = float(self.get_parameter('target_roll_rad').value)
         self.target_pitch = float(self.get_parameter('target_pitch_rad').value)
         self.capture_initial_attitude_target = bool(
@@ -82,6 +110,9 @@ class DepthAttitudeController(Node):
         )
         self.max_attitude_command = abs(float(
             self.get_parameter('max_attitude_command').value
+        ))
+        self.max_yaw_command = abs(float(
+            self.get_parameter('max_yaw_command').value
         ))
         self.enable_depth_hold = bool(self.get_parameter('enable_depth_hold').value)
         self.enable_attitude_hold = bool(
@@ -97,6 +128,10 @@ class DepthAttitudeController(Node):
         self.external_target_z = None
         self.depth_integral = 0.0
         self.attitude_target_captured = False
+        self.target_yaw = 0.0
+        self.roll_integral = 0.0
+        self.pitch_integral = 0.0
+        self.yaw_integral = 0.0
         self.last_control_ns = None
         self.last_log_ns = None
 
@@ -168,6 +203,9 @@ class DepthAttitudeController(Node):
             self.target_z = None
             self.depth_integral = 0.0
             self.attitude_target_captured = False
+            self.roll_integral = 0.0
+            self.pitch_integral = 0.0
+            self.yaw_integral = 0.0
             self.last_control_ns = now_ns
             self.cmd_pub.publish(Twist())
             return
@@ -186,7 +224,6 @@ class DepthAttitudeController(Node):
         output = Twist()
         output.linear.x = self.latest_cmd.linear.x
         output.linear.y = self.latest_cmd.linear.y
-        output.angular.z = self.latest_cmd.angular.z
 
         # Manual z is a target-depth rate unless an autonomous absolute target
         # has been supplied. Releasing r/f holds the new depth.
@@ -213,29 +250,63 @@ class DepthAttitudeController(Node):
         else:
             output.linear.z = self.latest_cmd.linear.z
 
-        roll, pitch = roll_pitch_from_quaternion(
+        roll, pitch, yaw = euler_from_quaternion(
             self.latest_odom.pose.pose.orientation
         )
         if self.capture_initial_attitude_target and not self.attitude_target_captured:
             self.target_roll = roll
             self.target_pitch = pitch
+            self.target_yaw = yaw
             self.attitude_target_captured = True
             self.get_logger().info(
                 'Attitude target captured: '
                 f'roll={math.degrees(roll):.1f} deg, '
-                f'pitch={math.degrees(pitch):.1f} deg'
+                f'pitch={math.degrees(pitch):.1f} deg, '
+                f'yaw={math.degrees(yaw):.1f} deg'
             )
         if self.enable_attitude_hold:
+            # angular.z is a requested heading rate. Integrating it here means
+            # releasing the stick or mission command holds the new VectorNav
+            # heading instead of reverting to open-loop yaw thrust.
+            self.target_yaw = angle_error(
+                self.target_yaw + self.latest_cmd.angular.z * dt,
+                0.0,
+            )
+            roll_error = angle_error(self.target_roll, roll)
+            pitch_error = angle_error(self.target_pitch, pitch)
+            yaw_error = angle_error(self.target_yaw, yaw)
+            self.roll_integral = clamp(
+                self.roll_integral + roll_error * dt,
+                self.attitude_integral_limit,
+            )
+            self.pitch_integral = clamp(
+                self.pitch_integral + pitch_error * dt,
+                self.attitude_integral_limit,
+            )
+            self.yaw_integral = clamp(
+                self.yaw_integral + yaw_error * dt,
+                self.attitude_integral_limit,
+            )
             roll_command = (
-                self.roll_kp * (self.target_roll - roll)
+                self.roll_kp * roll_error
+                + self.roll_ki * self.roll_integral
                 - self.roll_kd * twist.angular.x
             )
             pitch_command = (
-                self.pitch_kp * (self.target_pitch - pitch)
+                self.pitch_kp * pitch_error
+                + self.pitch_ki * self.pitch_integral
                 - self.pitch_kd * twist.angular.y
+            )
+            yaw_command = (
+                self.yaw_kp * yaw_error
+                + self.yaw_ki * self.yaw_integral
+                - self.yaw_kd * twist.angular.z
             )
             output.angular.x = clamp(roll_command, self.max_attitude_command)
             output.angular.y = clamp(pitch_command, self.max_attitude_command)
+            output.angular.z = clamp(yaw_command, self.max_yaw_command)
+        else:
+            output.angular.z = self.latest_cmd.angular.z
 
         self.cmd_pub.publish(output)
         if self.last_log_ns is None or now_ns - self.last_log_ns >= self.log_period_ns:
@@ -243,8 +314,10 @@ class DepthAttitudeController(Node):
             self.get_logger().info(
                 f'z={position.z:.3f} target={self.target_z:.3f} '
                 f'error={depth_error:.3f} heave={output.linear.z:.3f}; '
-                f'roll={math.degrees(roll):.1f} pitch={math.degrees(pitch):.1f} '
-                f'level_cmd=({output.angular.x:.3f}, {output.angular.y:.3f})'
+                f'rpy=({math.degrees(roll):.1f}, {math.degrees(pitch):.1f}, '
+                f'{math.degrees(yaw):.1f}) deg; attitude_cmd=('
+                f'{output.angular.x:.3f}, {output.angular.y:.3f}, '
+                f'{output.angular.z:.3f})'
             )
 
 

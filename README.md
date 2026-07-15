@@ -216,6 +216,9 @@ docs/jetson_zed_px4_startup.md
 ```
 ## Local Simulation Backend
 
+For the VectorNav-only hardware controller and exact axis-by-axis test steps,
+see [docs/vectornav_attitude_control.md](docs/vectornav_attitude_control.md).
+
 Before Unity exists, run the ROS-only fake backend:
 
 ```bash
