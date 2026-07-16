@@ -75,11 +75,6 @@ def generate_launch_description():
             executable='vn_sensor_msgs',
             name='vn_sensor_msgs',
             output='screen',
-            parameters=[{
-                # Keep the sensor output native; vectornav_odometry performs
-                # the mounting and NED/FRD -> ENU/FLU conversion once.
-                'use_enu': False,
-            }],
         ),
         Node(
             package='tardigrade_state_estimation',

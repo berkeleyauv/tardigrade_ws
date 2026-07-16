@@ -14,14 +14,6 @@ VectorNav /vectornav/imu
 No ZED orientation or ROS-TCP package is used by this path. The controller
 stops all thrusters if the command or VectorNav-derived odometry becomes stale.
 
-The state-estimation conversion matches the physical VectorNav mounting:
-
-```text
-VectorNav +X  robot right
-VectorNav -Y  robot forward
-VectorNav +Z  robot down
-```
-
 ## 1. Build
 
 From the workspace on the Jetson or inside the Jetson container:

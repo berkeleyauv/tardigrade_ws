@@ -93,12 +93,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'vectornav_qx',
-            default_value='0.70710678',
+            default_value='1.0',
             description='base_link -> VectorNav quaternion x',
         ),
         DeclareLaunchArgument(
             'vectornav_qy',
-            default_value='-0.70710678',
+            default_value='0.0',
             description='base_link -> VectorNav quaternion y',
         ),
         DeclareLaunchArgument(

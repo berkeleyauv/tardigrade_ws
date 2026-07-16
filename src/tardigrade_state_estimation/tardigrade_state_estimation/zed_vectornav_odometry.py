@@ -5,14 +5,9 @@ import math
 import rclpy
 from rclpy.node import Node
 
-from geometry_msgs.msg import PoseStamped, Quaternion
+from geometry_msgs.msg import PoseStamped, Quaternion, Vector3
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
-
-from tardigrade_state_estimation.vectornav_odometry import (
-    quaternion_ned_sensor_to_enu_robot,
-    vector_sensor_frd_to_robot_flu,
-)
 
 
 def covariance_6d(position_variance, orientation_variance):
@@ -41,6 +36,61 @@ def normalize_quaternion(q):
     out.z = q.z / norm
     out.w = q.w / norm
     return out
+
+
+def quat_multiply(a, b):
+    aw, ax, ay, az = a
+    bw, bx, by, bz = b
+
+    return [
+        aw * bw - ax * bx - ay * by - az * bz,
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+    ]
+
+
+def vector_frd_to_flu(v):
+    # VectorNav/PX4 body vectors are FRD. ROS body vectors are FLU.
+    # Forward stays forward; right/down flip sign into left/up.
+    out = Vector3()
+    out.x = v.x
+    out.y = -v.y
+    out.z = -v.z
+    return out
+
+
+def quaternion_ned_frd_to_enu_flu(q):
+    # VectorNav orientation is treated as NED world + FRD body. ROS odometry
+    # should be ENU world + FLU body, so we wrap the sensor quaternion with
+    # fixed frame-conversion rotations.
+    vn_q = [q.w, q.x, q.y, q.z]
+
+    q_enu_from_ned = [
+        0.0,
+        math.sqrt(0.5),
+        math.sqrt(0.5),
+        0.0,
+    ]
+
+    q_frd_from_flu = [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+    ]
+
+    ros_q = quat_multiply(
+        quat_multiply(q_enu_from_ned, vn_q),
+        q_frd_from_flu,
+    )
+
+    out = Quaternion()
+    out.w = ros_q[0]
+    out.x = ros_q[1]
+    out.y = ros_q[2]
+    out.z = ros_q[3]
+    return normalize_quaternion(out)
 
 
 class ZedVectornavOdometry(Node):
@@ -190,10 +240,10 @@ class ZedVectornavOdometry(Node):
         # Preferred path: ZED position + VectorNav orientation/angular velocity.
         # Fallback path keeps odometry alive using ZED orientation if allowed.
         if self.latest_imu_is_fresh():
-            odom.pose.pose.orientation = quaternion_ned_sensor_to_enu_robot(
+            odom.pose.pose.orientation = quaternion_ned_frd_to_enu_flu(
                 self.latest_imu.orientation,
             )
-            odom.twist.twist.angular = vector_sensor_frd_to_robot_flu(
+            odom.twist.twist.angular = vector_frd_to_flu(
                 self.latest_imu.angular_velocity,
             )
         elif self.use_zed_orientation_if_imu_stale:

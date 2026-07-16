@@ -211,16 +211,16 @@ ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
   use_zed_orientation_if_imu_stale:=false
 ```
 
-The current VectorNav mounting is:
+Mount the VectorNav in FRD orientation:
 
 ```text
-VectorNav +X  robot right
-VectorNav -Y  robot forward
+VectorNav +X  robot forward
+VectorNav +Y  robot right
 VectorNav +Z  robot down
 ```
 
-ROS command and `base_link` conventions remain FLU. The state-estimation nodes
-and EKF static transform account for the mounting offset.
+ROS command and `base_link` conventions remain FLU. The EKF launch publishes
+the needed `base_link -> vectornav` static transform by default.
 
 Before connecting thruster power, move and tilt the robot by hand while
 checking that `z` increases upward and roll/pitch change smoothly:
