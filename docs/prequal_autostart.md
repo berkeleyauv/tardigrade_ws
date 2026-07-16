@@ -16,6 +16,10 @@ verify 1.5 m or 20 m until a pressure/depth or position sensor is added.
 
 ## Safety behavior
 
+- `PREQUAL_MODE=tether` skips the automatic launch completely. This is the
+  default in the example configuration.
+- `PREQUAL_MODE=auto` launches the stack at boot; the mission still waits for
+  readiness and then waits `STARTUP_DELAY_SEC` before it can move.
 - `dry_run` defaults to `true`.
 - No nonzero command is sent until fresh odometry and healthy ESP status exist.
 - After readiness, the mission publishes no command for `startup_delay_sec`,
@@ -63,6 +67,26 @@ sudo nano /etc/tardigrade/prequal.env
 sudo cp docker/tardigrade-prequal.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable tardigrade-prequal.service
+```
+
+Choose the startup behavior in `/etc/tardigrade/prequal.env`:
+
+```bash
+# Tether/manual mode: powering the robot does not launch prequal.
+PREQUAL_MODE=tether
+
+# Competition mode: launch at boot, with the delay below after readiness.
+PREQUAL_MODE=auto
+STARTUP_DELAY_SEC=60.0
+```
+
+In tether mode, change `PREQUAL_MODE` to `auto` when the robot is ready, then
+manually start the same service:
+
+```bash
+sudo nano /etc/tardigrade/prequal.env
+sudo systemctl start tardigrade-prequal.service
+sudo journalctl -fu tardigrade-prequal.service
 ```
 
 Keep `DRY_RUN=true` for the first automatic test:

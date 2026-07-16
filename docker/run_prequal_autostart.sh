@@ -10,6 +10,21 @@ fi
 # shellcheck disable=SC1090
 source "$env_file"
 
+PREQUAL_MODE="${PREQUAL_MODE:-tether}"
+case "$PREQUAL_MODE" in
+  auto)
+    ;;
+  tether)
+    echo "PREQUAL_MODE=tether: automatic prequal launch is disabled."
+    echo "Set PREQUAL_MODE=auto and start this service when the robot is ready."
+    exit 0
+    ;;
+  *)
+    echo "Invalid PREQUAL_MODE='$PREQUAL_MODE'; expected 'auto' or 'tether'." >&2
+    exit 2
+    ;;
+esac
+
 : "${WORKSPACE:?Set WORKSPACE in $env_file}"
 : "${ESP_PORT:?Set ESP_PORT in $env_file}"
 : "${VECTORNAV_PORT:?Set VECTORNAV_PORT in $env_file}"
