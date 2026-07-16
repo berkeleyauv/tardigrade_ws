@@ -22,15 +22,18 @@ def quat_multiply(a, b):
     ]
 
 
-def vector_frd_to_flu(v):
+def vector_sensor_frd_to_robot_flu(v):
+    """Rotate the physically mounted VectorNav body vector into robot FLU."""
     out = Vector3()
-    out.x = v.x
-    out.y = -v.y
+    # Sensor +X points robot-right, -Y forward, and +Z down.
+    out.x = -v.y
+    out.y = -v.x
     out.z = -v.z
     return out
 
 
-def quaternion_ned_frd_to_enu_flu(q):
+def quaternion_ned_sensor_to_enu_robot(q):
+    """Convert VectorNav NED/sensor-FRD orientation to ENU/robot-FLU."""
     vn_q = [q.w, q.x, q.y, q.z]
 
     q_enu_from_ned = [
@@ -40,16 +43,18 @@ def quaternion_ned_frd_to_enu_flu(q):
         0.0,
     ]
 
-    q_frd_from_flu = [
+    # Robot FLU -> mounted sensor coordinates. This includes the FLU/FRD
+    # conversion and the sensor's 90-degree yaw mounting offset.
+    q_sensor_from_robot_flu = [
         0.0,
-        1.0,
-        0.0,
+        math.sqrt(0.5),
+        -math.sqrt(0.5),
         0.0,
     ]
 
     ros_q = quat_multiply(
         quat_multiply(q_enu_from_ned, vn_q),
-        q_frd_from_flu,
+        q_sensor_from_robot_flu,
     )
 
     out = Quaternion()
@@ -97,7 +102,9 @@ class VectornavOdometry(Node):
         odom.header.frame_id = self.odom_frame
         odom.child_frame_id = self.base_frame
 
-        odom.pose.pose.orientation = quaternion_ned_frd_to_enu_flu(msg.orientation)
+        odom.pose.pose.orientation = quaternion_ned_sensor_to_enu_robot(
+            msg.orientation
+        )
         odom.pose.covariance = [
             999.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 999.0, 0.0, 0.0, 0.0, 0.0,
@@ -116,7 +123,9 @@ class VectornavOdometry(Node):
             msg.orientation_covariance[8],
         ]
 
-        odom.twist.twist.angular = vector_frd_to_flu(msg.angular_velocity)
+        odom.twist.twist.angular = vector_sensor_frd_to_robot_flu(
+            msg.angular_velocity
+        )
         odom.twist.covariance = [
             999.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 999.0, 0.0, 0.0, 0.0, 0.0,

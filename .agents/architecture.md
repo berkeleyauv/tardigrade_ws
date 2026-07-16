@@ -83,17 +83,18 @@ VectorNav driver directly and expects the IMU on:
 The VectorNav is not a local-position source by itself. It provides attitude,
 angular velocity, acceleration, and related IMU data.
 
-Physical mounting convention: VectorNav FRD.
+Physical mounting convention:
 
 ```text
-VectorNav +X  robot forward
-VectorNav +Y  robot right
+VectorNav +X  robot right
+VectorNav -Y  robot forward
 VectorNav +Z  robot down
 ```
 
-ROS `base_link` stays FLU. The EKF launch publishes the default
-`base_link -> vectornav` static transform as a 180 degree rotation about X
-using quaternion `(x=1, y=0, z=0, w=0)`.
+ROS `base_link` stays FLU. The state-estimation nodes apply this mounting
+rotation along with the NED/FRD to ENU/FLU conversion. The EKF launch publishes
+the matching default `base_link -> vectornav` quaternion
+`(x=0.70710678, y=-0.70710678, z=0, w=0)`.
 
 ### ZED wrapper packages
 

@@ -120,6 +120,11 @@ def generate_launch_description():
             executable='vn_sensor_msgs',
             name='vn_sensor_msgs',
             output='screen',
+            parameters=[{
+                # Keep the sensor output native; the state-estimation node
+                # applies the physical mount and ROS frame conversion once.
+                'use_enu': False,
+            }],
         ),
 
         # Simple fused odometry publisher kept for comparison with the EKF path.
