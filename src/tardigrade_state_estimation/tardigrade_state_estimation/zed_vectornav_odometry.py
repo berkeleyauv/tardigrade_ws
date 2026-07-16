@@ -1,3 +1,5 @@
+# Copyright 2026 Berkeley AUV
+
 import math
 
 import rclpy

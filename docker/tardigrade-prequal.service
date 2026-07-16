@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=simple
 Environment=TARDIGRADE_ENV_FILE=/etc/tardigrade/prequal.env
 ExecStart=/bin/bash /home/auv/Developer/tardigrade_ws/docker/run_prequal_autostart.sh
-ExecStop=-/usr/bin/docker stop -t 5 tardigrade-prequal
+ExecStop=-/bin/bash -c '/usr/bin/docker stop -t 5 tardigrade-prequal >/dev/null 2>&1'
 Restart=no
 TimeoutStopSec=15
 
