@@ -2,8 +2,9 @@
 
 The physical robot is not in a stable state: PDB behavior, thruster behavior,
 and wiring are not trusted. Local development is the active path. Preserve the
-Jetson/Pixhawk bringup knowledge, but do not make new work depend on the ZED,
-VectorNav, Pixhawk, or thrusters being available.
+Jetson/ESP bringup knowledge, but do not make new work depend on the ZED,
+VectorNav, ESP32, or thrusters being available. Pixhawk/PX4 code is legacy and
+skipped by `./build.sh` by default.
 
 ## Active Goal
 
@@ -14,7 +15,7 @@ Make the software observable, easy to build, and testable without the robot:
 3. Make mock/fake bringup useful for interface-level development.
 4. Build a Foxglove pool-test UI instead of a custom webapp.
 5. Add fake perception/status/odometry so autonomy can be tested locally.
-6. Keep the Jetson/ZED/Pixhawk runbook accurate for the next hardware session.
+6. Keep the Jetson/ZED/ESP runbook accurate for the next hardware session.
 7. Keep real-thrust work blocked behind documented safety and mapping checks.
 
 ## Local Startup
@@ -71,14 +72,13 @@ Recent hardware sessions verified:
 - ZED pose can publish on `/zed/zed_node/pose`.
 - VectorNav connects at `115200` baud and publishes `/vectornav/imu`.
 - `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`.
-- `mavlink_pixhawk_interface` connects to PX4 over `/dev/ttyACM0`.
-- MAVLink visual odometry reaches PX4.
-- PX4 reports local position and estimator diagnostics.
-- The Pixhawk can arm when it receives acceptable ZED visual odometry.
+- `tardigrade_esp` is the active actuator path.
+- `tardigrade_teleop` publishes keyboard `/tardigrade/cmd_vel`.
+- `tardigrade_px4` and `px4_msgs` are preserved under `src/legacy/`.
 
 Not yet proven repeatable:
 
-- PX4 remaining in Offboard mode.
+- EKF output replacing the older simple odometry path.
 - Real-thrust teleop.
 - Thruster map validation against the physical vehicle.
 - End-to-end pool task execution.
@@ -91,7 +91,7 @@ Current priority order:
 2. Fake ROS inputs for mission logic: status, odometry, gate/slalom detections,
    and a fake controller.
 3. BehaviorTree.CPP or behavior-tree-shaped autonomy for gate first.
-4. Lightweight simulation/fake world before full Gazebo/PX4 SITL.
+4. Lightweight simulation/fake world before full simulator work.
 5. Sensor-frame cleanup, calibration notes, and eventual fusion with ZED, IMU,
    and depth.
 
@@ -112,11 +112,10 @@ work is to publish good ROS topics, debug images, metrics, and layouts.
 - Standardize perception debug topics for gate/slalom detections and overlay
   images.
 - Add fake ROS nodes for status, odometry, and perception.
-- Add tests around MAVLink command construction and frame conversions when
-  working in `tardigrade_px4`.
-- Keep `/tardigrade/status.detail` readable enough to debug without QGC.
+- Add tests around ESP mixing, teleop, state estimation, and frame conversions.
+- Add an ESP/control status topic when the bridge behavior settles.
 - Keep `README.md` short and keep the detailed hardware sequence in
-  `docs/jetson_zed_px4_startup.md`.
+  `docs/esp_thruster_bringup.md`.
 - Keep `.legacy_inspect` removed; it was stale repository metadata.
 
 ## Guardrails
@@ -125,7 +124,7 @@ work is to publish good ROS topics, debug images, metrics, and layouts.
 - Do not add a top-level `src/zed-ros2-interfaces`; it already exists as a
   nested submodule inside `src/zed-ros2-wrapper`.
 - Do not re-center Micro XRCE-DDS unless the team explicitly revives that path.
-- Keep PX4-specific message/protocol details inside `tardigrade_px4`.
+- Keep PX4-specific message/protocol details isolated in legacy `tardigrade_px4`.
 - Keep robot-level APIs centered on `/tardigrade/*`.
 - Never hide arming or external-control enable inside launch files.
 - Do not build a custom dashboard before proving Foxglove is insufficient.

@@ -1,3 +1,5 @@
+# Copyright 2026 Berkeley AUV
+
 import math
 
 import rclpy
@@ -57,6 +59,7 @@ def quaternion_ned_frd_to_enu_flu(q):
     out.z = ros_q[3]
     return out
 
+
 class VectornavOdometry(Node):
     def __init__(self):
         super().__init__('vectornav_odometry')
@@ -99,9 +102,18 @@ class VectornavOdometry(Node):
             999.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 999.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 999.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, msg.orientation_covariance[0], msg.orientation_covariance[1], msg.orientation_covariance[2],
-            0.0, 0.0, 0.0, msg.orientation_covariance[3], msg.orientation_covariance[4], msg.orientation_covariance[5],
-            0.0, 0.0, 0.0, msg.orientation_covariance[6], msg.orientation_covariance[7], msg.orientation_covariance[8],
+            0.0, 0.0, 0.0,
+            msg.orientation_covariance[0],
+            msg.orientation_covariance[1],
+            msg.orientation_covariance[2],
+            0.0, 0.0, 0.0,
+            msg.orientation_covariance[3],
+            msg.orientation_covariance[4],
+            msg.orientation_covariance[5],
+            0.0, 0.0, 0.0,
+            msg.orientation_covariance[6],
+            msg.orientation_covariance[7],
+            msg.orientation_covariance[8],
         ]
 
         odom.twist.twist.angular = vector_frd_to_flu(msg.angular_velocity)
@@ -109,9 +121,18 @@ class VectornavOdometry(Node):
             999.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 999.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 999.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, msg.angular_velocity_covariance[0], msg.angular_velocity_covariance[1], msg.angular_velocity_covariance[2],
-            0.0, 0.0, 0.0, msg.angular_velocity_covariance[3], msg.angular_velocity_covariance[4], msg.angular_velocity_covariance[5],
-            0.0, 0.0, 0.0, msg.angular_velocity_covariance[6], msg.angular_velocity_covariance[7], msg.angular_velocity_covariance[8],
+            0.0, 0.0, 0.0,
+            msg.angular_velocity_covariance[0],
+            msg.angular_velocity_covariance[1],
+            msg.angular_velocity_covariance[2],
+            0.0, 0.0, 0.0,
+            msg.angular_velocity_covariance[3],
+            msg.angular_velocity_covariance[4],
+            msg.angular_velocity_covariance[5],
+            0.0, 0.0, 0.0,
+            msg.angular_velocity_covariance[6],
+            msg.angular_velocity_covariance[7],
+            msg.angular_velocity_covariance[8],
         ]
 
         self.odom_pub.publish(odom)

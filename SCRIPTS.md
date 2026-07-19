@@ -82,6 +82,16 @@ Starts the combined ZED + VectorNav odometry path. This assumes the ZED wrapper
 is already publishing `/zed/zed_node/pose`.
 
 ```bash
+ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
+```
+
+Starts the experimental `robot_localization` EKF path. It assumes the ZED
+wrapper is already publishing `/zed/zed_node/odom` and VectorNav is already
+publishing `/vectornav/imu`. The default output is
+`/tardigrade/state/odometry/filtered` so it can be compared against the current
+odometry path before being promoted.
+
+```bash
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```
 
@@ -95,26 +105,43 @@ ros2 launch tardigrade_bringup foxglove_bridge.launch.py
 Starts `foxglove_bridge` on port `8765` if the bridge has been built from
 source or otherwise installed.
 
-## Pixhawk / Control
+## ESP / Control
 
 ```bash
-ros2 run tardigrade_px4 mavlink_pixhawk_interface
+ros2 run tardigrade_esp esp_thruster_bridge
 ```
 
-Current hardware Pixhawk interface over USB MAVLink. This is the main path for
-external control, arming, status, and velocity setpoints.
+Current ESP32 serial bridge. This is the main actuator path for converting
+`/tardigrade/cmd_vel` into PWM commands.
+
+Monitoring output:
+
+```text
+/tardigrade/thrusters/pwm
+/tardigrade/esp/status
+```
 
 ```bash
-ros2 run tardigrade_px4 keyboard_cmd_vel
+ros2 run tardigrade_esp esp_thruster_test
+```
+
+Bench utility for testing one ESP thruster output at a time.
+
+```bash
+ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
 Publishes keyboard velocity commands for bench testing.
 
-```bash
-ros2 run tardigrade_px4 prequal_mission
-```
+## Legacy Pixhawk / PX4
 
-Runs the starter pre-qualification mission. It defaults to a dry run.
+`src/legacy/tardigrade_px4` is preserved for reference and ignored by colcon.
+`src/legacy/px4_msgs` is preserved there too. Remove
+`src/legacy/COLCON_IGNORE` only if you intentionally want to work on the old
+Pixhawk path.
+
+The commands below are legacy references and are not available in the normal
+ESP-first build.
 
 ```bash
 ros2 run tardigrade_px4 motor_toggle_test
@@ -160,6 +187,25 @@ ros2 run tardigrade_state_estimation zed_vectornav_odometry
 ```
 
 Combines ZED and VectorNav inputs into `/tardigrade/state/odometry`.
+
+The newer EKF path is configured in:
+
+```text
+src/tardigrade_bringup/config/zed_vectornav_ekf.yaml
+```
+
+It uses ZED visual odometry for position/linear velocity and VectorNav IMU data
+for orientation/angular velocity. IMU linear acceleration is intentionally not
+fused yet.
+
+The EKF launch assumes the VectorNav is mounted FRD on the robot:
+
+```text
+X forward, Y right, Z down
+```
+
+ROS `base_link` remains FLU, so the launch publishes a default
+`base_link -> vectornav` static transform with quaternion `(1, 0, 0, 0)`.
 
 ## Docker Helpers
 

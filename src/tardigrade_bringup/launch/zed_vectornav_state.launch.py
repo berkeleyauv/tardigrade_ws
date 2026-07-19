@@ -17,7 +17,12 @@ def generate_launch_description():
     position_variance = LaunchConfiguration('position_variance')
     orientation_variance = LaunchConfiguration('orientation_variance')
     angular_velocity_variance = LaunchConfiguration('angular_velocity_variance')
+    linear_velocity_variance = LaunchConfiguration('linear_velocity_variance')
+    velocity_filter_alpha = LaunchConfiguration('velocity_filter_alpha')
     imu_timeout_sec = LaunchConfiguration('imu_timeout_sec')
+    use_zed_orientation_if_imu_stale = LaunchConfiguration(
+        'use_zed_orientation_if_imu_stale'
+    )
     zero_initial_position = LaunchConfiguration('zero_initial_position')
 
     return LaunchDescription([
@@ -44,7 +49,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'odom_topic',
             default_value='/tardigrade/state/odometry',
-            description='Odometry topic consumed by the PX4 MAVLink interface',
+            description='Robot odometry output topic',
         ),
         DeclareLaunchArgument(
             'odom_frame',
@@ -72,14 +77,29 @@ def generate_launch_description():
             description='Diagonal covariance value for VectorNav angular velocity',
         ),
         DeclareLaunchArgument(
+            'linear_velocity_variance',
+            default_value='0.10',
+            description='Diagonal covariance value for filtered ZED velocity',
+        ),
+        DeclareLaunchArgument(
+            'velocity_filter_alpha',
+            default_value='0.25',
+            description='Low-pass alpha for velocity derived from ZED position',
+        ),
+        DeclareLaunchArgument(
             'imu_timeout_sec',
             default_value='0.25',
             description='Maximum VectorNav IMU age before falling back to ZED orientation',
         ),
         DeclareLaunchArgument(
+            'use_zed_orientation_if_imu_stale',
+            default_value='true',
+            description='Continue with ZED attitude when VectorNav data is stale',
+        ),
+        DeclareLaunchArgument(
             'zero_initial_position',
             default_value='true',
-            description='Subtract the first ZED pose so PX4 receives a near-zero local origin',
+            description='Subtract the first ZED pose to start near the local origin',
         ),
 
         # Raw VectorNav driver: talks to the serial device.
@@ -102,7 +122,7 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Fused odometry publisher consumed by mavlink_pixhawk_interface.
+        # Simple fused odometry publisher kept for comparison with the EKF path.
         Node(
             package='tardigrade_state_estimation',
             executable='zed_vectornav_odometry',
@@ -117,7 +137,12 @@ def generate_launch_description():
                 'position_variance': position_variance,
                 'orientation_variance': orientation_variance,
                 'angular_velocity_variance': angular_velocity_variance,
+                'linear_velocity_variance': linear_velocity_variance,
+                'velocity_filter_alpha': velocity_filter_alpha,
                 'imu_timeout_sec': imu_timeout_sec,
+                'use_zed_orientation_if_imu_stale': (
+                    use_zed_orientation_if_imu_stale
+                ),
                 'zero_initial_position': zero_initial_position,
             }],
         ),

@@ -62,7 +62,7 @@ ros2 topic echo /tardigrade/perception/gate
 Terminal 3:
 
 ```bash
-ros2 run tardigrade_px4 keyboard_cmd_vel
+ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
 The fake robot moves only after these services are called:

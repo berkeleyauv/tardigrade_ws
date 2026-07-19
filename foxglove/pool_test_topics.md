@@ -9,13 +9,15 @@ target interface list; some topics do not exist yet.
 /tardigrade/status
 ```
 
-Robot-level Pixhawk connection, armed state, external-control state, odometry
-freshness, and debug detail.
+Robot-level status, odometry freshness, and debug detail. The ESP-first path
+does not currently have a full status topic equivalent to the old Pixhawk path.
 
 ## State Estimate
 
 ```text
 /tardigrade/state/odometry
+/tardigrade/state/odometry/filtered
+/zed/zed_node/odom
 /zed/zed_node/pose
 /vectornav/imu
 /tf
@@ -25,6 +27,10 @@ freshness, and debug detail.
 Show ZED pose, VectorNav IMU behavior, and the fused robot odometry topic.
 `/tardigrade/state/odometry` uses ZED position plus fresh VectorNav orientation
 when available.
+
+`/tardigrade/state/odometry/filtered` is the experimental `robot_localization`
+EKF output. Compare it against raw ZED odometry and the current simple fused
+topic before using it for PX4/autonomy.
 
 Current caveat: this odometry topic does not yet publish an `odom -> base_link`
 TF transform. Use Raw Messages and Plot panels first; add it to the 3D panel as
@@ -36,8 +42,11 @@ Useful fields:
 ```text
 /vectornav/imu.orientation
 /vectornav/imu.angular_velocity
+/zed/zed_node/odom.pose.pose.position
 /tardigrade/state/odometry.pose.pose.position
 /tardigrade/state/odometry.pose.pose.orientation
+/tardigrade/state/odometry/filtered.pose.pose.position
+/tardigrade/state/odometry/filtered.pose.pose.orientation
 /tardigrade/state/odometry.twist.twist.angular
 ```
 
@@ -45,10 +54,16 @@ Useful fields:
 
 ```text
 /tardigrade/cmd_vel
+/tardigrade/thrusters/pwm
+/tardigrade/esp/status
 ```
 
 Current robot-level velocity command. Useful for checking teleop/autonomy
 intent before worrying about physical motion.
+
+The ESP topics show what the bridge is sending to the firmware. They are
+monitoring-only and should be plotted next to `/tardigrade/cmd_vel` during
+bench and pool checks.
 
 ## Cameras
 

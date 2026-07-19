@@ -11,35 +11,29 @@ The core design rule is:
 > Robot code talks in robot concepts. Only driver/adapter code talks in
 > hardware concepts.
 
-PX4 is the current actuator and safety backend. It should not define the whole
-codebase. The long-term architecture should allow a different controller, such
-as an ESP-based thruster controller, without rewriting teleop, autonomy,
-perception, or state-estimation code.
+The ESP32 serial PWM path is the current actuator backend. PX4/Pixhawk code is
+legacy and should not define the whole codebase. The architecture should allow
+different controllers without rewriting teleop, autonomy, perception, or
+state-estimation code.
 
 ## Current Status Snapshot
 
 As of July 13, 2026:
 
-- The working bench Pixhawk path is USB MAVLink, not Micro XRCE-DDS.
-- `mavlink_pixhawk_interface` can connect to the Pixhawk over `/dev/ttyACM0`.
+- The Pixhawk/PX4 path is retired for now and preserved under `src/legacy/`.
+- `src/legacy/COLCON_IGNORE` keeps `px4_msgs` and `tardigrade_px4` out of
+  normal builds.
 - Local development is currently the safest path because the physical robot has
   PDB, wiring, and thruster reliability issues.
-- The Jetson/ZED/VectorNav/Pixhawk bringup path is documented, but Offboard and
-  arming are still active debugging items rather than a guaranteed procedure.
+- The Jetson/ZED/VectorNav/ESP bringup path is the active hardware direction.
 - Verified pieces from the hardware session:
   - ZED publishes pose,
   - VectorNav connects at 115200 baud and publishes IMU data,
   - `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`,
-  - `mavlink_pixhawk_interface` connects to PX4,
-  - MAVLink visual odometry reaches PX4,
-  - PX4 reports local position and estimator diagnostics.
-- The Pixhawk has been able to arm when acceptable ZED visual odometry reaches
-  it, but this should not be treated as a complete autonomy/teleop validation.
-- The Pixhawk parameter save path is broken on the current board:
-  `param save` fails to export to `/fs/mtd_params`.
-- Because PX4 params do not persist, `configure_px4_params:=true` is required
-  after Pixhawk reboot for bench arming.
-- ZED wrapper support is documented in `docs/jetson_zed_px4_startup.md`.
+  - `zed_vectornav_ekf.launch.py` provides an experimental EKF output,
+  - `tardigrade_esp` owns the ESP serial PWM bridge,
+  - `tardigrade_teleop` owns keyboard velocity commands.
+- ZED/ESP bringup support is documented in `docs/esp_thruster_bringup.md`.
 - ZED wrapper source is now tracked as a top-level submodule pinned to the
   `humble-v4.0.8` tag commit:
   - `src/zed-ros2-wrapper`
@@ -55,10 +49,7 @@ As of July 13, 2026:
 - The ZED camera is the local position source.
 - The VectorNav IMU is the attitude and angular-velocity source.
 - `tardigrade_state_estimation` publishes `/tardigrade/state/odometry`.
-- `tardigrade_px4` forwards that odometry to PX4 as MAVLink `ODOMETRY`.
-- Offboard mode requires a live setpoint stream before PX4 will remain in
-  Offboard. The current service sends the mode command immediately after
-  enabling the stream, so a delayed Offboard command may be needed.
+- The experimental EKF publishes `/tardigrade/state/odometry/filtered`.
 - `keyboard_cmd_vel` provides a first keyboard teleop path through
   `/tardigrade/cmd_vel`.
 - `config/thruster_map.yaml` documents actual thruster wiring and geometry, but
@@ -66,13 +57,19 @@ As of July 13, 2026:
 
 ## Package Boundaries
 
-### `px4_msgs`
+### `tardigrade_teleop`
 
-Vendored PX4 ROS 2 messages. This package exists for the older/direct PX4 ROS 2
-topic path and mock testing.
+Owns operator input tools that publish robot-level commands.
 
-Only PX4 adapter code should import `px4_msgs`. Application packages should not
-depend on PX4 message definitions.
+Current executables:
+
+- `keyboard_cmd_vel`: publishes `geometry_msgs/Twist` on `/tardigrade/cmd_vel`
+  by default.
+
+### Legacy `px4_msgs`
+
+Vendored PX4 ROS 2 messages. This package exists for the retired/direct PX4 ROS
+2 topic path and is skipped by `./build.sh` by default.
 
 ### `vectornav` and `vectornav_msgs`
 
@@ -86,11 +83,23 @@ VectorNav driver directly and expects the IMU on:
 The VectorNav is not a local-position source by itself. It provides attitude,
 angular velocity, acceleration, and related IMU data.
 
+Physical mounting convention: VectorNav FRD.
+
+```text
+VectorNav +X  robot forward
+VectorNav +Y  robot right
+VectorNav +Z  robot down
+```
+
+ROS `base_link` stays FLU. The EKF launch publishes the default
+`base_link -> vectornav` static transform as a 180 degree rotation about X
+using quaternion `(x=1, y=0, z=0, w=0)`.
+
 ### ZED wrapper packages
 
 The Stereolabs ZED ROS 2 wrapper is used as an external dependency on the
 Jetson. The current known working direction is documented in
-`docs/jetson_zed_px4_startup.md`.
+`docs/esp_thruster_bringup.md`.
 
 The wrapper is a Git submodule, not a manually cloned source directory:
 
@@ -115,7 +124,7 @@ The main pose topic is:
 /zed/zed_node/pose
 ```
 
-This is the current local position source for PX4 arming.
+This is the current local position source.
 
 ### `tardigrade_interfaces`
 
@@ -146,36 +155,40 @@ Current nodes:
 /tardigrade/state/odometry
 ```
 
-This package should remain sensor/estimation focused. It should not arm PX4,
-enter Offboard mode, or publish direct actuator commands.
+Experimental EKF work lives in `tardigrade_bringup` for now:
 
-### `tardigrade_px4`
+- `config/zed_vectornav_ekf.yaml`: `robot_localization` EKF config.
+- `launch/zed_vectornav_ekf.launch.py`: reads `/zed/zed_node/odom` and
+  `/vectornav/imu`, publishes `/tardigrade/state/odometry/filtered`, and can
+  publish `odom -> base_link` TF.
 
-The only PX4-aware package.
+This package should remain sensor/estimation focused. It should not publish
+direct actuator commands.
 
-Current responsibilities:
+### Legacy `tardigrade_px4`
 
-- connect to Pixhawk over USB MAVLink for the current hardware path,
+Retired PX4-aware package. It is preserved under `src/legacy/tardigrade_px4`
+and ignored by colcon through `src/legacy/COLCON_IGNORE`.
+
+Historical responsibilities:
+
+- connect to Pixhawk over USB MAVLink,
 - keep the older PX4 ROS 2 `/fmu/*` path available for mock/uXRCE work,
 - send MAVLink arm/disarm commands,
 - enter external-control/Offboard mode,
 - publish `/tardigrade/status`,
 - send `/tardigrade/state/odometry` to PX4 as MAVLink visual odometry,
 - optionally send required PX4 params into RAM at startup,
-- subscribe to `/tardigrade/cmd_vel` for teleop velocity commands,
 - clamp teleop speed limits to zero by default.
 
 Important executables:
 
-- `mavlink_pixhawk_interface`: current hardware Pixhawk interface.
+- `mavlink_pixhawk_interface`: old hardware Pixhawk interface.
 - `mavlink_odometry_to_px4`: narrower MAVLink odometry bridge.
 - `odometry_to_px4`: PX4 ROS 2 topic odometry bridge.
 - `pixhawk_interface`: older/mock PX4 ROS 2 topic interface.
-- `keyboard_cmd_vel`: first keyboard teleop tool.
-
-Long term, `keyboard_cmd_vel` may move to a dedicated teleop package. For now it
-lives in `tardigrade_px4` because it was added as part of the bench control
-slice.
+- `keyboard_cmd_vel`: old copy of the keyboard teleop tool. Active teleop now
+  lives in `tardigrade_teleop`.
 
 ### `tardigrade_bringup`
 
@@ -183,7 +196,7 @@ Owns launch files.
 
 Current important launch files:
 
-- `mock.launch.py`: mock PX4 path for local development.
+- `mock.launch.py`: ROS-only fake backend for local development.
 - `vectornav_state.launch.py`: VectorNav-only odometry path.
 - `zed_state.launch.py`: ZED-only odometry path.
 - `zed_vectornav_state.launch.py`: current preferred ZED + VectorNav odometry
@@ -214,7 +227,7 @@ Current important files:
   MacBook or other non-Jetson machine because it only mounts the workspace. It
   exposes rosbridge port `9090` for the Foxglove MVP and Foxglove WebSocket
   port `8765` for a future `foxglove_bridge` path.
-- `compose.jetson.yaml`: Jetson/ZED/Pixhawk override. This adds host networking,
+- `compose.jetson.yaml`: Jetson/ZED/ESP override. This adds host networking,
   privileged device access, `/dev`, USB, ZED SDK, CUDA, and Tegra library
   mounts.
 - `ros_entrypoint.sh`: sources ROS and the workspace when the container starts.
@@ -447,7 +460,7 @@ Service that sends the arm/disarm command.
 
 - Build one thin vertical slice at a time.
 - Keep packages small and responsibility-driven.
-- Keep PX4-specific details inside `tardigrade_px4`.
+- Keep PX4-specific details inside `src/legacy/tardigrade_px4`.
 - Prefer robot-level topics and services at package boundaries.
 - Mock hardware-facing inputs when hardware is unreliable.
 - Keep these `.agents` docs updated when decisions change.

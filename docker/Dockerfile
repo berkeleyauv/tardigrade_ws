@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tmux \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir pymavlink pyserial
+RUN pip3 install --no-cache-dir pyserial
 
 WORKDIR /ws
 

@@ -321,7 +321,7 @@ ros2 topic hz /tardigrade/state/odometry
 position          ZED
 orientation       VectorNav when fresh, otherwise ZED fallback
 angular velocity  VectorNav
-linear velocity   not estimated
+linear velocity   filtered derivative of ZED position
 ```
 
 If the VectorNav is unavailable and you only need ZED pose:
@@ -329,6 +329,35 @@ If the VectorNav is unavailable and you only need ZED pose:
 ```bash
 ros2 launch tardigrade_bringup zed_state.launch.py
 ```
+
+### Optional: Experimental EKF Comparison
+
+The current PX4 path still uses `/tardigrade/state/odometry`. To compare the
+new `robot_localization` EKF without changing PX4 behavior, start another
+container terminal:
+
+```bash
+cd /ws
+source install/setup.bash
+ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
+```
+
+The EKF reads:
+
+```text
+/zed/zed_node/odom
+/vectornav/imu
+```
+
+and publishes:
+
+```text
+/tardigrade/state/odometry/filtered
+```
+
+Plot `/tardigrade/state/odometry`, `/tardigrade/state/odometry/filtered`, and
+`/zed/zed_node/odom` together in Foxglove. Do not point PX4 at the filtered
+topic until it looks stable during bench and pool checks.
 
 ### Terminal 3: Foxglove Rosbridge
 
@@ -686,7 +715,7 @@ ros2 run tardigrade_px4 mavlink_pixhawk_interface --ros-args \
 Run keyboard teleop:
 
 ```bash
-ros2 run tardigrade_px4 keyboard_cmd_vel
+ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
 Expected Pixhawk interface debug:
