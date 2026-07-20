@@ -78,7 +78,7 @@ Hardware should subscribe:
 /tardigrade/cmd_vel
 ```
 
-The subscriber may be the Pixhawk bridge, ESP bridge, or a future controller.
+The subscriber may be the ESP bridge or a future controller.
 
 ## Interfaces Added For Simulation
 

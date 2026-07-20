@@ -1,6 +1,6 @@
 builtin_interfaces/Time stamp
 
-bool px4_connected
+bool control_connected
 bool armed
 bool external_control_enabled
 

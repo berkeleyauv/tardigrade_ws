@@ -12,8 +12,9 @@ from sensor_msgs.msg import Imu
 
 def covariance_6d(position_variance, orientation_variance):
     # nav_msgs/Odometry covariances are 6x6 matrices flattened row-major:
-    # x, y, z, roll, pitch, yaw. Tune these variances to tell PX4 how much
-    # confidence to place in ZED position and VectorNav attitude.
+    # x, y, z, roll, pitch, yaw. Tune these variances to tell downstream
+    # consumers how much confidence to place in ZED position and VectorNav
+    # attitude.
     return [
         position_variance, 0.0, 0.0, 0.0, 0.0, 0.0,
         0.0, position_variance, 0.0, 0.0, 0.0, 0.0,
@@ -51,7 +52,7 @@ def quat_multiply(a, b):
 
 
 def vector_frd_to_flu(v):
-    # VectorNav/PX4 body vectors are FRD. ROS body vectors are FLU.
+    # VectorNav body vectors are FRD. ROS body vectors are FLU.
     # Forward stays forward; right/down flip sign into left/up.
     out = Vector3()
     out.x = v.x
@@ -98,7 +99,7 @@ class ZedVectornavOdometry(Node):
         super().__init__('zed_vectornav_odometry')
 
         # Launch-time knobs. Change topic/frame names here only if upstream
-        # drivers or downstream PX4 bridge topics change.
+        # drivers or downstream bridge topics change.
         self.declare_parameter('zed_pose_topic', '/zed/zed_node/pose')
         self.declare_parameter('imu_topic', '/vectornav/imu')
         self.declare_parameter('odom_topic', '/tardigrade/state/odometry')

@@ -10,7 +10,7 @@ target interface list; some topics do not exist yet.
 ```
 
 Robot-level status, odometry freshness, and debug detail. The ESP-first path
-does not currently have a full status topic equivalent to the old Pixhawk path.
+does not currently have a full hardware status topic.
 
 ## State Estimate
 
@@ -30,7 +30,7 @@ when available.
 
 `/tardigrade/state/odometry/filtered` is the experimental `robot_localization`
 EKF output. Compare it against raw ZED odometry and the current simple fused
-topic before using it for PX4/autonomy.
+topic before using it for autonomy.
 
 Current caveat: this odometry topic does not yet publish an `odom -> base_link`
 TF transform. Use Raw Messages and Plot panels first; add it to the 3D panel as

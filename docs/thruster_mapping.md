@@ -7,7 +7,7 @@ assumptions agree.
 The source-of-truth file is:
 
 ```text
-src/tardigrade_esp/config/esp_thruster_map.json
+config/esp_thruster_map.json
 ```
 
 The current ESP wiring is:

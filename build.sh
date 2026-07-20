@@ -22,8 +22,7 @@ Options:
 
 Default:
   Builds the local development workspace and skips ZED SDK packages that only
-  build on the Jetson or a machine with the Stereolabs SDK installed. Legacy
-  Pixhawk/PX4 packages live under src/legacy, which has COLCON_IGNORE.
+  build on the Jetson or a machine with the Stereolabs SDK installed.
 EOF
 }
 

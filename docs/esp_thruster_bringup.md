@@ -1,8 +1,7 @@
 # ESP32 Thruster Bringup
 
-This path replaces the Pixhawk/PX4 thrust path with a simple ESP32 PWM adapter.
-The Jetson still owns ROS, teleop, prequalification, and autonomy. The ESP32
-only receives serial PWM commands and drives ESC signal pins.
+The Jetson owns ROS, teleop, prequalification, and autonomy. The ESP32 only
+receives serial PWM commands and drives ESC signal pins.
 
 ```text
 /tardigrade/cmd_vel

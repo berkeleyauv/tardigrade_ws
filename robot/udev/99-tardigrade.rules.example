@@ -1,0 +1,19 @@
+# Example udev rules for stable Tardigrade device names.
+#
+# Do not install this file unchanged. Replace the placeholder ATTRS values with
+# the real values from the Jetson.
+#
+# Inspect a device:
+#   udevadm info -a -n /dev/ttyUSB0
+#
+# Reload after installing:
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+
+# ESP32 USB serial adapter.
+# Replace idVendor/idProduct/serial with the actual ESP adapter attributes.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="REPLACE_VENDOR", ATTRS{idProduct}=="REPLACE_PRODUCT", ATTRS{serial}=="REPLACE_SERIAL", SYMLINK+="tardigrade_esp", GROUP="dialout", MODE="0660"
+
+# VectorNav USB serial adapter.
+# Replace idVendor/idProduct/serial with the actual VectorNav adapter attributes.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="REPLACE_VENDOR", ATTRS{idProduct}=="REPLACE_PRODUCT", ATTRS{serial}=="REPLACE_SERIAL", SYMLINK+="tardigrade_vectornav", GROUP="dialout", MODE="0660"

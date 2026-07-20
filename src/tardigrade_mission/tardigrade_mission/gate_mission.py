@@ -105,7 +105,10 @@ class GateMission(Node):
     def wait_for_status(self):
         self.get_logger().info(f'Waiting for {self.status_topic}')
         self.wait_until(
-            lambda: self.latest_status is not None and self.latest_status.px4_connected,
+            lambda: (
+                self.latest_status is not None
+                and self.latest_status.control_connected
+            ),
             self.timeout_sec,
             'Timed out waiting for connected robot status',
         )

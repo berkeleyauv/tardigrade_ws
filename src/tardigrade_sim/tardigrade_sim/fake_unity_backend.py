@@ -168,7 +168,7 @@ class FakeUnityBackend(Node):
     def publish_status(self):
         msg = RobotStatus()
         msg.stamp = self.get_clock().now().to_msg()
-        msg.px4_connected = True
+        msg.control_connected = True
         msg.armed = self.armed
         msg.external_control_enabled = self.external_control_enabled
         msg.nav_state = 0
