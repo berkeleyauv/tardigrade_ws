@@ -21,7 +21,10 @@
   <depend>tardigrade_teleop</depend>
   <depend>tf2_ros</depend>
   <depend>vectornav</depend>
-  <exec_depend>zed_wrapper</exec_depend>
+
+  <!-- Hardware-only launch files may include zed_wrapper when the ZED SDK
+       packages are built on the Jetson. Keep it out of the hard manifest deps
+       so local and CI builds can skip those packages. -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
