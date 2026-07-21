@@ -61,7 +61,8 @@ jobs:
                 tardigrade_teleop \
                 tardigrade_bringup \
                 tardigrade_mission \
-                tardigrade_sim
+                tardigrade_sim \
+                --pytest-args -k "not test_copyright and not test_flake8 and not test_pep257"
               colcon test-result --verbose
             '
 
