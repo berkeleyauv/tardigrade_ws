@@ -3,8 +3,7 @@
 The physical robot is not in a stable state: PDB behavior, thruster behavior,
 and wiring are not trusted. Local development is the active path. Preserve the
 Jetson/ESP bringup knowledge, but do not make new work depend on the ZED,
-VectorNav, ESP32, or thrusters being available. Pixhawk/PX4 code is legacy and
-skipped by `./build.sh` by default.
+VectorNav, ESP32, or thrusters being available.
 
 ## Active Goal
 
@@ -59,11 +58,6 @@ Docker internals live under `docker/`:
 - `docker/Dockerfile`: image definition.
 - `docker/ros_entrypoint.sh`: runs when the container starts.
 - `docker/ros_bashrc.sh`: runs for interactive shells and defines aliases.
-- `docker/run_jetson_hardware.sh`: raw `docker run` fallback when Compose is
-  unavailable on the Jetson.
-
-Do not restore `docker/run_jetson_zed.sh`; it was renamed/replaced by
-`docker/run_jetson_hardware.sh`.
 
 ## Known Hardware State
 
@@ -74,7 +68,6 @@ Recent hardware sessions verified:
 - `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`.
 - `tardigrade_esp` is the active actuator path.
 - `tardigrade_teleop` publishes keyboard `/tardigrade/cmd_vel`.
-- `tardigrade_px4` and `px4_msgs` are preserved under `src/legacy/`.
 
 Not yet proven repeatable:
 
@@ -116,7 +109,6 @@ work is to publish good ROS topics, debug images, metrics, and layouts.
 - Add an ESP/control status topic when the bridge behavior settles.
 - Keep `README.md` short and keep the detailed hardware sequence in
   `docs/esp_thruster_bringup.md`.
-- Keep `.legacy_inspect` removed; it was stale repository metadata.
 
 ## Guardrails
 
@@ -124,7 +116,6 @@ work is to publish good ROS topics, debug images, metrics, and layouts.
 - Do not add a top-level `src/zed-ros2-interfaces`; it already exists as a
   nested submodule inside `src/zed-ros2-wrapper`.
 - Do not re-center Micro XRCE-DDS unless the team explicitly revives that path.
-- Keep PX4-specific message/protocol details isolated in legacy `tardigrade_px4`.
 - Keep robot-level APIs centered on `/tardigrade/*`.
 - Never hide arming or external-control enable inside launch files.
 - Do not build a custom dashboard before proving Foxglove is insufficient.

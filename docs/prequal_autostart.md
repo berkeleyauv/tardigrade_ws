@@ -4,7 +4,7 @@
 odometry, attitude controller, ESP thruster bridge, and ESP-native prequal
 mission. It does not start or subscribe to the ZED.
 
-The mission does not use the ignored legacy PX4 package. It publishes to
+The mission publishes to
 `/tardigrade/cmd_vel/manual`, and the depth/attitude controller publishes the
 stabilized command consumed by the ESP bridge.
 
@@ -41,7 +41,7 @@ Build the hardware workspace before enabling automatic startup:
 ```bash
 cd /home/auv/Developer/tardigrade_ws
 ./docker-build.sh --build
-sudo env WORKSPACE="$PWD" ./docker/run_jetson_hardware.sh
+sudo env WORKSPACE="$PWD" ./docker-build.sh --jetson
 ```
 
 Inside that temporary container:
@@ -62,9 +62,9 @@ Install and edit the configuration and service:
 
 ```bash
 sudo mkdir -p /etc/tardigrade
-sudo cp config/prequal.env.example /etc/tardigrade/prequal.env
+sudo cp robot/autostart/prequal.env.example /etc/tardigrade/prequal.env
 sudo nano /etc/tardigrade/prequal.env
-sudo cp docker/tardigrade-prequal.service /etc/systemd/system/
+sudo cp robot/autostart/tardigrade-prequal.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable tardigrade-prequal.service
 ```

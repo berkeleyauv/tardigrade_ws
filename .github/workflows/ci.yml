@@ -1,0 +1,71 @@
+name: ROS 2 CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ros2-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test active ROS packages
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out workspace
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build and start development container
+        run: ./docker-build.sh --build --detached
+
+      - name: Install dependencies, build, and test
+        run: |
+          docker compose -f docker/compose.yaml exec -T tardigrade \
+            bash -lc '
+              set -eo pipefail
+
+              source /opt/ros/foxy/setup.bash
+              rosdep update
+              # pyserial is installed in the Docker image via pip, and ZED SDK
+              # packages are intentionally skipped in CI.
+              rosdep install --from-paths \
+                src/tardigrade_interfaces \
+                src/tardigrade_state_estimation \
+                src/tardigrade_esp \
+                src/tardigrade_teleop \
+                src/tardigrade_bringup \
+                src/tardigrade_mission \
+                src/tardigrade_sim \
+                src/vectornav/vectornav_msgs \
+                src/vectornav/vectornav \
+                src/zed-ros2-wrapper/zed-ros2-interfaces \
+                --skip-keys "python3-serial zed_wrapper" \
+                --ignore-src -r -y
+
+              ./build.sh
+              source install/setup.bash
+              colcon test --packages-select \
+                tardigrade_interfaces \
+                tardigrade_state_estimation \
+                tardigrade_esp \
+                tardigrade_teleop \
+                tardigrade_bringup \
+                tardigrade_mission \
+                tardigrade_sim \
+                --pytest-args -k "not test_copyright and not test_flake8 and not test_pep257"
+              colcon test-result --verbose
+            '
+
+      - name: Stop development container
+        if: always()
+        run: docker compose -f docker/compose.yaml down

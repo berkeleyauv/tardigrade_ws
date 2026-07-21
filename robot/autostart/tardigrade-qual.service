@@ -1,0 +1,16 @@
+[Unit]
+Description=Tardigrade automatic qualification bringup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=TARDIGRADE_ENV_FILE=/etc/tardigrade/qual.env
+ExecStart=/bin/bash /home/auv/Developer/tardigrade_ws/robot/autostart/run_qual_autostart.sh
+ExecStop=-/usr/bin/docker stop -t 5 tardigrade-qual
+Restart=no
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
