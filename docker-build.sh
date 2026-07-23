@@ -8,6 +8,7 @@ mode="dev"
 build_image=false
 rebuild_image=false
 detached=false
+esp=false
 
 usage() {
   cat <<'EOF'
@@ -15,6 +16,9 @@ Usage: ./docker-build.sh [options]
 
 Options:
   --jetson       Start the Jetson hardware container.
+  --esp          Map the ESP32 serial device (/dev/ttyUSB0) into the dev
+                 container. Requires the device to be present (on Windows,
+                 usbipd attach it into WSL2 first). Set ESP_PORT to override.
   --build        Build the Docker image before starting the container.
   --rebuild      Build the Docker image with --no-cache before starting.
   --detached     Start the container in the background.
@@ -24,6 +28,7 @@ Environment:
   WORKSPACE      Host workspace path to mount at /ws. Defaults to this repo.
   IMAGE          Docker image name. Defaults to tardigrade-foxy.
   NAME           Container name. Defaults to tardigrade-foxy.
+  ESP_PORT       Host serial device for --esp. Defaults to /dev/ttyUSB0.
 EOF
 }
 
@@ -31,6 +36,9 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --jetson)
       mode="jetson"
+      ;;
+    --esp)
+      esp=true
       ;;
     --build)
       build_image=true
@@ -62,6 +70,9 @@ export NAME="${NAME:-tardigrade-foxy}"
 compose_files=(-f docker/compose.yaml)
 if [[ "$mode" == "jetson" ]]; then
   compose_files+=(-f docker/compose.jetson.yaml)
+fi
+if [[ "$esp" == true ]]; then
+  compose_files+=(-f docker/compose.esp.yaml)
 fi
 
 if [[ "$build_image" == true ]]; then

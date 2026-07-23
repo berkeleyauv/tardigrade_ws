@@ -1,0 +1,53 @@
+# Robosub control gains — THE SOURCE OF TRUTH.
+#
+# Loaded by depth_attitude_controller in both the simulator and on the real
+# robot, so a tune done in sim transfers verbatim. Edit gains live from
+# Foxglove's Parameters panel during a session, then land the final values HERE
+# and commit — the running node's params reset to this file on next launch.
+#
+# See docs/jetson_control_architecture.md and
+# tardigrade_firmware/docs/pid_tuning.md for the tuning process.
+
+depth_attitude_controller:
+  ros__parameters:
+    # topics
+    input_cmd_topic: /tardigrade/cmd_vel/manual
+    output_cmd_topic: /tardigrade/cmd_vel
+    odometry_topic: /tardigrade/state/odometry/filtered
+    depth_target_topic: /tardigrade/depth_target
+    control_rate_hz: 20.0
+    cmd_timeout_sec: 0.5
+    odometry_timeout_sec: 0.3
+
+    # depth hold (metres / normalized heave)
+    depth_kp: 0.8
+    depth_ki: 0.0
+    depth_kd: 0.25
+    depth_integral_limit: 0.3
+    depth_deadband_m: 0.02
+    max_heave_command: 0.35
+
+    # attitude hold (radians / normalized torque)
+    roll_kp: 0.8
+    roll_ki: 0.05
+    roll_kd: 0.15
+    pitch_kp: 0.8
+    pitch_ki: 0.05
+    pitch_kd: 0.15
+    yaw_kp: 0.7
+    yaw_ki: 0.03
+    yaw_kd: 0.12
+    attitude_integral_limit: 0.25
+    max_attitude_command: 0.25
+    max_yaw_command: 0.25
+
+    enable_depth_hold: true
+    enable_attitude_hold: true
+    capture_initial_attitude_target: true
+
+thruster_mixer:
+  ros__parameters:
+    wrench_topic: /tardigrade/cmd_vel
+    output_topic: /tardigrade/thrusters/cmd
+    publish_rate_hz: 20.0
+    cmd_timeout_sec: 0.5

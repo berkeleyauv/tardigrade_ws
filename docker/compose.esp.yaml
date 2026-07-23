@@ -1,0 +1,18 @@
+# Override that maps the ESP32 serial device into the dev container.
+#
+# Use it when running the esp_bridge against real hardware:
+#   ./docker-build.sh --esp
+#
+# Kept out of the base compose.yaml deliberately: a `devices:` entry fails the
+# container start if the device is absent, which would block the fake-publisher
+# (no-hardware) workflow. Opt in only when the ESP is attached.
+#
+# On a Windows host, attach the ESP into WSL2 first:
+#   usbipd attach --wsl --busid <id>
+# A CP210x board (like the Tardigrade ESP32) then appears as /dev/ttyUSB0.
+# Set ESP_PORT if it enumerates differently (e.g. /dev/ttyACM0 for native-USB
+# boards).
+services:
+  tardigrade:
+    devices:
+      - ${ESP_PORT:-/dev/ttyUSB0}:/dev/ttyUSB0

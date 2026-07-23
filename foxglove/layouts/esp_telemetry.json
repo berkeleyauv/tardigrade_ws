@@ -1,0 +1,100 @@
+{
+  "configById": {
+    "Plot!attitude": {
+      "title": "Attitude (rad)",
+      "paths": [
+        {
+          "value": "/tardigrade/esp/state.roll",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#f85149"
+        },
+        {
+          "value": "/tardigrade/esp/state.pitch",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#3fb950"
+        },
+        {
+          "value": "/tardigrade/esp/state.yaw",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#58d0ff"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!depth": {
+      "title": "Depth (m) & vertical velocity (m/s)",
+      "paths": [
+        {
+          "value": "/tardigrade/esp/state.depth",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#58d0ff"
+        },
+        {
+          "value": "/tardigrade/esp/state.vertical_velocity",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#d29922"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Indicator!armed": {
+      "path": "/tardigrade/esp/state.armed",
+      "style": "bulb",
+      "fontSize": 36,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "DISARMED",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#f85149",
+          "label": "ARMED"
+        }
+      ]
+    },
+    "RawMessages!state": {
+      "defaultExpanded": true,
+      "topicPath": "/tardigrade/esp/state"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "first": "Plot!attitude",
+      "second": "Plot!depth",
+      "direction": "column",
+      "splitPercentage": 50
+    },
+    "second": {
+      "first": "Indicator!armed",
+      "second": "RawMessages!state",
+      "direction": "column",
+      "splitPercentage": 22
+    },
+    "direction": "row",
+    "splitPercentage": 68
+  }
+}
