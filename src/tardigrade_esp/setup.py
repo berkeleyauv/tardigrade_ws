@@ -30,6 +30,7 @@ setup(
             'esp_bridge = tardigrade_esp.esp_bridge:main',
             'fake_esp_state = tardigrade_esp.fake_esp_state:main',
             'thruster_mixer = tardigrade_esp.thruster_mixer:main',
+            'thruster_test = tardigrade_esp.thruster_test:main',
             'esp_thruster_bridge = tardigrade_esp.esp_thruster_bridge:main',
             'esp_thruster_test = tardigrade_esp.esp_thruster_test:main',
             'depth_attitude_controller = tardigrade_esp.depth_attitude_controller:main',
