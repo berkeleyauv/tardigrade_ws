@@ -1,0 +1,10 @@
+# Shell scripts must stay LF even on Windows checkouts. With core.autocrlf=true
+# (the common Windows default) they'd otherwise be checked out CRLF, and bash —
+# including WSL's, which runs the Docker workflow — cannot execute a CRLF script
+# (the shebang resolves to a command literally named "bash\r").
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Entry/config scripts sourced inside the container: same reason.
+docker/ros_entrypoint.sh text eol=lf
+docker/ros_bashrc.sh text eol=lf

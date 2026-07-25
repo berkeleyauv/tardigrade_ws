@@ -1,0 +1,88 @@
+{
+  "configById": {
+    "CallService!1n9aptx": {
+      "requestPayload": "{\"armed\": false}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/tardigrade/set_armed"
+    },
+    "RawMessages!1mxe9bd": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/esp/state"
+    },
+    "Publish!3iuk36n": {
+      "topicName": "/tardigrade/thrusters/cmd",
+      "datatype": "std_msgs/msg/Float32MultiArray",
+      "value": "{\n  \"layout\": {\n    \"dim\": [\n      {\n        \"label\": \"\",\n        \"size\": 0,\n        \"stride\": 0\n      }\n    ],\n    \"data_offset\": 0\n  },\n  \"data\": [\n    0, 0, 0, 0, 0, 0, 0, 0\n  ]\n}"
+    },
+    "Plot!2gw6ii": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/tardigrade/esp/state.depth",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "83c793cd-4026-4dee-8cea-39f285dcce68"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/tardigrade/esp/state.vertical_velocity",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "0fa385de-9cc2-4ffc-b11c-cca1086310cc"
+        }
+      ]
+    },
+    "Plot!zqxwy7": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/tardigrade/esp/state.roll",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "c342d9c8-9c0e-441f-9d5c-2fb9b2bbc088"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/tardigrade/esp/state.pitch",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "5e8b6f4c-d603-4085-bd72-a3f304dc9a9d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/tardigrade/esp/state.yaw",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "733e463a-e77a-41b0-884f-aa922efba629"
+        }
+      ]
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "CallService!1n9aptx",
+    "second": {
+      "first": "RawMessages!1mxe9bd",
+      "second": {
+        "direction": "row",
+        "first": "Publish!3iuk36n",
+        "second": {
+          "direction": "row",
+          "first": "Plot!2gw6ii",
+          "second": "Plot!zqxwy7",
+          "splitPercentage": 49.09796847151155
+        },
+        "splitPercentage": 30.2117952931654
+      },
+      "direction": "column",
+      "splitPercentage": 46.4725078575583
+    },
+    "splitPercentage": 21.51490733279613
+  }
+}
