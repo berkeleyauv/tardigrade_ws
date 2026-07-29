@@ -297,6 +297,36 @@ bench motor-test throttle to ±0.30 regardless of what's sent
 
 Disarm when done: same Service Call panel, `{"armed": false}`.
 
+### 8. Bench-test the sensor/pose-timeout failsafe (optional)
+
+Nothing normally sends `Pose` frames through `esp_bridge` (that's
+`gcs_server.py --ros` / `pose_bridge.py`'s job in the firmware repo, not run
+here), so the ESP's estimate can never go "healthy" and the sensor-timeout
+failsafe can never fire on a bench sub with no EKF running. `esp_bridge`
+exposes `/tardigrade/test/synthetic_pose` (`std_msgs/Bool`) as a **temporary,
+bench-only** way to fake a healthy pose feed for exactly this test.
+
+```json
+{"data": true}
+```
+Publish that to `/tardigrade/test/synthetic_pose`, confirm `state_valid`/
+`altitude_valid` go `true`, then arm. Publish `{"data": false}` and confirm
+`armed`, `state_valid`, and `altitude_valid` all drop to `false` within
+~100 ms — with the heartbeat still running the whole time, so it can only be
+`SensorTimeout`, not the link-timeout from step 7.
+
+**Trap: this permanently changes vehicle behavior for the rest of that ESP
+boot.** `ever_healthy` in `main.cpp` is a one-way latch — once the estimate
+has been healthy even once, the ESP's onboard `RobosubController` +
+`RobosubMixer` control loop activates whenever `armed && healthy`, and it
+**writes to every motor on every loop tick**, overriding manual
+`SetMotor`/`/tardigrade/thrusters/cmd` commands almost as fast as you can send
+them. If thrusters stop responding to manual commands after running this
+test, that's why — not a bug. To get back to plain manual bench testing,
+**power-cycle or press the ESP's physical reset/EN button** (clears
+`ever_healthy`; no reflash needed) and don't touch `synthetic_pose` again
+this session.
+
 ### Troubleshooting
 
 Problems actually hit while running the above, roughly in the order you're
