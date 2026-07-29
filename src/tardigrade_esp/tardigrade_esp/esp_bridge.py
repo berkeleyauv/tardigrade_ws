@@ -23,6 +23,19 @@ F2 subset (motor test + arm/disarm), added on top of F1:
 Not built: ROS-parameter gain sync/save/reset, diagnostics topic. Those are
 the rest of F2/D4 and unnecessary for bench motor testing.
 
+TEMPORARY BENCH-TEST HOOK — synthetic pose feed:
+  Nothing normally sends Pose frames through this bridge (that's
+  gcs_server.py --ros / pose_bridge.py's job, and only one process may own
+  the serial port at a time), which means ExternalEstimator can never go
+  healthy and the sensor/pose-timeout failsafe can never be exercised on a
+  bench sub with no real EKF running. /tardigrade/test/synthetic_pose
+  (std_msgs/Bool) toggles a fake, valid, identity-orientation Pose frame at
+  the poll rate — enough to make the ESP report healthy, so arming +
+  disabling it can confirm the ESP auto-disarms on SensorTimeout. Defaults
+  OFF; touching nothing unless explicitly enabled. This is scaffolding for
+  the bench failsafe check, not part of the real pose path — remove once
+  real pose forwarding (or Track C) makes it moot.
+
 This is the ROS-native counterpart to the firmware repo's gcs_server.py.
 
 IMPORTANT: only ONE process may own the ESP serial port at a time. Run this OR
@@ -41,7 +54,7 @@ from rclpy.node import Node
 
 from tardigrade_interfaces.msg import EspState
 from tardigrade_interfaces.srv import SetArmed
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Bool, Float32MultiArray
 
 from . import tardigrade_protocol as tp
 
@@ -95,6 +108,17 @@ class EspBridge(Node):
         # and foxglove_integration.md's "Safety model" section.
         self._heartbeat_timer = self.create_timer(
             0.1, self._send_heartbeat_if_armed)
+
+        # Bench-test-only synthetic pose feed — see module docstring. Off by
+        # default; a fake, always-identity, always-fresh Pose frame sent at
+        # the poll rate is enough to make ExternalEstimator report healthy.
+        self._synthetic_pose_enabled = False
+        self._pose_seq = 0
+        self._synthetic_pose_sub = self.create_subscription(
+            Bool, '/tardigrade/test/synthetic_pose',
+            self._on_synthetic_pose_toggle, 10)
+        self._synthetic_pose_timer = self.create_timer(
+            self._poll_period, self._send_synthetic_pose_if_enabled)
 
         self.get_logger().info(
             f'esp_bridge: {port} @ {baud} -> /tardigrade/esp/state '
@@ -181,6 +205,29 @@ class EspBridge(Node):
                 self._ser.write(tp.encode(tp.HEARTBEAT))
         except Exception as exc:  # noqa: BLE001
             self.get_logger().warn(f'heartbeat write failed: {exc}')
+
+    def _on_synthetic_pose_toggle(self, msg):
+        self._synthetic_pose_enabled = bool(msg.data)
+        self.get_logger().info(
+            f'synthetic pose feed: {"ON" if msg.data else "OFF"} '
+            f'(bench sensor-timeout test hook)')
+
+    def _send_synthetic_pose_if_enabled(self):
+        if not self._synthetic_pose_enabled:
+            return
+        self._pose_seq += 1
+        frame = tp.encode_pose(
+            self._pose_seq,
+            (0.0, 0.0, 0.0),      # position: origin
+            (1.0, 0.0, 0.0, 0.0),  # orientation: identity (level)
+            (0.0, 0.0, 0.0),      # linear velocity: zero
+            (0.0, 0.0, 0.0),      # angular velocity: zero
+        )
+        try:
+            with self._write_lock:
+                self._ser.write(frame)
+        except Exception as exc:  # noqa: BLE001
+            self.get_logger().warn(f'synthetic pose write failed: {exc}')
 
     def _on_set_armed(self, request, response):
         frame = tp.encode(tp.ARM if request.armed else tp.DISARM)
