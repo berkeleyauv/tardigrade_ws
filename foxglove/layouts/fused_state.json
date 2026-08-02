@@ -1,0 +1,224 @@
+{
+  "configById": {
+    "3D!fusedState": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 8,
+        "phi": 65,
+        "thetaOffset": 120,
+        "targetOffset": [
+          1.5,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.1,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "followTf": "odom",
+      "fixedFrame": "odom",
+      "scene": {
+        "syncCamera": false,
+        "enableStats": false,
+        "ignoreColladaUpAxis": false
+      },
+      "transforms": {
+        "frame:zed_camera_link": {
+          "visible": true
+        },
+        "frame:zed_camera_center": {
+          "visible": false
+        },
+        "frame:zed_left_camera_frame": {
+          "visible": false
+        },
+        "frame:zed_left_camera_optical_frame": {
+          "visible": false
+        },
+        "frame:zed_right_camera_frame": {
+          "visible": false
+        },
+        "frame:zed_right_camera_optical_frame": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/tardigrade/state/odometry": {
+          "visible": true
+        },
+        "/zed/zed_node/point_cloud/cloud_registered": {
+          "visible": false,
+          "colorField": "rgb",
+          "colorMode": "rgb",
+          "colorMap": "turbo",
+          "pointSize": 1.5
+        }
+      },
+      "layers": {
+        "fused-state-grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Odom grid",
+          "instanceId": "fused-state-grid",
+          "layerId": "foxglove.Grid",
+          "frameId": "odom",
+          "size": 20,
+          "divisions": 20,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {}
+    },
+    "Image!zedLeft": {
+      "cameraState": {},
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point"
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/left/image_rect_color",
+        "calibrationTopic": "/zed/zed_node/left/camera_info"
+      }
+    },
+    "Plot!position": {
+      "title": "Fused position (m)",
+      "paths": [
+        {
+          "value": "/tardigrade/state/odometry.pose.pose.position.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#f85149"
+        },
+        {
+          "value": "/tardigrade/state/odometry.pose.pose.position.y",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#3fb950"
+        },
+        {
+          "value": "/tardigrade/state/odometry.pose.pose.position.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#58d0ff"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 280
+    },
+    "Plot!bodyRates": {
+      "title": "VectorNav angular velocity (rad/s)",
+      "paths": [
+        {
+          "value": "/vectornav/imu.angular_velocity.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#f85149"
+        },
+        {
+          "value": "/vectornav/imu.angular_velocity.y",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#3fb950"
+        },
+        {
+          "value": "/vectornav/imu.angular_velocity.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#d29922"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 280
+    },
+    "RawMessages!fusedOdom": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/state/odometry"
+    },
+    "RawMessages!vectornavImu": {
+      "defaultExpanded": false,
+      "topicPath": "/vectornav/imu"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!fusedState",
+    "second": {
+      "direction": "column",
+      "first": "Image!zedLeft",
+      "second": {
+        "direction": "column",
+        "first": {
+          "direction": "row",
+          "first": "Plot!position",
+          "second": "Plot!bodyRates",
+          "splitPercentage": 50
+        },
+        "second": {
+          "direction": "row",
+          "first": "RawMessages!fusedOdom",
+          "second": "RawMessages!vectornavImu",
+          "splitPercentage": 50
+        },
+        "splitPercentage": 63
+      },
+      "splitPercentage": 42
+    },
+    "splitPercentage": 58
+  }
+}

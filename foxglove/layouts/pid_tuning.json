@@ -1,0 +1,169 @@
+{
+  "configById": {
+    "Parameters!controller": {},
+    "Plot!depth": {
+      "title": "Depth loop",
+      "paths": [
+        {"value": "/tardigrade/control/depth/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/depth/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/depth/debug.output", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 280
+    },
+    "Plot!yaw": {
+      "title": "Yaw loop",
+      "paths": [
+        {"value": "/tardigrade/control/yaw/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/yaw/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/yaw/debug.output", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 280
+    },
+    "Plot!level": {
+      "title": "Roll and pitch tracking",
+      "paths": [
+        {"value": "/tardigrade/control/roll/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/pitch/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/pitch/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 300
+    },
+    "Plot!terms": {
+      "title": "Depth PID terms",
+      "paths": [
+        {"value": "/tardigrade/control/depth/debug.p_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/depth/debug.i_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/depth/debug.d_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/depth/debug.error", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 280
+    },
+    "Plot!thrusters": {
+      "title": "Thruster PWM",
+      "paths": [
+        {"value": "/tardigrade/thrusters/pwm.data[0]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/pwm.data[1]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/pwm.data[2]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/pwm.data[3]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/pwm.data[4]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/pwm.data[5]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/pwm.data[6]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/pwm.data[7]", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 320
+    },
+    "Indicator!enabled": {
+      "path": "/tardigrade/control/enabled.data",
+      "style": "bulb",
+      "fontSize": 24,
+      "fallbackColor": "#777777",
+      "fallbackLabel": "CONTROLLER OFF",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "CONTROLLER ON"}
+      ]
+    },
+    "Indicator!saturated": {
+      "path": "/tardigrade/control/depth/debug.saturated",
+      "style": "bulb",
+      "fontSize": 22,
+      "fallbackColor": "#3fd16f",
+      "fallbackLabel": "DEPTH OUTPUT OK",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#ef6b5b", "label": "DEPTH SATURATED"}
+      ]
+    },
+    "RawMessages!depth": {
+      "defaultExpanded": true,
+      "topicPath": "/tardigrade/control/depth/debug"
+    },
+    "RawMessages!esp": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/esp/diagnostics"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {"speed": 1},
+  "layout": {
+    "first": {
+      "first": "Parameters!controller",
+      "second": {
+        "first": "Indicator!enabled",
+        "second": {
+          "first": "Indicator!saturated",
+          "second": "RawMessages!esp",
+          "direction": "column",
+          "splitPercentage": 32
+        },
+        "direction": "column",
+        "splitPercentage": 18
+      },
+      "direction": "column",
+      "splitPercentage": 62
+    },
+    "second": {
+      "first": {
+        "first": {
+          "first": "Plot!depth",
+          "second": "Plot!terms",
+          "direction": "column",
+          "splitPercentage": 50
+        },
+        "second": {
+          "first": "Plot!yaw",
+          "second": "Plot!level",
+          "direction": "column",
+          "splitPercentage": 50
+        },
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": "Plot!thrusters",
+        "second": "RawMessages!depth",
+        "direction": "row",
+        "splitPercentage": 72
+      },
+      "direction": "column",
+      "splitPercentage": 72
+    },
+    "direction": "row",
+    "splitPercentage": 24
+  }
+}

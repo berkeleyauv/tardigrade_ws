@@ -68,6 +68,19 @@ _NUM_THRUSTERS = 8
 _ACK_TIMEOUT_SEC = 0.5
 
 
+def validated_motor_values(data):
+    """Return one safe eight-motor command or raise ValueError."""
+    if len(data) != _NUM_THRUSTERS:
+        raise ValueError(
+            f'expected {_NUM_THRUSTERS} values, got {len(data)}'
+        )
+
+    values = [float(value) for value in data]
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError('all motor values must be finite')
+    return [max(-1.0, min(1.0, value)) for value in values]
+
+
 class EspBridge(Node):
     def __init__(self):
         super().__init__('esp_bridge')
@@ -75,10 +88,15 @@ class EspBridge(Node):
         self.declare_parameter('serial_port', '/dev/ttyUSB0')
         self.declare_parameter('baud', 115200)
         self.declare_parameter('poll_rate_hz', 20.0)
+        self.declare_parameter('cmd_timeout_sec', 0.5)
 
         port = self.get_parameter('serial_port').value
         baud = int(self.get_parameter('baud').value)
         rate = float(self.get_parameter('poll_rate_hz').value)
+        self._cmd_timeout_sec = max(
+            0.0,
+            float(self.get_parameter('cmd_timeout_sec').value),
+        )
         self._poll_period = 1.0 / max(1.0, rate)
 
         if serial is None:
@@ -98,6 +116,8 @@ class EspBridge(Node):
         self._ack_event = threading.Event()
         self._last_ack = None  # (echoed_type, accepted, reason)
         self._reported_armed = False
+        self._last_motor_cmd_monotonic = None
+        self._watchdog_neutral_active = False
 
         self._motor_sub = self.create_subscription(
             Float32MultiArray, '/tardigrade/thrusters/cmd',
@@ -124,7 +144,8 @@ class EspBridge(Node):
             f'esp_bridge: {port} @ {baud} -> /tardigrade/esp/state '
             f'(polling GetState at {rate:.0f} Hz); '
             f'/tardigrade/thrusters/cmd -> SetMotor; '
-            f'/tardigrade/set_armed -> Arm/Disarm')
+            f'/tardigrade/set_armed -> Arm/Disarm; '
+            f'command timeout={self._cmd_timeout_sec:.2f}s')
 
         # One thread owns the serial port for both the GetState poll (write) and
         # reading/decoding (read). Other writers (above) take _write_lock.
@@ -184,27 +205,47 @@ class EspBridge(Node):
         self._pub.publish(msg)
 
     def _on_thruster_cmd(self, msg):
-        data = list(msg.data)[:_NUM_THRUSTERS]
-        if len(data) != _NUM_THRUSTERS:
+        try:
+            values = validated_motor_values(msg.data)
+        except (TypeError, ValueError) as exc:
             self.get_logger().warn(
-                f'/tardigrade/thrusters/cmd: expected {_NUM_THRUSTERS} values, '
-                f'got {len(msg.data)} — ignoring')
+                f'/tardigrade/thrusters/cmd: {exc} — ignoring')
             return
         try:
             with self._write_lock:
-                for index, value in enumerate(data):
-                    self._ser.write(tp.encode_set_motor(index, float(value)))
+                self._write_motor_values(values)
+                self._last_motor_cmd_monotonic = time.monotonic()
+                self._watchdog_neutral_active = False
         except Exception as exc:  # noqa: BLE001 - report, keep running
             self.get_logger().warn(f'serial write failed: {exc}')
+
+    def _write_motor_values(self, values):
+        """Write one complete motor command while the caller holds the lock."""
+        for index, value in enumerate(values):
+            self._ser.write(tp.encode_set_motor(index, value))
+
+    def _motor_command_is_stale(self, now=None):
+        if self._last_motor_cmd_monotonic is None:
+            return True
+        if now is None:
+            now = time.monotonic()
+        return now - self._last_motor_cmd_monotonic > self._cmd_timeout_sec
 
     def _send_heartbeat_if_armed(self):
         if not self._reported_armed:
             return
         try:
             with self._write_lock:
+                if self._motor_command_is_stale():
+                    self._write_motor_values([0.0] * _NUM_THRUSTERS)
+                    if not self._watchdog_neutral_active:
+                        self.get_logger().warn(
+                            'motor command stale; forcing all thrusters neutral'
+                        )
+                    self._watchdog_neutral_active = True
                 self._ser.write(tp.encode(tp.HEARTBEAT))
         except Exception as exc:  # noqa: BLE001
-            self.get_logger().warn(f'heartbeat write failed: {exc}')
+            self.get_logger().warn(f'safety heartbeat write failed: {exc}')
 
     def _on_synthetic_pose_toggle(self, msg):
         self._synthetic_pose_enabled = bool(msg.data)

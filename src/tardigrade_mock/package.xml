@@ -1,21 +1,24 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd"?>
 <package format="3">
-  <name>tardigrade_esp</name>
+  <name>tardigrade_mock</name>
   <version>0.0.0</version>
-  <description>ESP32 thruster bridge for Tardigrade AUV.</description>
+  <description>Development-only ROS interface mocks for Tardigrade.</description>
   <maintainer email="root@todo.todo">root</maintainer>
   <license>TODO: License declaration</license>
 
+  <depend>diagnostic_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>launch</depend>
   <depend>launch_ros</depend>
   <depend>nav_msgs</depend>
   <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
   <depend>tardigrade_interfaces</depend>
-
-  <exec_depend>python3-serial</exec_depend>
+  <depend>tf2_ros</depend>
+  <depend>visualization_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

@@ -48,6 +48,8 @@ odometry, and perception topics.
   autostart files.
 - [foxglove/README.md](foxglove/README.md): visualization setup and layout
   notes.
+- [docs/pool_teleop.md](docs/pool_teleop.md): dry checks and the supported
+  keyboard teleop procedure for tethered pool testing.
 - [docs/](docs): detailed runbooks that should version with the code.
 
 ## Clone

@@ -1,0 +1,191 @@
+{
+  "configById": {
+    "3D!observer": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 10,
+        "phi": 65,
+        "thetaOffset": 115,
+        "targetOffset": [2, 0, -1],
+        "target": [0, 0, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "fovy": 45,
+        "near": 0.1,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "followTf": "base_link",
+      "fixedFrame": "odom",
+      "scene": {},
+      "transforms": {
+        "frame:base_link": {"visible": true},
+        "frame:zed_camera_link": {"visible": true},
+        "frame:vectornav_link": {"visible": true}
+      },
+      "topics": {
+        "/tardigrade/state/path": {"visible": true},
+        "/tardigrade/visualization/task_markers": {"visible": true}
+      },
+      "layers": {
+        "observer-grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Pool grid",
+          "instanceId": "observer-grid",
+          "layerId": "foxglove.Grid",
+          "frameId": "odom",
+          "size": 20,
+          "divisions": 20,
+          "lineWidth": 1,
+          "color": "#4d7799",
+          "position": [0, 0, -1.5],
+          "rotation": [0, 0, 0],
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {}
+    },
+    "Image!forward": {
+      "cameraState": {},
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {"type": "point"},
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/left/image_rect_color",
+        "calibrationTopic": "/zed/zed_node/left/camera_info"
+      }
+    },
+    "Image!perception": {
+      "cameraState": {},
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {"type": "point"},
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/tardigrade/perception/debug_image"
+      }
+    },
+    "Plot!depthPower": {
+      "title": "Depth, pressure, and battery",
+      "paths": [
+        {"value": "/tardigrade/esp/state.depth", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/state/odometry/filtered.pose.pose.position.z", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/power/battery.voltage", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/power/battery.current", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 300
+    },
+    "Plot!attitude": {
+      "title": "ESP attitude",
+      "paths": [
+        {"value": "/tardigrade/esp/state.roll", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/esp/state.pitch", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/esp/state.yaw", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 260
+    },
+    "Indicator!armed": {
+      "path": "/tardigrade/esp/state.armed",
+      "style": "bulb",
+      "fontSize": 28,
+      "fallbackColor": "#777777",
+      "fallbackLabel": "DISARMED",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "ARMED"}
+      ]
+    },
+    "Indicator!pose": {
+      "path": "/tardigrade/esp/state.pose_ok",
+      "style": "bulb",
+      "fontSize": 24,
+      "fallbackColor": "#e35d5d",
+      "fallbackLabel": "POSE LOST",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "POSE OK"}
+      ]
+    },
+    "RawMessages!diagnostics": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/esp/diagnostics"
+    },
+    "RawMessages!perception": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/perception/gate"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {"speed": 1},
+  "layout": {
+    "first": {
+      "first": "3D!observer",
+      "second": {
+        "first": "Image!forward",
+        "second": "Image!perception",
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "direction": "column",
+      "splitPercentage": 63
+    },
+    "second": {
+      "first": {
+        "first": "Plot!depthPower",
+        "second": "Plot!attitude",
+        "direction": "column",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": {
+          "first": "Indicator!armed",
+          "second": "Indicator!pose",
+          "direction": "row",
+          "splitPercentage": 50
+        },
+        "second": {
+          "first": "RawMessages!diagnostics",
+          "second": "RawMessages!perception",
+          "direction": "row",
+          "splitPercentage": 50
+        },
+        "direction": "column",
+        "splitPercentage": 28
+      },
+      "direction": "column",
+      "splitPercentage": 66
+    },
+    "direction": "row",
+    "splitPercentage": 64
+  }
+}
