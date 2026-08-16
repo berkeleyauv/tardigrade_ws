@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'keyboard_cmd_vel = tardigrade_teleop.keyboard_cmd_vel:main',
+            'xbox_cmd_vel = tardigrade_teleop.xbox_cmd_vel:main',
         ],
     },
 )

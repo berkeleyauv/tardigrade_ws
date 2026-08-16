@@ -26,7 +26,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RobotStatus.msg"
   "msg/SlalomMarkerDetection.msg"
   "srv/SetArmed.srv"
+  "srv/SetControlAxes.srv"
   "srv/SetExternalControl.srv"
+  "srv/SetPidGains.srv"
   DEPENDENCIES builtin_interfaces
 )
 

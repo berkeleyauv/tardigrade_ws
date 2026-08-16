@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-foxy-geographic-msgs \
     ros-foxy-image-geometry \
     ros-foxy-image-transport \
+    ros-foxy-joy \
     ros-foxy-nmea-msgs \
     ros-foxy-robot-localization \
     ros-foxy-rosbridge-suite \

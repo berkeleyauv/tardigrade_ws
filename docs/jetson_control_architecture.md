@@ -17,8 +17,10 @@ does no fusion, no control, no mixing.
 - **Gains live in one versioned place.** A YAML in the repo is the source of
   truth, loaded by both sim and real. This dissolves the ESP-flash-vs-git
   tension entirely.
-- **Foxglove tuning is native.** Gains are ROS parameters, so Foxglove's
-  Parameters panel edits them directly — no serial `SetParameter` bridge.
+- **Foxglove tuning is ROS-native.** Gains are ROS parameters. For the Foxy
+  pool path, Foxglove calls the controller's gain/axis services through
+  rosbridge; a future `foxglove_bridge` upgrade can expose the native
+  Parameters panel. No serial `SetParameter` bridge is needed.
 - **Latency is a non-issue for a slow AUV.** Depth/heading dynamics are
   seconds-scale; 30–50 Hz control over serial with some Linux jitter is more
   than adequate. The determinism argument for on-MCU control applies to twitchy
@@ -35,7 +37,7 @@ does no fusion, no control, no mixing.
                           ▼
                     controller node  ── PID: depth, heading, roll, pitch
                           │            gains = ROS params (from YAML)
-                          │  /tardigrade/cmd_wrench (surge,sway,heave,roll,pitch,yaw)
+                          │  /tardigrade/cmd_vel (normalized body wrench)
                           ▼
                      mixer node  ── esp_thruster_map.json (8×6 matrix)
                           │  /tardigrade/thrusters/cmd (Float32MultiArray[8], -1..+1)
@@ -115,9 +117,9 @@ sim, commit the YAML, run on the real robot with identical numbers.
 
 This simplifies more than it adds:
 
-- **D4 / F2 gets simpler:** no serial `SetParameter` bridge, no ESP-side
-  parameter sync — gains are ROS params + a YAML. Foxglove's Parameters panel
-  works out of the box.
+- **D4 / F2 gets simpler:** no serial `SetParameter` bridge and no ESP-side
+  parameter sync — gains are ROS params plus a YAML. The Foxy pool layout uses
+  explicit ROS services for reliable rosbridge tuning.
 - **The ESP firmware shrinks** to the safe-actuator role (a large deletion, not
   new code).
 - **Build order:** (1) strip the ESP to safe-actuator, (2) bring the controller

@@ -35,8 +35,8 @@ def clamp(value, low, high):
 
 
 class ThrusterMixer(Node):
-    def __init__(self):
-        super().__init__('thruster_mixer')
+    def __init__(self, **node_kwargs):
+        super().__init__('thruster_mixer', **node_kwargs)
 
         default_config = os.path.join(
             get_package_share_directory('tardigrade_esp'),
@@ -53,7 +53,8 @@ class ThrusterMixer(Node):
         output_topic = self.get_parameter('output_topic').value
         config_file = self.get_parameter('config_file').value
         rate = float(self.get_parameter('publish_rate_hz').value)
-        self.cmd_timeout_sec = float(self.get_parameter('cmd_timeout_sec').value)
+        self.cmd_timeout_sec = float(
+            self.get_parameter('cmd_timeout_sec').value)
 
         with open(config_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -71,13 +72,15 @@ class ThrusterMixer(Node):
         self.latest = Twist()
         self.latest_ns = None
 
-        self.sub = self.create_subscription(Twist, wrench_topic, self.on_wrench, 10)
+        self.sub = self.create_subscription(
+            Twist, wrench_topic, self.on_wrench, 10)
         self.pub = self.create_publisher(Float32MultiArray, output_topic, 10)
         self.timer = self.create_timer(1.0 / max(rate, 1.0), self.publish_mix)
 
         self.get_logger().info(
             f'{wrench_topic} -> {output_topic} '
-            f'({len(self.mix)} thrusters from {os.path.basename(config_file)})')
+            f'({len(self.mix)} thrusters from '
+            f'{os.path.basename(config_file)})')
 
     def on_wrench(self, msg):
         self.latest = msg
@@ -98,7 +101,8 @@ class ThrusterMixer(Node):
             out.data = [
                 clamp(
                     surge * w.linear.x + sway * w.linear.y + heave * w.linear.z
-                    + roll * w.angular.x + pitch * w.angular.y + yaw * w.angular.z,
+                    + roll * w.angular.x + pitch * w.angular.y
+                    + yaw * w.angular.z,
                     -1.0, 1.0,
                 )
                 for surge, sway, heave, roll, pitch, yaw in self.mix

@@ -18,10 +18,13 @@ def generate_launch_description():
     yaw_kp = LaunchConfiguration('yaw_kp')
     yaw_ki = LaunchConfiguration('yaw_ki')
     yaw_kd = LaunchConfiguration('yaw_kd')
+    max_roll_command = LaunchConfiguration('max_roll_command')
+    max_pitch_command = LaunchConfiguration('max_pitch_command')
     max_yaw_command = LaunchConfiguration('max_yaw_command')
-    max_attitude_command = LaunchConfiguration('max_attitude_command')
-    enable_depth_hold = LaunchConfiguration('enable_depth_hold')
-    enable_attitude_hold = LaunchConfiguration('enable_attitude_hold')
+    enable_roll = LaunchConfiguration('enable_roll')
+    enable_pitch = LaunchConfiguration('enable_pitch')
+    enable_yaw = LaunchConfiguration('enable_yaw')
+    enable_depth = LaunchConfiguration('enable_depth')
     capture_initial_attitude_target = LaunchConfiguration(
         'capture_initial_attitude_target'
     )
@@ -43,10 +46,13 @@ def generate_launch_description():
         DeclareLaunchArgument('yaw_kp', default_value='0.7'),
         DeclareLaunchArgument('yaw_ki', default_value='0.03'),
         DeclareLaunchArgument('yaw_kd', default_value='0.12'),
-        DeclareLaunchArgument('max_yaw_command', default_value='0.25'),
-        DeclareLaunchArgument('max_attitude_command', default_value='0.25'),
-        DeclareLaunchArgument('enable_depth_hold', default_value='true'),
-        DeclareLaunchArgument('enable_attitude_hold', default_value='true'),
+        DeclareLaunchArgument('max_roll_command', default_value='0.20'),
+        DeclareLaunchArgument('max_pitch_command', default_value='0.20'),
+        DeclareLaunchArgument('max_yaw_command', default_value='0.20'),
+        DeclareLaunchArgument('enable_roll', default_value='false'),
+        DeclareLaunchArgument('enable_pitch', default_value='false'),
+        DeclareLaunchArgument('enable_yaw', default_value='false'),
+        DeclareLaunchArgument('enable_depth', default_value='false'),
         DeclareLaunchArgument(
             'capture_initial_attitude_target',
             default_value='true',
@@ -68,11 +74,16 @@ def generate_launch_description():
                 'yaw_kp': yaw_kp,
                 'yaw_ki': yaw_ki,
                 'yaw_kd': yaw_kd,
+                'max_roll_command': max_roll_command,
+                'max_pitch_command': max_pitch_command,
                 'max_yaw_command': max_yaw_command,
-                'max_attitude_command': max_attitude_command,
-                'enable_depth_hold': enable_depth_hold,
-                'enable_attitude_hold': enable_attitude_hold,
-                'capture_initial_attitude_target': capture_initial_attitude_target,
+                'enable_roll': enable_roll,
+                'enable_pitch': enable_pitch,
+                'enable_yaw': enable_yaw,
+                'enable_depth': enable_depth,
+                'capture_initial_attitude_target': (
+                    capture_initial_attitude_target
+                ),
             }],
         ),
         Node(

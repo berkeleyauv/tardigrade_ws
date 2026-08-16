@@ -95,8 +95,8 @@ ros2 topic pub -r 10 /tardigrade/cmd_vel/manual geometry_msgs/msg/Twist \
 
 ## 4. Low-power in-water tuning
 
-Start with the defaults (`roll/pitch: kp=0.8, ki=0.05, kd=0.15`; `yaw:
-kp=0.7, ki=0.03, kd=0.12`) and command limits of 0.25. Tether the robot and test
+Start with the defaults (`roll/pitch: kp=0.8, ki=0.0, kd=0.15`; `yaw:
+kp=0.7, ki=0.0, kd=0.12`) and command limits of 0.20. Tether the robot and test
 one axis at a time. If an axis oscillates, reduce its `kp` by 25%; if it is slow
 but does not oscillate, increase `kp` by 10%. Increase `kd` slightly for
 overshoot. Leave `ki` small; increase it only for a repeatable steady bias.
@@ -104,15 +104,25 @@ overshoot. Leave `ki` small; increase it only for a repeatable steady bias.
 Example conservative launch:
 
 ```bash
-ros2 launch tardigrade_bringup esp_depth_hold.launch.py \
-  serial_port:=/dev/serial/by-id/YOUR_ESP_PORT \
-  max_attitude_command:=0.12 max_yaw_command:=0.12 \
-  roll_kp:=0.6 pitch_kp:=0.6 yaw_kp:=0.5
+ros2 launch tardigrade_esp xbox_assisted_real.launch.py \
+  serial_port:=/dev/serial/by-id/YOUR_ESP_PORT
+
+ros2 service call /tardigrade/control/set_pid_gains \
+  tardigrade_interfaces/srv/SetPidGains \
+  "{axis: roll, kp: 0.6, ki: 0.0, kd: 0.15, output_limit: 0.12}"
 ```
+
+Use `docs/pool_teleop.md` for the required deadman, recording, and one-axis
+enable procedure.
 
 ## 5. Test the complete autonomous control path
 
-First run readiness checks with no movement:
+The autonomous launch is not load-bearing for the pool tuning session. It must
+publish the same explicit control-enable heartbeat as assisted teleop before it
+can drive the newly gated controller. Keep mission nodes stopped during manual
+tuning.
+
+Its existing dry-run invocation remains useful for non-powered readiness work:
 
 ```bash
 ros2 launch tardigrade_bringup prequal_autonomy.launch.py \
@@ -120,19 +130,7 @@ ros2 launch tardigrade_bringup prequal_autonomy.launch.py \
   esp_port:=/dev/serial/by-id/YOUR_ESP_PORT dry_run:=true
 ```
 
-Only after the sensor signs, PID correction signs, kill switch, and dry run all
-pass, run a short tethered movement test:
-
-```bash
-ros2 launch tardigrade_bringup prequal_autonomy.launch.py \
-  vectornav_port:=/dev/serial/by-id/YOUR_VECTORNAV_PORT \
-  esp_port:=/dev/serial/by-id/YOUR_ESP_PORT dry_run:=false \
-  startup_delay_sec:=15.0 forward_command:=0.10 \
-  descent_command:=0.08 descent_duration_sec:=2.0 \
-  outbound_duration_sec:=3.0 return_duration_sec:=3.0 \
-  max_yaw_command:=0.12
-```
-
-Keep the physical kill switch in hand. The IMU-only mission uses timed motion;
-it cannot measure traveled distance or depth, but all three attitude axes and
-heading feedback come exclusively from the VectorNav.
+Do not run this launch with `dry_run:=false` until the mission owns a fresh,
+explicit controller-enable publisher and its shutdown path has been tested.
+The IMU-only mission uses timed motion; it cannot measure traveled distance or
+depth.

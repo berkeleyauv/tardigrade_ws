@@ -8,7 +8,7 @@ Brings up:
 
 Deliberately does NOT start a thruster backend — that's the sim/real seam.
 Separately run ONE consumer of /tardigrade/thrusters/cmd:
-  real robot:  esp_bridge (once its thruster-command subscription lands — F2)
+  real robot:  esp_bridge
   simulator:   the sim backend
 
 Gains live in config/controller_gains.yaml — the versioned source of truth

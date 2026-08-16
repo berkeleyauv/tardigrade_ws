@@ -54,16 +54,35 @@ Useful fields:
 
 ```text
 /tardigrade/cmd_vel
-/tardigrade/thrusters/pwm
-/tardigrade/esp/status
+/tardigrade/cmd_vel/manual
+/tardigrade/thrusters/cmd
+/tardigrade/esp/state
+/tardigrade/teleop/enabled
+/tardigrade/control/enabled
+/tardigrade/control/odometry_fresh
+/tardigrade/control/command_fresh
 ```
 
 Current robot-level velocity command. Useful for checking teleop/autonomy
 intent before worrying about physical motion.
 
-The ESP topics show what the bridge is sending to the firmware. They are
+The thruster and ESP topics show what the bridge is sending to the firmware. They are
 monitoring-only and should be plotted next to `/tardigrade/cmd_vel` during
 bench and pool checks.
+
+## PID tuning
+
+```text
+/tardigrade/control/roll/debug
+/tardigrade/control/pitch/debug
+/tardigrade/control/yaw/debug
+/tardigrade/control/depth/debug
+```
+
+Each `tardigrade_interfaces/PidDebug` contains the active gains, setpoint,
+measurement, error, individual terms, limited output, and saturation flag.
+The Foxglove layout calls `/tardigrade/control/set_pid_gains` and
+`/tardigrade/control/set_axes_enabled` through rosbridge.
 
 ## Cameras
 

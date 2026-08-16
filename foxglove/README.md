@@ -15,8 +15,9 @@ The first goal is a useful cockpit:
 
 ## Rosbridge MVP
 
-For ROS 2 Foxy, use `rosbridge_suite` first. It is older and easier to get
-working on Foxy than `foxglove_bridge`.
+For ROS 2 Foxy, use `rosbridge_suite` for the pool test. The committed PID
+layout uses Service Call panels for tuning, so it does not depend on rosbridge
+supporting Foxglove's native Parameters panel.
 
 Start rosbridge inside the container with:
 
@@ -209,6 +210,16 @@ foxglove/layouts/bench_debug.json
 foxglove/layouts/zed.json
 foxglove/layouts/state_estimation.json
 ```
+
+`layouts/pid_tuning.json` is the pool-test tuning cockpit. It uses:
+
+- `/tardigrade/control/set_pid_gains`
+- `/tardigrade/control/set_axes_enabled`
+- the four `/tardigrade/control/<axis>/debug` topics
+
+See `docs/pool_teleop.md` for the mandatory safety gates and recording
+commands. Live values are session scratch state; accepted gains must be copied
+back into `src/tardigrade_esp/config/controller_gains.yaml`.
 
 Do not spend time on custom Foxglove extensions yet. Start with standard panels:
 

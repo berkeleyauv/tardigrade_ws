@@ -105,7 +105,12 @@ def generate_launch_description():
                 'yaw_ki': 0.03,
                 'yaw_kd': 0.12,
                 'max_yaw_command': max_yaw_command,
-                'enable_depth_hold': False,
+                # Intentionally gated off until the mission publishes the
+                # controller enable heartbeat required by the pool stack.
+                'enable_roll': False,
+                'enable_pitch': False,
+                'enable_yaw': False,
+                'enable_depth': False,
             }],
         ),
         Node(

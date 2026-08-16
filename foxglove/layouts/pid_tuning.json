@@ -1,120 +1,155 @@
 {
   "configById": {
-    "Parameters!controller": {},
-    "Plot!depth": {
-      "title": "Depth loop",
+    "CallService!axes": {
+      "requestPayload": "{\"roll\": false, \"pitch\": false, \"yaw\": false, \"depth\": false}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/control/set_axes_enabled"
+    },
+    "CallService!gains": {
+      "requestPayload": "{\"axis\": \"roll\", \"kp\": 0.8, \"ki\": 0.0, \"kd\": 0.15, \"output_limit\": 0.2}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/control/set_pid_gains"
+    },
+    "Indicator!teleop": {
+      "path": "/tardigrade/teleop/enabled.data",
+      "style": "bulb",
+      "fontSize": 20,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "LB RELEASED",
+      "rules": [{"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "LB HELD"}]
+    },
+    "Indicator!controller": {
+      "path": "/tardigrade/control/enabled.data",
+      "style": "bulb",
+      "fontSize": 20,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "CONTROLLER OFF",
+      "rules": [{"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "CONTROLLER ON"}]
+    },
+    "Indicator!odom": {
+      "path": "/tardigrade/control/odometry_fresh.data",
+      "style": "bulb",
+      "fontSize": 20,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "ODOMETRY STALE",
+      "rules": [{"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "ODOMETRY FRESH"}]
+    },
+    "Indicator!saturation": {
+      "path": "/tardigrade/control/roll/debug.saturated",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#3fd16f",
+      "fallbackLabel": "ROLL OUTPUT OK",
+      "rules": [{"operator": "=", "rawValue": "true", "color": "#ef6b5b", "label": "ROLL SATURATED"}]
+    },
+    "Plot!roll": {
+      "title": "Roll PID",
       "paths": [
-        {"value": "/tardigrade/control/depth/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/depth/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/depth/debug.output", "enabled": true, "timestampMethod": "receiveTime"}
+        {"value": "/tardigrade/control/roll/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.output", "enabled": true, "timestampMethod": "receiveTime"}
       ],
-      "showXAxisLabels": true,
-      "showYAxisLabels": true,
       "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": true,
-      "isSynced": true,
-      "xAxisVal": "timestamp",
-      "sidebarDimension": 280
+      "xAxisVal": "timestamp"
+    },
+    "Plot!pitch": {
+      "title": "Pitch PID",
+      "paths": [
+        {"value": "/tardigrade/control/pitch/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/pitch/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/pitch/debug.output", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
     },
     "Plot!yaw": {
-      "title": "Yaw loop",
+      "title": "Yaw PID",
       "paths": [
         {"value": "/tardigrade/control/yaw/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
         {"value": "/tardigrade/control/yaw/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
         {"value": "/tardigrade/control/yaw/debug.output", "enabled": true, "timestampMethod": "receiveTime"}
       ],
-      "showXAxisLabels": true,
-      "showYAxisLabels": true,
       "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": true,
-      "isSynced": true,
-      "xAxisVal": "timestamp",
-      "sidebarDimension": 280
+      "xAxisVal": "timestamp"
     },
-    "Plot!level": {
-      "title": "Roll and pitch tracking",
+    "Plot!depth": {
+      "title": "Depth PID (experimental ZED z)",
       "paths": [
-        {"value": "/tardigrade/control/roll/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/roll/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/pitch/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/pitch/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"}
+        {"value": "/tardigrade/control/depth/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/depth/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/depth/debug.output", "enabled": true, "timestampMethod": "receiveTime"}
       ],
-      "showXAxisLabels": true,
-      "showYAxisLabels": true,
       "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": true,
-      "isSynced": true,
-      "xAxisVal": "timestamp",
-      "sidebarDimension": 300
+      "xAxisVal": "timestamp"
     },
     "Plot!terms": {
-      "title": "Depth PID terms",
+      "title": "Selected roll PID terms",
       "paths": [
-        {"value": "/tardigrade/control/depth/debug.p_term", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/depth/debug.i_term", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/depth/debug.d_term", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/control/depth/debug.error", "enabled": true, "timestampMethod": "receiveTime"}
+        {"value": "/tardigrade/control/roll/debug.p_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.i_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.d_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.error", "enabled": true, "timestampMethod": "receiveTime"}
       ],
-      "showXAxisLabels": true,
-      "showYAxisLabels": true,
       "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": true,
-      "isSynced": true,
-      "xAxisVal": "timestamp",
-      "sidebarDimension": 280
+      "xAxisVal": "timestamp"
+    },
+    "Plot!commands": {
+      "title": "Pilot intent and controller output",
+      "paths": [
+        {"value": "/tardigrade/cmd_vel/manual.linear.x", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/cmd_vel.linear.x", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/cmd_vel/manual.angular.z", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/cmd_vel.angular.z", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
     },
     "Plot!thrusters": {
-      "title": "Thruster PWM",
+      "title": "Normalized thruster commands",
       "paths": [
-        {"value": "/tardigrade/thrusters/pwm.data[0]", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/thrusters/pwm.data[1]", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/thrusters/pwm.data[2]", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/thrusters/pwm.data[3]", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/thrusters/pwm.data[4]", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/thrusters/pwm.data[5]", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/thrusters/pwm.data[6]", "enabled": true, "timestampMethod": "receiveTime"},
-        {"value": "/tardigrade/thrusters/pwm.data[7]", "enabled": true, "timestampMethod": "receiveTime"}
+        {"value": "/tardigrade/thrusters/cmd.data[0]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[1]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[2]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[3]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[4]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[5]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[6]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[7]", "enabled": true, "timestampMethod": "receiveTime"}
       ],
-      "showXAxisLabels": true,
-      "showYAxisLabels": true,
       "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": true,
-      "isSynced": true,
-      "xAxisVal": "timestamp",
-      "sidebarDimension": 320
+      "xAxisVal": "timestamp"
     },
-    "Indicator!enabled": {
-      "path": "/tardigrade/control/enabled.data",
-      "style": "bulb",
-      "fontSize": 24,
-      "fallbackColor": "#777777",
-      "fallbackLabel": "CONTROLLER OFF",
-      "rules": [
-        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "CONTROLLER ON"}
-      ]
+    "Plot!sensors": {
+      "title": "ZED/EKF vertical position and velocity",
+      "paths": [
+        {"value": "/zed/zed_node/odom.pose.pose.position.z", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/state/odometry/filtered.pose.pose.position.z", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/state/odometry/filtered.twist.twist.linear.z", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
     },
-    "Indicator!saturated": {
-      "path": "/tardigrade/control/depth/debug.saturated",
-      "style": "bulb",
-      "fontSize": 22,
-      "fallbackColor": "#3fd16f",
-      "fallbackLabel": "DEPTH OUTPUT OK",
-      "rules": [
-        {"operator": "=", "rawValue": "true", "color": "#ef6b5b", "label": "DEPTH SATURATED"}
-      ]
+    "RawMessages!imu": {
+      "defaultExpanded": false,
+      "topicPath": "/vectornav/imu"
     },
-    "RawMessages!depth": {
-      "defaultExpanded": true,
-      "topicPath": "/tardigrade/control/depth/debug"
+    "RawMessages!odom": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/state/odometry/filtered"
     },
     "RawMessages!esp": {
       "defaultExpanded": false,
-      "topicPath": "/tardigrade/esp/diagnostics"
+      "topicPath": "/tardigrade/esp/state"
     }
   },
   "globalVariables": {},
@@ -122,32 +157,42 @@
   "playbackConfig": {"speed": 1},
   "layout": {
     "first": {
-      "first": "Parameters!controller",
+      "first": {
+        "first": "CallService!axes",
+        "second": "CallService!gains",
+        "direction": "column",
+        "splitPercentage": 50
+      },
       "second": {
-        "first": "Indicator!enabled",
+        "first": "Indicator!teleop",
         "second": {
-          "first": "Indicator!saturated",
-          "second": "RawMessages!esp",
+          "first": "Indicator!controller",
+          "second": {
+            "first": "Indicator!odom",
+            "second": "Indicator!saturation",
+            "direction": "column",
+            "splitPercentage": 50
+          },
           "direction": "column",
-          "splitPercentage": 32
+          "splitPercentage": 50
         },
         "direction": "column",
-        "splitPercentage": 18
+        "splitPercentage": 32
       },
       "direction": "column",
-      "splitPercentage": 62
+      "splitPercentage": 60
     },
     "second": {
       "first": {
         "first": {
-          "first": "Plot!depth",
-          "second": "Plot!terms",
+          "first": "Plot!roll",
+          "second": "Plot!pitch",
           "direction": "column",
           "splitPercentage": 50
         },
         "second": {
           "first": "Plot!yaw",
-          "second": "Plot!level",
+          "second": "Plot!depth",
           "direction": "column",
           "splitPercentage": 50
         },
@@ -155,15 +200,40 @@
         "splitPercentage": 50
       },
       "second": {
-        "first": "Plot!thrusters",
-        "second": "RawMessages!depth",
+        "first": {
+          "first": "Plot!terms",
+          "second": "Plot!commands",
+          "direction": "column",
+          "splitPercentage": 50
+        },
+        "second": {
+          "first": "Plot!thrusters",
+          "second": {
+            "first": "Plot!sensors",
+            "second": {
+              "first": "RawMessages!imu",
+              "second": {
+                "first": "RawMessages!odom",
+                "second": "RawMessages!esp",
+                "direction": "row",
+                "splitPercentage": 50
+              },
+              "direction": "row",
+              "splitPercentage": 34
+            },
+            "direction": "column",
+            "splitPercentage": 55
+          },
+          "direction": "column",
+          "splitPercentage": 48
+        },
         "direction": "row",
-        "splitPercentage": 72
+        "splitPercentage": 48
       },
       "direction": "column",
-      "splitPercentage": 72
+      "splitPercentage": 58
     },
     "direction": "row",
-    "splitPercentage": 24
+    "splitPercentage": 23
   }
 }

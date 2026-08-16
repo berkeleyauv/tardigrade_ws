@@ -48,8 +48,8 @@ odometry, and perception topics.
   autostart files.
 - [foxglove/README.md](foxglove/README.md): visualization setup and layout
   notes.
-- [docs/pool_teleop.md](docs/pool_teleop.md): dry checks and the supported
-  keyboard teleop procedure for tethered pool testing.
+- [docs/pool_teleop.md](docs/pool_teleop.md): Xbox teleop, Foxglove, PID
+  tuning, recording, and hard go/no-go gates for pool testing.
 - [docs/](docs): detailed runbooks that should version with the code.
 
 ## Clone
@@ -113,14 +113,16 @@ ros2 run tardigrade_esp esp_thruster_bridge --ros-args \
   -p config_file:=/ws/config/esp_thruster_map.json
 ```
 
-In another terminal:
+For the current real-robot pool path, use the Xbox direct launch instead of
+starting the legacy bridge and teleop separately:
 
 ```bash
-ros2 run tardigrade_teleop keyboard_cmd_vel
+ros2 launch tardigrade_esp xbox_direct_real.launch.py \
+  serial_port:=/dev/serial/by-id/YOUR_ESP_DEVICE
 ```
 
-The full Jetson/ESP/ZED procedure is documented in
-[docs/esp_thruster_bringup.md](docs/esp_thruster_bringup.md).
+The phased direct/assisted procedure is documented in
+[docs/pool_teleop.md](docs/pool_teleop.md).
 
 ## Foxglove
 
