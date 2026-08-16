@@ -23,6 +23,7 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/EspState.msg"
   "msg/GateDetection.msg"
+  "msg/PidDebug.msg"
   "msg/RobotStatus.msg"
   "msg/SlalomMarkerDetection.msg"
   "srv/SetArmed.srv"
