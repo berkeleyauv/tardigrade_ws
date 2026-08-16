@@ -10,10 +10,11 @@
       "defaultExpanded": false,
       "topicPath": "/tardigrade/esp/state"
     },
-    "Publish!3iuk36n": {
-      "topicName": "/tardigrade/thrusters/cmd",
-      "datatype": "std_msgs/msg/Float32MultiArray",
-      "value": "{\n  \"layout\": {\n    \"dim\": [\n      {\n        \"label\": \"\",\n        \"size\": 0,\n        \"stride\": 0\n      }\n    ],\n    \"data_offset\": 0\n  },\n  \"data\": [\n    0, 0, 0, 0, 0, 0, 0, 0\n  ]\n}"
+    "CallService!thruster": {
+      "requestPayload": "{\"slot\": 1, \"command\": 0.05, \"duration_sec\": 1.0}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/test/run_thruster"
     },
     "Plot!2gw6ii": {
       "paths": [
@@ -71,7 +72,7 @@
       "first": "RawMessages!1mxe9bd",
       "second": {
         "direction": "row",
-        "first": "Publish!3iuk36n",
+        "first": "CallService!thruster",
         "second": {
           "direction": "row",
           "first": "Plot!2gw6ii",

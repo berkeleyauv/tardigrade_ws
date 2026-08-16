@@ -23,6 +23,8 @@ setup(
         # executable after colcon build.
         'console_scripts': [
             'vectornav_odometry = tardigrade_state_estimation.vectornav_odometry:main',
+            'vectornav_imu_transform = '
+            'tardigrade_state_estimation.vectornav_imu_transform:main',
             'zed_odometry = tardigrade_state_estimation.zed_odometry:main',
             'zed_vectornav_odometry = tardigrade_state_estimation.zed_vectornav_odometry:main',
         ],

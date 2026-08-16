@@ -17,6 +17,14 @@ def generate_launch_description():
     odom_frame = LaunchConfiguration('odom_frame')
     base_frame = LaunchConfiguration('base_frame')
     imu_frame = LaunchConfiguration('imu_frame')
+    zed_frame = LaunchConfiguration('zed_frame')
+    zed_x = LaunchConfiguration('zed_x')
+    zed_y = LaunchConfiguration('zed_y')
+    zed_z = LaunchConfiguration('zed_z')
+    zed_qx = LaunchConfiguration('zed_qx')
+    zed_qy = LaunchConfiguration('zed_qy')
+    zed_qz = LaunchConfiguration('zed_qz')
+    zed_qw = LaunchConfiguration('zed_qw')
     vectornav_x = LaunchConfiguration('vectornav_x')
     vectornav_y = LaunchConfiguration('vectornav_y')
     vectornav_z = LaunchConfiguration('vectornav_z')
@@ -28,6 +36,7 @@ def generate_launch_description():
     publish_vectornav_static_tf = LaunchConfiguration(
         'publish_vectornav_static_tf'
     )
+    publish_zed_static_tf = LaunchConfiguration('publish_zed_static_tf')
 
     default_config = os.path.join(
         get_package_share_directory('tardigrade_bringup'),
@@ -48,8 +57,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'imu_topic',
-            default_value='/vectornav/imu',
-            description='VectorNav sensor_msgs/Imu input topic',
+            default_value='/tardigrade/sensors/imu',
+            description='Converted VectorNav ENU/FLU sensor_msgs/Imu topic',
         ),
         DeclareLaunchArgument(
             'filtered_odom_topic',
@@ -74,16 +83,28 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'imu_frame',
             default_value='vectornav',
-            description='Frame ID used by the VectorNav IMU messages',
+            description='Physical VectorNav frame for TF visualization',
         ),
         DeclareLaunchArgument(
+            'zed_frame',
+            default_value='zed_camera_link',
+            description='Child frame ID used by ZED odometry',
+        ),
+        DeclareLaunchArgument('zed_x', default_value='0.30'),
+        DeclareLaunchArgument('zed_y', default_value='0.0'),
+        DeclareLaunchArgument('zed_z', default_value='-0.05'),
+        DeclareLaunchArgument('zed_qx', default_value='0.0'),
+        DeclareLaunchArgument('zed_qy', default_value='0.0'),
+        DeclareLaunchArgument('zed_qz', default_value='0.0'),
+        DeclareLaunchArgument('zed_qw', default_value='1.0'),
+        DeclareLaunchArgument(
             'vectornav_x',
-            default_value='0.0',
+            default_value='-0.035',
             description='VectorNav x offset from base_link in meters',
         ),
         DeclareLaunchArgument(
             'vectornav_y',
-            default_value='0.0',
+            default_value='0.145',
             description='VectorNav y offset from base_link in meters',
         ),
         DeclareLaunchArgument(
@@ -93,12 +114,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'vectornav_qx',
-            default_value='1.0',
+            default_value='0.0',
             description='base_link -> VectorNav quaternion x',
         ),
         DeclareLaunchArgument(
             'vectornav_qy',
-            default_value='0.0',
+            default_value='1.0',
             description='base_link -> VectorNav quaternion y',
         ),
         DeclareLaunchArgument(
@@ -121,6 +142,11 @@ def generate_launch_description():
             default_value='true',
             description='Publish the base_link -> VectorNav static transform',
         ),
+        DeclareLaunchArgument(
+            'publish_zed_static_tf',
+            default_value='true',
+            description='Publish base_link -> ZED static transform',
+        ),
 
         Node(
             package='tf2_ros',
@@ -138,6 +164,23 @@ def generate_launch_description():
                 vectornav_qw,
                 base_frame,
                 imu_frame,
+            ],
+        ),
+
+        # ZED odometry describes zed_camera_link in odom. The EKF estimates
+        # base_link, so it needs this rigid sensor-to-body relationship.
+        # Run the ZED wrapper with publish_tf:=false so it does not also own
+        # odom -> zed_camera_link and create a competing TF tree.
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_to_zed_tf',
+            output='screen',
+            condition=IfCondition(publish_zed_static_tf),
+            arguments=[
+                zed_x, zed_y, zed_z,
+                zed_qx, zed_qy, zed_qz, zed_qw,
+                base_frame, zed_frame,
             ],
         ),
 

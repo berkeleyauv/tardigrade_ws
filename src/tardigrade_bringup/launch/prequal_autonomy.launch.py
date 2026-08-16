@@ -75,6 +75,13 @@ def generate_launch_description():
             executable='vn_sensor_msgs',
             name='vn_sensor_msgs',
             output='screen',
+            parameters=[{'use_enu': False}],
+        ),
+        Node(
+            package='tardigrade_state_estimation',
+            executable='vectornav_imu_transform',
+            name='vectornav_imu_transform',
+            output='screen',
         ),
         Node(
             package='tardigrade_state_estimation',
@@ -82,7 +89,7 @@ def generate_launch_description():
             name='vectornav_odometry',
             output='screen',
             parameters=[{
-                'imu_topic': '/vectornav/imu',
+                'imu_topic': '/tardigrade/sensors/imu',
                 'odom_topic': '/tardigrade/state/odometry',
             }],
         ),

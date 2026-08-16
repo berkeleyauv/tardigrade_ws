@@ -5,7 +5,7 @@ import math
 import rclpy
 from rclpy.node import Node
 
-from geometry_msgs.msg import PoseStamped, Quaternion, Vector3
+from geometry_msgs.msg import PoseStamped, Quaternion
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
 
@@ -39,61 +39,6 @@ def normalize_quaternion(q):
     return out
 
 
-def quat_multiply(a, b):
-    aw, ax, ay, az = a
-    bw, bx, by, bz = b
-
-    return [
-        aw * bw - ax * bx - ay * by - az * bz,
-        aw * bx + ax * bw + ay * bz - az * by,
-        aw * by - ax * bz + ay * bw + az * bx,
-        aw * bz + ax * by - ay * bx + az * bw,
-    ]
-
-
-def vector_frd_to_flu(v):
-    # VectorNav body vectors are FRD. ROS body vectors are FLU.
-    # Forward stays forward; right/down flip sign into left/up.
-    out = Vector3()
-    out.x = v.x
-    out.y = -v.y
-    out.z = -v.z
-    return out
-
-
-def quaternion_ned_frd_to_enu_flu(q):
-    # VectorNav orientation is treated as NED world + FRD body. ROS odometry
-    # should be ENU world + FLU body, so we wrap the sensor quaternion with
-    # fixed frame-conversion rotations.
-    vn_q = [q.w, q.x, q.y, q.z]
-
-    q_enu_from_ned = [
-        0.0,
-        math.sqrt(0.5),
-        math.sqrt(0.5),
-        0.0,
-    ]
-
-    q_frd_from_flu = [
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-    ]
-
-    ros_q = quat_multiply(
-        quat_multiply(q_enu_from_ned, vn_q),
-        q_frd_from_flu,
-    )
-
-    out = Quaternion()
-    out.w = ros_q[0]
-    out.x = ros_q[1]
-    out.y = ros_q[2]
-    out.z = ros_q[3]
-    return normalize_quaternion(out)
-
-
 class ZedVectornavOdometry(Node):
     def __init__(self):
         super().__init__('zed_vectornav_odometry')
@@ -101,7 +46,7 @@ class ZedVectornavOdometry(Node):
         # Launch-time knobs. Change topic/frame names here only if upstream
         # drivers or downstream bridge topics change.
         self.declare_parameter('zed_pose_topic', '/zed/zed_node/pose')
-        self.declare_parameter('imu_topic', '/vectornav/imu')
+        self.declare_parameter('imu_topic', '/tardigrade/sensors/imu')
         self.declare_parameter('odom_topic', '/tardigrade/state/odometry')
         self.declare_parameter('odom_frame', 'odom')
         self.declare_parameter('base_frame', 'base_link')
@@ -238,15 +183,14 @@ class ZedVectornavOdometry(Node):
         self.previous_pose_received_ns = now_ns
         odom.twist.covariance = self.twist_covariance
 
-        # Preferred path: ZED position + VectorNav orientation/angular velocity.
+        # The IMU transformer has already produced ENU/FLU data expressed in
+        # base_link. Do not perform a second NED/FRD conversion here.
         # Fallback path keeps odometry alive using ZED orientation if allowed.
         if self.latest_imu_is_fresh():
-            odom.pose.pose.orientation = quaternion_ned_frd_to_enu_flu(
-                self.latest_imu.orientation,
+            odom.pose.pose.orientation = normalize_quaternion(
+                self.latest_imu.orientation
             )
-            odom.twist.twist.angular = vector_frd_to_flu(
-                self.latest_imu.angular_velocity,
-            )
+            odom.twist.twist.angular = self.latest_imu.angular_velocity
         elif self.use_zed_orientation_if_imu_stale:
             odom.pose.pose.orientation = normalize_quaternion(msg.pose.orientation)
         else:

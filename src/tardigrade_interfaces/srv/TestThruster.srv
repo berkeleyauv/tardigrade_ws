@@ -1,0 +1,6 @@
+uint8 slot
+float32 command
+float32 duration_sec
+---
+bool success
+string message

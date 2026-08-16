@@ -13,14 +13,14 @@ config/esp_thruster_map.json
 The current ESP wiring is:
 
 ```text
-slot 1  pin 21  thruster 1  front left vertical
-slot 2  pin 19  thruster 2  front right vertical
-slot 3  pin 27  thruster 3  back left vectored
-slot 4  pin 18  thruster 4  front right vectored
-slot 5  pin 5   thruster 5  front left vectored
-slot 6  pin 14  thruster 6  back left vertical
-slot 7  pin 12  thruster 7  back right vectored
-slot 8  pin 26  thruster 8  back right vertical
+slot 1  pin 21  front left vectored
+slot 2  pin 19  rear right vectored
+slot 3  pin 27  front left vertical
+slot 4  pin 18  rear left vertical
+slot 5  pin 5   rear right vertical
+slot 6  pin 14  front right vertical
+slot 7  pin 12  front right vectored
+slot 8  pin 26  rear left vectored
 ```
 
 The thrusters called `vectored` above are the four outward-pointing angled

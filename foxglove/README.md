@@ -19,6 +19,11 @@ For ROS 2 Foxy, use `rosbridge_suite` for the pool test. The committed PID
 layout uses Service Call panels for tuning, so it does not depend on rosbridge
 supporting Foxglove's native Parameters panel.
 
+For phased checkout, import `layouts/pool_checkout.json`. Its individual
+thruster panel calls a bounded ROS service rather than publishing an arbitrary
+motor array: one slot at a time, at most 10%, for at most two seconds, followed
+automatically by neutral.
+
 Start rosbridge inside the container with:
 
 ```bash
@@ -66,7 +71,8 @@ ros2 launch tardigrade_bringup mock.launch.py
 For Jetson ZED + VectorNav odometry, start the ZED wrapper first:
 
 ```bash
-ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+ros2 launch zed_wrapper zed_camera.launch.py \
+  camera_model:=zed publish_tf:=false
 ```
 
 Then start VectorNav plus the combined odometry node:
@@ -96,7 +102,8 @@ There is also an experimental `robot_localization` EKF path:
 ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
 ```
 
-It reads `/zed/zed_node/odom` and `/vectornav/imu`, then publishes:
+It reads `/zed/zed_node/odom` and the converted
+`/tardigrade/sensors/imu`, then publishes:
 
 ```text
 /tardigrade/state/odometry/filtered
@@ -114,26 +121,13 @@ starts the visualization bridge.
 ## 3D Frames And Odometry
 
 Foxglove's 3D frame dropdown comes from `/tf` and `/tf_static`, not directly
-from every topic. `/tardigrade/state/odometry` is a `nav_msgs/Odometry` topic,
-but it does not currently publish an `odom -> base_link` TF transform.
+from every topic. The EKF launch publishes `odom -> base_link`; it also
+publishes the static `base_link -> zed_camera_link` and
+`base_link -> vectornav` mounting transforms. Run the ZED wrapper with
+`publish_tf:=false` so the EKF remains the sole owner of the moving robot TF.
 
-That means:
-
-- raw values can be viewed in Raw Messages or Plot panels,
-- the odometry topic can be added as an object/topic in 3D if supported,
-- `base_link` may not appear as a selectable TF frame yet,
-- moving the VectorNav changes IMU orientation and fused odometry orientation,
-  but it will not move `map` or `odom`.
-
-Next code improvement for better 3D visualization:
-
-```text
-publish /tf: odom -> base_link
-publish /tf_static: base_link -> zed_camera_link and base_link -> vectornav_link
-```
-
-The experimental EKF launch already publishes `odom -> base_link` from
-`robot_localization` when `publish_tf:=true`.
+The simpler `/tardigrade/state/odometry` comparison topic does not publish TF.
+Use `/tardigrade/state/odometry/filtered` plus the EKF TF tree for 3D display.
 
 ## Foxglove Bridge Later
 

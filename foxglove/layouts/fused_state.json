@@ -154,19 +154,19 @@
       "title": "VectorNav angular velocity (rad/s)",
       "paths": [
         {
-          "value": "/vectornav/imu.angular_velocity.x",
+          "value": "/tardigrade/sensors/imu.angular_velocity.x",
           "enabled": true,
           "timestampMethod": "receiveTime",
           "color": "#f85149"
         },
         {
-          "value": "/vectornav/imu.angular_velocity.y",
+          "value": "/tardigrade/sensors/imu.angular_velocity.y",
           "enabled": true,
           "timestampMethod": "receiveTime",
           "color": "#3fb950"
         },
         {
-          "value": "/vectornav/imu.angular_velocity.z",
+          "value": "/tardigrade/sensors/imu.angular_velocity.z",
           "enabled": true,
           "timestampMethod": "receiveTime",
           "color": "#d29922"
@@ -187,7 +187,7 @@
     },
     "RawMessages!vectornavImu": {
       "defaultExpanded": false,
-      "topicPath": "/vectornav/imu"
+      "topicPath": "/tardigrade/sensors/imu"
     }
   },
   "globalVariables": {},

@@ -3,8 +3,10 @@
 The active hardware control path is:
 
 ```text
-VectorNav /vectornav/imu
-  -> vectornav_odometry (frame conversion only)
+VectorNav /vectornav/imu (native NED/FRD)
+  -> vectornav_imu_transform (convention + physical mount)
+  -> /tardigrade/sensors/imu (ROS ENU/FLU, base_link)
+  -> vectornav_odometry
   -> /tardigrade/state/odometry
   -> depth_attitude_controller (roll/pitch/yaw PID)
   -> /tardigrade/cmd_vel
@@ -45,6 +47,7 @@ In a second terminal:
 source /opt/ros/foxy/setup.bash
 source /ws/install/setup.bash
 ros2 topic hz /vectornav/imu
+ros2 topic hz /tardigrade/sensors/imu
 ros2 topic hz /tardigrade/state/odometry
 ros2 topic echo /tardigrade/state/odometry --once
 ```
@@ -53,9 +56,10 @@ With the robot level, verify roll and pitch are near zero. Using the ROS FLU
 right-hand convention, rotate the nose left and confirm yaw increases; tilt
 the left side up and confirm roll increases; raise the nose and confirm pitch
 decreases. `vn_sensor_msgs` intentionally leaves `/vectornav/imu` in the
-VectorNav native NED/FRD convention, and `vectornav_odometry` performs the one
-conversion to ENU/FLU. Fix mounting or frame conversion before connecting
-thrusters if any axis is wrong or discontinuous.
+VectorNav native NED/FRD convention. `vectornav_imu_transform` performs the one
+conversion to ENU/FLU and corrects the installed backward-facing mount. Fix
+mounting or frame conversion before connecting thrusters if any axis is wrong
+or discontinuous. See `docs/coordinate_frames.md` for the complete sign test.
 
 ## 3. Test each attitude axis with propellers removed
 

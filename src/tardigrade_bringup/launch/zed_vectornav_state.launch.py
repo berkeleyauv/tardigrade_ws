@@ -24,6 +24,10 @@ def generate_launch_description():
         'use_zed_orientation_if_imu_stale'
     )
     zero_initial_position = LaunchConfiguration('zero_initial_position')
+    vectornav_qx = LaunchConfiguration('vectornav_qx')
+    vectornav_qy = LaunchConfiguration('vectornav_qy')
+    vectornav_qz = LaunchConfiguration('vectornav_qz')
+    vectornav_qw = LaunchConfiguration('vectornav_qw')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -43,8 +47,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'imu_topic',
-            default_value='/vectornav/imu',
-            description='IMU topic published by the VectorNav driver',
+            default_value='/tardigrade/sensors/imu',
+            description='Converted ENU/FLU IMU topic',
         ),
         DeclareLaunchArgument(
             'odom_topic',
@@ -101,6 +105,26 @@ def generate_launch_description():
             default_value='true',
             description='Subtract the first ZED pose to start near the local origin',
         ),
+        DeclareLaunchArgument(
+            'vectornav_qx',
+            default_value='0.0',
+            description='base_link -> physical VectorNav quaternion x',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_qy',
+            default_value='1.0',
+            description='base_link -> physical VectorNav quaternion y',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_qz',
+            default_value='0.0',
+            description='base_link -> physical VectorNav quaternion z',
+        ),
+        DeclareLaunchArgument(
+            'vectornav_qw',
+            default_value='0.0',
+            description='base_link -> physical VectorNav quaternion w',
+        ),
 
         # Raw VectorNav driver: talks to the serial device.
         Node(
@@ -120,6 +144,27 @@ def generate_launch_description():
             executable='vn_sensor_msgs',
             name='vn_sensor_msgs',
             output='screen',
+            parameters=[{
+                # The next node owns the one and only NED/FRD -> ENU/FLU
+                # conversion, including the measured physical mounting.
+                'use_enu': False,
+            }],
+        ),
+
+        Node(
+            package='tardigrade_state_estimation',
+            executable='vectornav_imu_transform',
+            name='vectornav_imu_transform',
+            output='screen',
+            parameters=[{
+                'input_topic': '/vectornav/imu',
+                'output_topic': imu_topic,
+                'output_frame': base_frame,
+                'base_from_sensor_qx': vectornav_qx,
+                'base_from_sensor_qy': vectornav_qy,
+                'base_from_sensor_qz': vectornav_qz,
+                'base_from_sensor_qw': vectornav_qw,
+            }],
         ),
 
         # Simple fused odometry publisher kept for comparison with the EKF path.

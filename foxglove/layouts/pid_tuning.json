@@ -141,7 +141,7 @@
     },
     "RawMessages!imu": {
       "defaultExpanded": false,
-      "topicPath": "/vectornav/imu"
+      "topicPath": "/tardigrade/sensors/imu"
     },
     "RawMessages!odom": {
       "defaultExpanded": false,

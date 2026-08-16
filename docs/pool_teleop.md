@@ -1,5 +1,8 @@
 # Pool Test Runbook: Xbox, Foxglove, and PID
 
+See `docs/runtime_modes.md` for the complete camera, VectorNav, fused-state,
+individual-thruster, direct-Xbox, and assisted-Xbox command reference.
+
 This is the go/no-go procedure for the phased pool test. Direct Xbox teleop
 and recording are the required outcome. Closed-loop control is optional and
 must pass every earlier gate.
@@ -87,7 +90,8 @@ memorizing reversed controls.
 Start the ZED wrapper:
 
 ```bash
-ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+ros2 launch zed_wrapper zed_camera.launch.py \
+  camera_model:=zed publish_tf:=false
 ```
 
 Start VectorNav plus the comparison odometry path, using its stable serial
@@ -115,7 +119,8 @@ Connect Foxglove's Rosbridge connection to `ws://JETSON_IP:9090` and import
 
 Before proceeding, verify:
 
-- `/vectornav/imu` is continuous and roll, pitch, yaw-rate signs are correct.
+- `/tardigrade/sensors/imu` is continuous, says `frame_id: base_link`, and its
+  roll, pitch, and yaw-rate signs pass `docs/coordinate_frames.md`.
 - `/zed/zed_node/odom` changes smoothly and has no tracking resets.
 - `/tardigrade/state/odometry/filtered` is at about 30 Hz.
 - Stationary orientation is plausible and TF has no repeated errors.
@@ -197,7 +202,7 @@ Record every powered attempt in a separate directory:
 ros2 bag record -o pool_direct_01 \
   /joy /tardigrade/teleop/enabled \
   /tardigrade/cmd_vel /tardigrade/thrusters/cmd \
-  /tardigrade/esp/state /vectornav/imu \
+  /tardigrade/esp/state /vectornav/imu /tardigrade/sensors/imu \
   /zed/zed_node/odom /tardigrade/state/odometry/filtered \
   /tf /tf_static
 ```

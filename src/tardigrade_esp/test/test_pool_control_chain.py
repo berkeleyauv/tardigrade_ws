@@ -103,9 +103,9 @@ class PoolControlChainTest(unittest.TestCase):
         self._spin_with_inputs(
             self._joy(True, 0.0), odometry=odometry)
 
-        vertical = [self.latest_thrusters[index] for index in (0, 1, 5, 7)]
+        vertical = [self.latest_thrusters[index] for index in (2, 3, 4, 5)]
         horizontal = [
-            self.latest_thrusters[index] for index in (2, 3, 4, 6)
+            self.latest_thrusters[index] for index in (0, 1, 6, 7)
         ]
         self.assertTrue(any(abs(value) > 0.0 for value in vertical))
         self.assertEqual(horizontal, [0.0] * 4)

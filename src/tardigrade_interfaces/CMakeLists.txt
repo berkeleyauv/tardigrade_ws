@@ -29,6 +29,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetControlAxes.srv"
   "srv/SetExternalControl.srv"
   "srv/SetPidGains.srv"
+  "srv/TestThruster.srv"
   DEPENDENCIES builtin_interfaces
 )
 

@@ -1,0 +1,208 @@
+{
+  "configById": {
+    "CallService!arm": {
+      "requestPayload": "{\"armed\": false}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/set_armed"
+    },
+    "CallService!thruster": {
+      "requestPayload": "{\"slot\": 1, \"command\": 0.05, \"duration_sec\": 1.0}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/test/run_thruster"
+    },
+    "Indicator!armed": {
+      "path": "/tardigrade/esp/state.armed",
+      "style": "bulb",
+      "fontSize": 20,
+      "fallbackColor": "#3fd16f",
+      "fallbackLabel": "DISARMED",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#ef6b5b", "label": "ARMED"}
+      ]
+    },
+    "Indicator!link": {
+      "path": "/tardigrade/esp/state.link_ok",
+      "style": "bulb",
+      "fontSize": 20,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "ESP LINK BAD",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "ESP LINK OK"}
+      ]
+    },
+    "Image!zed": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "thetaOffset": 60,
+        "target": [0, 0, 0],
+        "targetOffset": [0, 0, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/left/image_rect_color",
+        "calibrationTopic": "/zed/zed_node/left/camera_info"
+      }
+    },
+    "3D!state": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 6,
+        "phi": 60,
+        "thetaOffset": 60,
+        "target": [0, 0, 0],
+        "targetOffset": [0, 0, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {
+        "frame:base_link": {"visible": true},
+        "frame:vectornav": {"visible": true},
+        "frame:zed_camera_link": {"visible": true}
+      },
+      "topics": {},
+      "layers": {},
+      "synchronize": false,
+      "imageMode": {},
+      "followTf": "base_link",
+      "fixedFrame": "odom"
+    },
+    "Plot!position": {
+      "title": "ZED and filtered position",
+      "paths": [
+        {"value": "/zed/zed_node/odom.pose.pose.position.x", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/zed/zed_node/odom.pose.pose.position.y", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/zed/zed_node/odom.pose.pose.position.z", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/state/odometry/filtered.pose.pose.position.x", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/state/odometry/filtered.pose.pose.position.y", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/state/odometry/filtered.pose.pose.position.z", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
+    },
+    "Plot!rates": {
+      "title": "Converted VectorNav body rates",
+      "paths": [
+        {"value": "/tardigrade/sensors/imu.angular_velocity.x", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/sensors/imu.angular_velocity.y", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/sensors/imu.angular_velocity.z", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
+    },
+    "Plot!thrusters": {
+      "title": "Normalized thruster commands (array index = slot - 1)",
+      "paths": [
+        {"value": "/tardigrade/thrusters/cmd.data[0]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[1]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[2]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[3]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[4]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[5]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[6]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[7]", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
+    },
+    "RawMessages!imu": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/sensors/imu"
+    },
+    "RawMessages!odom": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/state/odometry/filtered"
+    },
+    "RawMessages!esp": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/esp/state"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {"speed": 1},
+  "layout": {
+    "first": {
+      "first": {
+        "first": "CallService!arm",
+        "second": "CallService!thruster",
+        "direction": "column",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": "Indicator!armed",
+        "second": "Indicator!link",
+        "direction": "column",
+        "splitPercentage": 50
+      },
+      "direction": "column",
+      "splitPercentage": 65
+    },
+    "second": {
+      "first": {
+        "first": "Image!zed",
+        "second": "3D!state",
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": {
+          "first": "Plot!position",
+          "second": "Plot!rates",
+          "direction": "column",
+          "splitPercentage": 50
+        },
+        "second": {
+          "first": "Plot!thrusters",
+          "second": {
+            "first": "RawMessages!imu",
+            "second": {
+              "first": "RawMessages!odom",
+              "second": "RawMessages!esp",
+              "direction": "row",
+              "splitPercentage": 50
+            },
+            "direction": "row",
+            "splitPercentage": 34
+          },
+          "direction": "column",
+          "splitPercentage": 55
+        },
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "direction": "column",
+      "splitPercentage": 48
+    },
+    "direction": "row",
+    "splitPercentage": 23
+  }
+}

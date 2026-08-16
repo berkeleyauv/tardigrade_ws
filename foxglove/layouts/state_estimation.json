@@ -220,7 +220,7 @@
     },
     "RawMessages!2f99x31": {
       "defaultExpanded": false,
-      "topicPath": "/vectornav/imu"
+      "topicPath": "/tardigrade/sensors/imu"
     },
     "RawMessages!os6rgs": {
       "defaultExpanded": false,

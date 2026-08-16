@@ -20,6 +20,7 @@ does not currently have a full hardware status topic.
 /zed/zed_node/odom
 /zed/zed_node/pose
 /vectornav/imu
+/tardigrade/sensors/imu
 /tf
 /tf_static
 ```
@@ -40,8 +41,8 @@ visible in the frame tree.
 Useful fields:
 
 ```text
-/vectornav/imu.orientation
-/vectornav/imu.angular_velocity
+/tardigrade/sensors/imu.orientation
+/tardigrade/sensors/imu.angular_velocity
 /zed/zed_node/odom.pose.pose.position
 /tardigrade/state/odometry.pose.pose.position
 /tardigrade/state/odometry.pose.pose.orientation

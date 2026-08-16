@@ -34,14 +34,14 @@ Install the `ESP32Servo` library if needed. Select the ESP32 board and upload.
 Current slot and pin order:
 
 ```text
-slot 1  pin 21  thruster 1  front left vertical
-slot 2  pin 19  thruster 2  front right vertical
-slot 3  pin 27  thruster 3  back left vectored
-slot 4  pin 18  thruster 4  front right vectored
-slot 5  pin 5   thruster 5  front left vectored
-slot 6  pin 14  thruster 6  back left vertical
-slot 7  pin 12  thruster 7  back right vectored
-slot 8  pin 26  thruster 8  back right vertical
+slot 1  pin 21  front left vectored
+slot 2  pin 19  rear right vectored
+slot 3  pin 27  front left vertical
+slot 4  pin 18  rear left vertical
+slot 5  pin 5   rear right vertical
+slot 6  pin 14  front right vertical
+slot 7  pin 12  front right vectored
+slot 8  pin 26  rear left vectored
 ```
 
 Default PWM behavior:
@@ -197,7 +197,8 @@ Start the ZED wrapper in terminal 1:
 
 ```bash
 source /ws/install/setup.bash
-ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+ros2 launch zed_wrapper zed_camera.launch.py \
+  camera_model:=zed publish_tf:=false
 ```
 
 Start fused ZED + VectorNav odometry in terminal 2. Replace the VectorNav port
@@ -210,16 +211,17 @@ ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
   use_zed_orientation_if_imu_stale:=false
 ```
 
-Mount the VectorNav in FRD orientation:
+The currently installed VectorNav mounting is:
 
 ```text
-VectorNav +X  robot forward
-VectorNav +Y  robot right
+VectorNav +X  robot backward
+VectorNav +Y  robot left
 VectorNav +Z  robot down
 ```
 
-ROS command and `base_link` conventions remain FLU. The EKF launch publishes
-the needed `base_link -> vectornav` static transform by default.
+ROS command and `base_link` conventions remain FLU. A dedicated transform node
+applies the native NED/FRD conversion and the physical mounting once. See
+`docs/coordinate_frames.md` before enabling feedback control.
 
 Before connecting thruster power, move and tilt the robot by hand while
 checking that `z` increases upward and roll/pitch change smoothly:

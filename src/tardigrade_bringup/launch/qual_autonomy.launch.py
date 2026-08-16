@@ -77,7 +77,10 @@ def generate_launch_description():
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(zed_launch),
-            launch_arguments={'camera_model': 'zed'}.items(),
+            launch_arguments={
+                'camera_model': 'zed',
+                'publish_tf': 'false',
+            }.items(),
         ),
         Node(
             package='vectornav',
@@ -91,11 +94,18 @@ def generate_launch_description():
             executable='vn_sensor_msgs',
             name='vn_sensor_msgs',
             output='screen',
+            parameters=[{'use_enu': False}],
+        ),
+        Node(
+            package='tardigrade_state_estimation',
+            executable='vectornav_imu_transform',
+            name='vectornav_imu_transform',
+            output='screen',
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(ekf_launch),
             launch_arguments={
-                'imu_topic': '/vectornav/imu',
+                'imu_topic': '/tardigrade/sensors/imu',
                 'filtered_odom_topic': filtered_odom_topic,
             }.items(),
         ),
