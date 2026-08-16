@@ -1,0 +1,107 @@
+"""Xbox assisted control with the Jetson PID and real ESP backend."""
+
+import os
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+
+
+def generate_launch_description():
+    package_share = get_package_share_directory('tardigrade_esp')
+    default_gains = os.path.join(
+        package_share, 'config', 'controller_gains.yaml')
+    default_map = os.path.join(
+        package_share, 'config', 'esp_thruster_map.json')
+    device_id = ParameterValue(
+        LaunchConfiguration('device_id'), value_type=int)
+
+    return LaunchDescription([
+        DeclareLaunchArgument('serial_port', default_value='/dev/ttyUSB0'),
+        DeclareLaunchArgument('baud', default_value='115200'),
+        DeclareLaunchArgument('device_id', default_value='0'),
+        DeclareLaunchArgument('gains_file', default_value=default_gains),
+        DeclareLaunchArgument('config_file', default_value=default_map),
+        DeclareLaunchArgument('deadzone', default_value='0.12'),
+        DeclareLaunchArgument('deadman_button', default_value='4'),
+        DeclareLaunchArgument('surge_axis', default_value='1'),
+        DeclareLaunchArgument('sway_axis', default_value='0'),
+        DeclareLaunchArgument('heave_axis', default_value='4'),
+        DeclareLaunchArgument('yaw_axis', default_value='3'),
+        DeclareLaunchArgument('max_surge', default_value='0.25'),
+        DeclareLaunchArgument('max_sway', default_value='0.25'),
+        DeclareLaunchArgument('max_heave', default_value='0.20'),
+        DeclareLaunchArgument('max_yaw', default_value='0.20'),
+        Node(
+            package='joy',
+            executable='joy_node',
+            name='joy_node',
+            output='screen',
+            parameters=[{
+                'device_id': device_id,
+                'deadzone': 0.0,
+                'autorepeat_rate': 20.0,
+            }],
+        ),
+        Node(
+            package='tardigrade_teleop',
+            executable='xbox_cmd_vel',
+            name='xbox_cmd_vel',
+            output='screen',
+            parameters=[{
+                'cmd_vel_topic': '/tardigrade/cmd_vel/manual',
+                'deadzone': ParameterValue(
+                    LaunchConfiguration('deadzone'), value_type=float),
+                'deadman_button': ParameterValue(
+                    LaunchConfiguration('deadman_button'), value_type=int),
+                'surge_axis': ParameterValue(
+                    LaunchConfiguration('surge_axis'), value_type=int),
+                'sway_axis': ParameterValue(
+                    LaunchConfiguration('sway_axis'), value_type=int),
+                'heave_axis': ParameterValue(
+                    LaunchConfiguration('heave_axis'), value_type=int),
+                'yaw_axis': ParameterValue(
+                    LaunchConfiguration('yaw_axis'), value_type=int),
+                'max_surge': ParameterValue(
+                    LaunchConfiguration('max_surge'), value_type=float),
+                'max_sway': ParameterValue(
+                    LaunchConfiguration('max_sway'), value_type=float),
+                'max_heave': ParameterValue(
+                    LaunchConfiguration('max_heave'), value_type=float),
+                'max_yaw': ParameterValue(
+                    LaunchConfiguration('max_yaw'), value_type=float),
+            }],
+        ),
+        Node(
+            package='tardigrade_esp',
+            executable='depth_attitude_controller',
+            name='depth_attitude_controller',
+            output='screen',
+            parameters=[LaunchConfiguration('gains_file')],
+        ),
+        Node(
+            package='tardigrade_esp',
+            executable='thruster_mixer',
+            name='thruster_mixer',
+            output='screen',
+            parameters=[
+                LaunchConfiguration('gains_file'),
+                {'config_file': LaunchConfiguration('config_file')},
+            ],
+        ),
+        Node(
+            package='tardigrade_esp',
+            executable='esp_bridge',
+            name='esp_bridge',
+            output='screen',
+            parameters=[{
+                'serial_port': LaunchConfiguration('serial_port'),
+                'baud': ParameterValue(
+                    LaunchConfiguration('baud'), value_type=int),
+                'cmd_timeout_sec': 0.5,
+            }],
+        ),
+    ])
