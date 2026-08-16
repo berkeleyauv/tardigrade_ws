@@ -84,6 +84,8 @@ Use these committed layouts:
 - `layouts/state_estimation.json`: ZED, VectorNav, filtered odometry, and TF.
 - `layouts/pid_tuning.json`: PID services, four debug streams, command chain,
   saturation, and freshness.
+- `layouts/roll_pid_tuning.json`: focused roll-only gain controls, safety
+  indicators, response plots, and vertical-thruster monitoring.
 - `layouts/zed.json`: focused camera and ZED tracking view.
 
 Import the JSON into Foxglove and save a personal copy if panel placement is

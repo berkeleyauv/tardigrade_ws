@@ -30,6 +30,8 @@ ROS synthetic-pose test hook with the Jetson controller.
 
 - [Pool runbook](docs/pool_teleop.md): complete build, network, sensor,
   Foxglove, Xbox, thruster, teleop, recording, and PID procedure.
+- [Roll PID tuning](docs/roll_pid_tuning.md): focused first-day roll-only
+  procedure and Foxglove tuning station.
 - [Runtime modes](docs/runtime_modes.md): short command reference.
 - [Coordinate frames](docs/coordinate_frames.md): `map`, `odom`, `base_link`,
   sensor mounting, and sign checks.

@@ -152,6 +152,7 @@ Import these layouts as needed:
 foxglove/layouts/pool_checkout.json
 foxglove/layouts/state_estimation.json
 foxglove/layouts/pid_tuning.json
+foxglove/layouts/roll_pid_tuning.json
 ```
 
 Install Josh Newans' **Joystick Panel** extension from the Foxglove Extension
@@ -425,6 +426,10 @@ clears integrators, and releases captured targets.
 
 Use the Foxglove `pid_tuning.json` layout or command-line services. Begin with
 roll only:
+
+For a focused first-day procedure, use
+[roll_pid_tuning.md](roll_pid_tuning.md) and import
+`foxglove/layouts/roll_pid_tuning.json`.
 
 ```bash
 ros2 service call /tardigrade/control/set_axes_enabled \

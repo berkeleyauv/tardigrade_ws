@@ -1,0 +1,251 @@
+{
+  "configById": {
+    "CallService!disable_axes": {
+      "requestPayload": "{\"roll\": false, \"pitch\": false, \"yaw\": false, \"depth\": false}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/control/set_axes_enabled"
+    },
+    "CallService!enable_roll": {
+      "requestPayload": "{\"roll\": true, \"pitch\": false, \"yaw\": false, \"depth\": false}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/control/set_axes_enabled"
+    },
+    "CallService!roll_gains": {
+      "requestPayload": "{\"axis\": \"roll\", \"kp\": 0.2, \"ki\": 0.0, \"kd\": 0.0, \"output_limit\": 0.1}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/control/set_pid_gains"
+    },
+    "CallService!disarm": {
+      "requestPayload": "{\"armed\": false}",
+      "layout": "vertical",
+      "timeoutSeconds": 5,
+      "serviceName": "/tardigrade/set_armed"
+    },
+    "Indicator!armed": {
+      "path": "/tardigrade/esp/state.armed",
+      "style": "bulb",
+      "fontSize": 20,
+      "fallbackColor": "#3fd16f",
+      "fallbackLabel": "DISARMED",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#ef6b5b", "label": "ARMED"}
+      ]
+    },
+    "Indicator!link": {
+      "path": "/tardigrade/esp/state.link_ok",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "ESP LINK BAD",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "ESP LINK OK"}
+      ]
+    },
+    "Indicator!teleop": {
+      "path": "/tardigrade/teleop/enabled.data",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "LB RELEASED",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "LB HELD"}
+      ]
+    },
+    "Indicator!controller": {
+      "path": "/tardigrade/control/enabled.data",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "CONTROLLER OFF",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "CONTROLLER ON"}
+      ]
+    },
+    "Indicator!roll": {
+      "path": "/tardigrade/control/roll/enabled.data",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "ROLL PID INACTIVE",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "ROLL PID ACTIVE"}
+      ]
+    },
+    "Indicator!odom": {
+      "path": "/tardigrade/control/odometry_fresh.data",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "ODOMETRY STALE",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "ODOMETRY FRESH"}
+      ]
+    },
+    "Indicator!command": {
+      "path": "/tardigrade/control/command_fresh.data",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#ef6b5b",
+      "fallbackLabel": "COMMAND STALE",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#3fd16f", "label": "COMMAND FRESH"}
+      ]
+    },
+    "Indicator!saturation": {
+      "path": "/tardigrade/control/roll/debug.saturated",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#3fd16f",
+      "fallbackLabel": "ROLL OUTPUT OK",
+      "rules": [
+        {"operator": "=", "rawValue": "true", "color": "#ef6b5b", "label": "ROLL SATURATED"}
+      ]
+    },
+    "Plot!response": {
+      "title": "Roll target and measured roll (rad)",
+      "paths": [
+        {"value": "/tardigrade/control/roll/debug.setpoint", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.measurement", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
+    },
+    "Plot!error_rate": {
+      "title": "Roll error and measured roll rate",
+      "paths": [
+        {"value": "/tardigrade/control/roll/debug.error", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/state/odometry/filtered.twist.twist.angular.x", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/sensors/imu.angular_velocity.x", "enabled": false, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
+    },
+    "Plot!terms": {
+      "title": "Roll P / I / D terms and limited output",
+      "paths": [
+        {"value": "/tardigrade/control/roll/debug.p_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.i_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.d_term", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/control/roll/debug.output", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/cmd_vel.angular.x", "enabled": false, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
+    },
+    "Plot!vertical_thrusters": {
+      "title": "Vertical thruster commands: slots 3, 4, 5, 6",
+      "paths": [
+        {"value": "/tardigrade/thrusters/cmd.data[2]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[3]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[4]", "enabled": true, "timestampMethod": "receiveTime"},
+        {"value": "/tardigrade/thrusters/cmd.data[5]", "enabled": true, "timestampMethod": "receiveTime"}
+      ],
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "xAxisVal": "timestamp"
+    },
+    "RawMessages!debug": {
+      "defaultExpanded": true,
+      "topicPath": "/tardigrade/control/roll/debug"
+    },
+    "RawMessages!esp": {
+      "defaultExpanded": false,
+      "topicPath": "/tardigrade/esp/state"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {"speed": 1},
+  "layout": {
+    "first": {
+      "first": {
+        "first": "CallService!disable_axes",
+        "second": "CallService!enable_roll",
+        "direction": "column",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": "CallService!roll_gains",
+        "second": "CallService!disarm",
+        "direction": "column",
+        "splitPercentage": 66
+      },
+      "direction": "column",
+      "splitPercentage": 50
+    },
+    "second": {
+      "first": {
+        "first": {
+          "first": {
+            "first": "Indicator!armed",
+            "second": "Indicator!link",
+            "direction": "column",
+            "splitPercentage": 50
+          },
+          "second": {
+            "first": "Indicator!teleop",
+            "second": "Indicator!controller",
+            "direction": "column",
+            "splitPercentage": 50
+          },
+          "direction": "row",
+          "splitPercentage": 50
+        },
+        "second": {
+          "first": {
+            "first": "Indicator!roll",
+            "second": "Indicator!saturation",
+            "direction": "column",
+            "splitPercentage": 50
+          },
+          "second": {
+            "first": "Indicator!odom",
+            "second": "Indicator!command",
+            "direction": "column",
+            "splitPercentage": 50
+          },
+          "direction": "row",
+          "splitPercentage": 50
+        },
+        "direction": "column",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": {
+          "first": {
+            "first": "Plot!response",
+            "second": "Plot!error_rate",
+            "direction": "column",
+            "splitPercentage": 50
+          },
+          "second": {
+            "first": "Plot!terms",
+            "second": "Plot!vertical_thrusters",
+            "direction": "column",
+            "splitPercentage": 50
+          },
+          "direction": "row",
+          "splitPercentage": 50
+        },
+        "second": {
+          "first": "RawMessages!debug",
+          "second": "RawMessages!esp",
+          "direction": "row",
+          "splitPercentage": 65
+        },
+        "direction": "column",
+        "splitPercentage": 76
+      },
+      "direction": "column",
+      "splitPercentage": 27
+    },
+    "direction": "row",
+    "splitPercentage": 23
+  }
+}
