@@ -85,7 +85,7 @@ Removes `build`, `install`, and `log`, then rebuilds.
 ## Bringup Launch Files
 
 ```bash
-ros2 launch tardigrade_bringup mock.launch.py
+ros2 launch tardigrade_sim local_sim.launch.py
 ```
 
 Starts the local mock stack for development without hardware.
@@ -113,8 +113,8 @@ is already publishing `/zed/zed_node/pose`.
 ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
 ```
 
-Starts the experimental `robot_localization` EKF path. It reads
-`/zed/zed_node/odom` and `/vectornav/imu`, then publishes
+Starts the `robot_localization` EKF path. It reads `/zed/zed_node/odom` and the
+frame-corrected `/tardigrade/sensors/imu`, then publishes
 `/tardigrade/state/odometry/filtered`.
 
 ```bash
@@ -124,37 +124,46 @@ ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 Starts rosbridge on port `9090` for Foxglove's Rosbridge connection.
 
 ```bash
-ros2 launch tardigrade_bringup esp_depth_hold.launch.py
+ros2 launch tardigrade_bringup pool_assisted.launch.py
 ```
 
-Starts the depth/attitude controller plus ESP thruster bridge.
+Starts the Xbox setpoint mapper, Jetson depth/attitude controller, mixer, and
+current binary-protocol ESP bridge. It expects Foxglove to publish `/joy` by
+default.
 
 ## ESP / Control
 
 ```bash
-ros2 run tardigrade_esp esp_thruster_bridge
+ros2 run tardigrade_esp esp_bridge --ros-args \
+  -p serial_port:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 ```
 
-Converts `/tardigrade/cmd_vel` into ESP PWM commands.
+Forwards `/tardigrade/thrusters/cmd` to the ESP's bounded `SetMotor` actuator
+interface and publishes ESP telemetry. This standalone command is for
+diagnostics; `pool_direct` and `pool_assisted` start their own bridge, so stop
+the standalone process before either mode.
 
 Monitoring topics:
 
 ```text
-/tardigrade/thrusters/pwm
-/tardigrade/esp/status
+/tardigrade/thrusters/cmd
+/tardigrade/esp/state
 ```
+
+Use the bounded one-at-a-time checkout mode instead of the legacy raw serial
+test executable:
 
 ```bash
-ros2 run tardigrade_esp esp_thruster_test
+ros2 launch tardigrade_esp thruster_checkout_real.launch.py
 ```
-
-Bench utility for testing one ESP thruster output at a time.
 
 ```bash
 ros2 run tardigrade_esp depth_attitude_controller
 ```
 
-Holds depth, roll, and pitch while passing manual planar commands through.
+Provides independently enabled roll, pitch, yaw, and depth loops while passing
+manual surge and sway through. The pool launch supplies its gains and safety
+inputs; running the node alone is only a development diagnostic.
 
 ```bash
 ros2 run tardigrade_teleop keyboard_cmd_vel
@@ -211,7 +220,7 @@ defines:
 build-ws     /ws/build.sh
 build-hw     /ws/build.sh --hardware
 clean-build  /ws/build.sh --clean
-mock         ros2 launch tardigrade_bringup mock.launch.py
+mock         ros2 launch tardigrade_sim local_sim.launch.py
 status       ros2 topic echo /tardigrade/status
 fg           ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```

@@ -86,7 +86,7 @@ Start VectorNav and the explicit conversion node:
 
 ```bash
 ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
-  port:=/dev/serial/by-id/YOUR_VECTORNAV_DEVICE \
+  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0 \
   use_zed_orientation_if_imu_stale:=false
 ```
 

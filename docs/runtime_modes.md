@@ -1,9 +1,9 @@
 # Tardigrade Runtime and Checkout Modes
 
 Run only one command-producing mode at a time. Sensor and Foxglove processes
-may run alongside any mode, but `thruster_checkout_real`, `xbox_direct_real`,
-and `xbox_assisted_real` are mutually exclusive because each owns the
-load-bearing thruster command path.
+may run alongside any mode, but `thruster_checkout_real`, `pool_direct`, and
+`pool_assisted` are mutually exclusive because each owns the load-bearing
+thruster command path.
 
 ## Common monitoring
 
@@ -43,7 +43,7 @@ reset during short hand motions.
 
 ```bash
 ros2 launch tardigrade_bringup vectornav_state.launch.py \
-  port:=/dev/serial/by-id/YOUR_VECTORNAV_DEVICE
+  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0
 ```
 
 Check `/tardigrade/sensors/imu` and `/tardigrade/state/odometry`. Perform the
@@ -55,7 +55,7 @@ Start the ZED as in Mode 1, then run these in separate terminals:
 
 ```bash
 ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
-  port:=/dev/serial/by-id/YOUR_VECTORNAV_DEVICE \
+  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0 \
   use_zed_orientation_if_imu_stale:=false
 ```
 
@@ -74,14 +74,14 @@ Stop every mixer, teleop, PID, and other ESP bridge first. Start only:
 
 ```bash
 ros2 launch tardigrade_esp thruster_checkout_real.launch.py \
-  serial_port:=/dev/serial/by-id/YOUR_ESP_DEVICE
+  serial_port:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 ```
 
 In Foxglove, use `/tardigrade/set_armed` deliberately, then call
 `/tardigrade/test/run_thruster`. The request is 1-indexed:
 
 ```json
-{"slot": 1, "command": 0.05, "duration_sec": 1.0}
+{"slot": 1, "command": 0.10, "duration_sec": 1.0}
 ```
 
 The node rejects slots outside 1–8, commands above 0.10, durations above two
@@ -96,26 +96,42 @@ Expected current locations are listed in `docs/thruster_mapping.md`.
 Stop the individual-thruster launch, then run:
 
 ```bash
-ros2 launch tardigrade_esp xbox_direct_real.launch.py \
-  serial_port:=/dev/serial/by-id/YOUR_ESP_DEVICE
+ros2 launch tardigrade_bringup pool_direct.launch.py
 ```
 
 LB is the continuous deadman. This checks joystick, command signs, mixer, and
 ESP behavior without feedback control. Start with thruster power disconnected,
 then perform only the low-authority wet test after every axis sign is accepted.
 
+The default expects the controller on the operator MacBook and the Foxglove
+Joystick Panel publishing `/joy`. For an Xbox connected directly to the
+Jetson, use:
+
+```bash
+ros2 launch tardigrade_bringup pool_direct.launch.py \
+  start_joy_node:=true heave_axis:=4 yaw_axis:=3 device_id:=0
+```
+
+See `foxglove/README.md` for the Mac panel settings and dry checks.
+
 ## Mode 6: assisted Xbox and PID tuning
 
 Stop direct mode, start the fused state, then:
 
 ```bash
-ros2 launch tardigrade_esp xbox_assisted_real.launch.py \
-  serial_port:=/dev/serial/by-id/YOUR_ESP_DEVICE
+ros2 launch tardigrade_bringup pool_assisted.launch.py
 ```
 
 Use `pid_tuning.json`. Begin with every axis disabled, then roll only, pitch
 only, and yaw only. Depth remains disabled until underwater ZED Z tracking is
 accepted. LB release, stale Joy, stale odometry, or stale commands force zero.
+
+For an Xbox connected directly to the Jetson, use:
+
+```bash
+ros2 launch tardigrade_bringup pool_assisted.launch.py \
+  start_joy_node:=true heave_axis:=4 yaw_axis:=3 device_id:=0
+```
 
 ## Recording
 

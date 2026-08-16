@@ -74,19 +74,13 @@ VECTORNAV_PORT=/dev/tardigrade_vectornav
 
 ## Autostart
 
-Automatic prequalification and qualification startup files live in:
+Legacy automatic prequalification and qualification startup assets remain in:
 
 ```text
 robot/autostart/
 ```
 
-That folder contains systemd unit files, env-file examples, and small launcher
-scripts for the Jetson host. The examples are copied into `/etc/tardigrade/`
-and the service files are copied into `/etc/systemd/system/` during setup.
-
-See:
-
-```text
-docs/prequal_autostart.md
-docs/qual_autostart.md
-```
+Do **not** install or enable them for the current pool stack. They predate the
+final Jetson-controller/binary-ESP path and are retained only until autonomy is
+rebuilt on the same controller-enable contract as assisted teleop. Use
+`docs/pool_teleop.md` for current robot operation.

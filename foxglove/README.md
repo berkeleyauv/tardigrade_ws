@@ -1,230 +1,194 @@
-# Foxglove
+# Foxglove Setup
 
-Foxglove is the intended pool-test and bench-test UI for Tardigrade.
+Foxglove is the operator display for sensors, state estimation, Xbox input,
+thruster commands, ESP status, recording review, and PID tuning.
 
-The first goal is a useful cockpit:
+ROS 2 Foxy uses rosbridge on port `9090` for the current pool path.
 
-- camera images
-- perception debug overlays
-- ZED odometry
-- VectorNav IMU
-- `/tf`
-- ESP/control status
-- command topics
-- autonomy state once autonomy exists
+## Connect To The Jetson
 
-## Rosbridge MVP
-
-For ROS 2 Foxy, use `rosbridge_suite` for the pool test. The committed PID
-layout uses Service Call panels for tuning, so it does not depend on rosbridge
-supporting Foxglove's native Parameters panel.
-
-For phased checkout, import `layouts/pool_checkout.json`. Its individual
-thruster panel calls a bounded ROS service rather than publishing an arbitrary
-motor array: one slot at a time, at most 10%, for at most two seconds, followed
-automatically by neutral.
-
-Start rosbridge inside the container with:
+Start rosbridge on the Jetson:
 
 ```bash
+source /ws/install/setup.bash
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```
 
-Then connect Foxglove using the Rosbridge connection option:
-
-```text
-ws://localhost:9090
-```
-
-On the Jetson, replace `localhost` with the Jetson's IP address.
-
-When using `docker compose run`, service ports are published only if the
-container is started with `--service-ports`. The repo launcher does this for
-you:
+Find the Jetson's shared-network address:
 
 ```bash
-./docker-build.sh
+hostname -I
 ```
 
-If the container was started another way, check `docker ps` on the host and
-confirm it shows `9090->9090/tcp`.
-
-On Jetson hardware, the Compose override uses host networking. In that mode,
-`docker ps` will not show a `9090->9090/tcp` port mapping. Connect to the
-Jetson directly:
+In Foxglove Desktop on the MacBook, create a **Rosbridge** connection:
 
 ```text
 ws://JETSON_IP:9090
 ```
 
-## Launching Data Sources
+The MacBook and Jetson must be on the same routed network. A dedicated router
+or phone hotspot is preferable to venue Wi-Fi with client isolation.
 
-Keep robot data sources and visualization separate. Start and stop rosbridge
-without restarting sensors or state estimation.
+## Xbox Controller On The MacBook
 
-For local mock topics:
-
-```bash
-ros2 launch tardigrade_bringup mock.launch.py
-```
-
-For Jetson ZED + VectorNav odometry, start the ZED wrapper first:
-
-```bash
-ros2 launch zed_wrapper zed_camera.launch.py \
-  camera_model:=zed publish_tf:=false
-```
-
-Then start VectorNav plus the combined odometry node:
-
-```bash
-ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
-```
-
-That publishes:
+Install Josh Newans' **Joystick Panel** from the Foxglove Extension
+Marketplace, or download the latest `.foxe`:
 
 ```text
+https://github.com/joshnewans/foxglove-joystick/releases/latest
+```
+
+Pair the Xbox controller in macOS, add the panel to the active layout, and set:
+
+```text
+Data Source:       Gamepad
+Gamepad ID:        0
+Publish Mode:      enabled
+Pub Joy Topic:     /joy
+Display Mode:      Custom Display
+Layout:            Xbox
+```
+
+Expected browser mapping after the extension's axis conversion:
+
+```text
+axes[0]    left horizontal:  positive left
+axes[1]    left vertical:    positive forward
+axes[2]    right horizontal: positive left yaw
+axes[3]    right vertical:   positive up
+buttons[4] LB deadman
+```
+
+Verify on the Jetson before thruster power is connected:
+
+```bash
+ros2 topic hz /joy
+ros2 topic echo /joy
+```
+
+The extension currently publishes its platform mapping directly. If the
+indices differ, use the configurable `pool_direct.launch.py` or
+`pool_assisted.launch.py` axis arguments. Never memorize reversed controls.
+
+The extension does not explicitly publish a final zero on every disconnect.
+The Jetson teleop node therefore owns the safety behavior: `/joy` older than
+250 ms disables teleop and commands zero. Keep Foxglove open, keep the panel
+present, and keep the MacBook awake. Confirm the real disconnect behavior dry.
+
+## Saved Layouts
+
+Use these committed layouts:
+
+- `layouts/pool_checkout.json`: camera, estimator, ESP, commands, and bounded
+  individual-thruster service.
+- `layouts/state_estimation.json`: ZED, VectorNav, filtered odometry, and TF.
+- `layouts/pid_tuning.json`: PID services, four debug streams, command chain,
+  saturation, and freshness.
+- `layouts/zed.json`: focused camera and ZED tracking view.
+
+Import the JSON into Foxglove and save a personal copy if panel placement is
+changed. The Joystick Panel is a third-party extension and may need to be added
+to the imported layout manually.
+
+## Current Topics
+
+State and sensors:
+
+```text
+/zed/zed_node/left/image_rect_color
+/zed/zed_node/odom
+/vectornav/imu
+/tardigrade/sensors/imu
 /tardigrade/state/odometry
-```
-
-The current combined estimate is simple:
-
-```text
-position          ZED
-orientation       VectorNav when fresh, otherwise ZED fallback
-angular velocity  VectorNav
-linear velocity   not estimated
-```
-
-There is also an experimental `robot_localization` EKF path:
-
-```bash
-ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
-```
-
-It reads `/zed/zed_node/odom` and the converted
-`/tardigrade/sensors/imu`, then publishes:
-
-```text
 /tardigrade/state/odometry/filtered
+/tf
+/tf_static
 ```
 
-Use this filtered topic for comparison in Foxglove before replacing the main
-`/tardigrade/state/odometry` path.
-
-```bash
-ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
-```
-
-starts the visualization bridge.
-
-## 3D Frames And Odometry
-
-Foxglove's 3D frame dropdown comes from `/tf` and `/tf_static`, not directly
-from every topic. The EKF launch publishes `odom -> base_link`; it also
-publishes the static `base_link -> zed_camera_link` and
-`base_link -> vectornav` mounting transforms. Run the ZED wrapper with
-`publish_tf:=false` so the EKF remains the sole owner of the moving robot TF.
-
-The simpler `/tardigrade/state/odometry` comparison topic does not publish TF.
-Use `/tardigrade/state/odometry/filtered` plus the EKF TF tree for 3D display.
-
-## Foxglove Bridge Later
-
-Foxglove's preferred bridge is `foxglove_bridge`, which opens a Foxglove
-WebSocket on port `8765`.
-
-ROS 2 Foxy does not provide the apt package `ros-foxy-foxglove-bridge` in the
-standard ROS package index, so the bridge is not installed by the Dockerfile
-yet. The source-build path has also pulled in missing dependencies, so treat it
-as a later upgrade after the rosbridge layout is useful.
-
-If `foxglove_bridge` is built from source or otherwise installed, start it with:
-
-```bash
-ros2 launch tardigrade_bringup foxglove_bridge.launch.py
-```
-
-Then connect Foxglove using the Foxglove WebSocket connection option:
+Operator and actuator chain:
 
 ```text
-ws://localhost:8765
+/joy
+/tardigrade/teleop/enabled
+/tardigrade/cmd_vel/manual
+/tardigrade/cmd_vel
+/tardigrade/thrusters/cmd
+/tardigrade/esp/state
 ```
 
-## Foxy Source Build
-
-Tried and unavailable:
-
-```bash
-apt-get install ros-foxy-foxglove-bridge
-```
-
-Foxglove's ROS source tree is a separate ROS workspace inside the SDK repo. To
-try it inside the Tardigrade container:
-
-```bash
-cd /tmp
-git clone https://github.com/foxglove/foxglove-sdk
-cd foxglove-sdk/ros
-make
-source install/setup.bash
-```
-
-Then return to the Tardigrade workspace and source it too:
-
-```bash
-cd /ws
-source install/setup.bash
-ros2 launch tardigrade_bringup foxglove_bridge.launch.py
-```
-
-If this works, decide whether to vendor the bridge as a submodule/source
-dependency or keep it as a documented external setup step.
-
-Open items:
-
-1. Confirm whether current upstream `foxglove-sdk/ros` builds against ROS 2
-   Foxy in this container.
-2. If current upstream does not build, pin the newest Foxy-compatible bridge
-   source version.
-3. Add the bridge to the workspace as a source dependency or submodule only
-   after the build path is proven.
-4. Keep the Foxglove WebSocket port and launch command standardized on `8765`.
-
-## Layouts
-
-Committed layouts should live in this directory once the team has a first
-working layout from Foxglove Studio.
-
-Suggested files:
+Controller health and PID debug:
 
 ```text
-foxglove/layouts/pool_test.json
-foxglove/layouts/bench_debug.json
-foxglove/layouts/zed.json
-foxglove/layouts/state_estimation.json
+/tardigrade/control/enabled
+/tardigrade/control/odometry_fresh
+/tardigrade/control/command_fresh
+/tardigrade/control/roll/debug
+/tardigrade/control/pitch/debug
+/tardigrade/control/yaw/debug
+/tardigrade/control/depth/debug
 ```
 
-`layouts/pid_tuning.json` is the pool-test tuning cockpit. It uses:
+Services:
 
-- `/tardigrade/control/set_pid_gains`
-- `/tardigrade/control/set_axes_enabled`
-- the four `/tardigrade/control/<axis>/debug` topics
+```text
+/tardigrade/set_armed
+/tardigrade/test/run_thruster
+/tardigrade/control/set_pid_gains
+/tardigrade/control/set_axes_enabled
+```
 
-See `docs/pool_teleop.md` for the mandatory safety gates and recording
-commands. Live values are session scratch state; accepted gains must be copied
-back into `src/tardigrade_esp/config/controller_gains.yaml`.
+`/tardigrade/esp/state.state_valid` and `pose_ok` are expected to remain false
+because pose is intentionally not forwarded to the transitional ESP
+controller. Monitor the Jetson odometry topics for robot pose.
 
-Do not spend time on custom Foxglove extensions yet. Start with standard panels:
+## Start A Robot Mode
 
-- Image
-- 3D
-- Plot
-- Raw Messages
-- State Transitions
-- Diagnostics-style status panels
+The Foxglove Xbox direct path is the default:
 
-## Topic Plan
+```bash
+ros2 launch tardigrade_bringup pool_direct.launch.py
+```
 
-See `foxglove/pool_test_topics.md` for the first set of topics the layout
-should show.
+After all sensor and direct-mode gates pass:
+
+```bash
+ros2 launch tardigrade_bringup pool_assisted.launch.py
+```
+
+Both launches start an ESP bridge. Stop standalone ESP/thruster launches first.
+Follow the complete [pool runbook](../docs/pool_teleop.md) before arming.
+
+## Recording And Playback
+
+Use `ros2 bag record` on the Jetson for every powered attempt. The canonical
+topic command is in the pool runbook. Open a recorded bag in Foxglove or play it
+back into ROS:
+
+```bash
+ros2 bag play BAG_DIRECTORY
+```
+
+## Troubleshooting
+
+No Foxglove connection:
+
+```bash
+ros2 node list
+hostname -I
+```
+
+Confirm the rosbridge launch is still running, the selected IP belongs to the
+shared network, and the network allows device-to-device traffic.
+
+No `/joy`:
+
+- confirm the Xbox is connected in macOS;
+- press a controller button after opening the panel;
+- confirm Gamepad ID `0`, Publish Mode, and `/joy`;
+- keep the Joystick Panel in the current layout;
+- inspect Foxglove's connection status.
+
+Commands stop when Foxglove loses focus or network quality falls:
+
+This is the 250 ms stale-input safety working. Restore a reliable operator
+link; do not increase the timeout for pool operation.

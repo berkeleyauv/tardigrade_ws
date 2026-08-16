@@ -12,6 +12,7 @@
   <depend>launch</depend>
   <depend>launch_xml</depend>
   <depend>launch_ros</depend>
+  <depend>joy</depend>
   <depend>robot_localization</depend>
   <depend>tardigrade_esp</depend>
   <depend>tardigrade_mission</depend>

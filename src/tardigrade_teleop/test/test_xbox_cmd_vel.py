@@ -20,6 +20,14 @@ CONFIG = {
     'max_yaw': 0.2,
 }
 
+FOXGLOVE_CONFIG = {
+    **CONFIG,
+    # Browser Gamepad API order after foxglove-joystick's axis inversion:
+    # left X/Y, right X/Y.
+    'heave_axis': 3,
+    'yaw_axis': 2,
+}
+
 
 class XboxMappingTest(unittest.TestCase):
     def test_deadzone_is_rescaled(self):
@@ -41,6 +49,17 @@ class XboxMappingTest(unittest.TestCase):
         self.assertTrue(active)
         self.assertEqual(command.linear.x, 0.25)
         self.assertEqual(command.linear.y, -0.25)
+        self.assertGreater(command.linear.z, 0.0)
+        self.assertLess(command.angular.z, 0.0)
+
+    def test_foxglove_browser_xbox_axes_and_signs(self):
+        buttons = [0] * 17
+        buttons[4] = 1
+        command, active = command_from_joy(
+            [1.0, 1.0, -0.5, 0.5], buttons, FOXGLOVE_CONFIG)
+        self.assertTrue(active)
+        self.assertEqual(command.linear.x, 0.25)
+        self.assertEqual(command.linear.y, 0.25)
         self.assertGreater(command.linear.z, 0.0)
         self.assertLess(command.angular.z, 0.0)
 

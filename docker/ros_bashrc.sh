@@ -13,6 +13,6 @@ fi
 alias build-ws="/ws/build.sh"
 alias build-hw="/ws/build.sh --hardware"
 alias clean-build="/ws/build.sh --clean"
-alias mock="ros2 launch tardigrade_bringup mock.launch.py"
+alias mock="ros2 launch tardigrade_sim local_sim.launch.py"
 alias status="ros2 topic echo /tardigrade/status"
 alias fg="ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py"

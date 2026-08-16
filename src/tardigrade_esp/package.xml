@@ -16,9 +16,7 @@
   <depend>std_msgs</depend>
   <depend>tardigrade_interfaces</depend>
 
-  <exec_depend>joy</exec_depend>
   <exec_depend>python3-serial</exec_depend>
-  <exec_depend>tardigrade_teleop</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

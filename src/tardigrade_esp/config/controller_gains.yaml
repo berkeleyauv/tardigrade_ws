@@ -5,8 +5,9 @@
 # Foxglove Service Call panels during a session, then land the final values
 # HERE and commit — the running node's params reset on next launch.
 #
-# See docs/jetson_control_architecture.md and
-# tardigrade_firmware/docs/pid_tuning.md for the tuning process.
+# See docs/jetson_control_architecture.md and docs/pool_teleop.md for the
+# current Jetson-side tuning process. The firmware PID guide is transitional
+# and is not the control path used by these gains.
 
 depth_attitude_controller:
   ros__parameters:

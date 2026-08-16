@@ -134,7 +134,7 @@ See [foxglove/README.md](foxglove/README.md) for more details.
 After building and sourcing:
 
 ```bash
-ros2 launch tardigrade_bringup mock.launch.py
+ros2 launch tardigrade_sim local_sim.launch.py
 ```
 
 ## Jetson ZED + VectorNav
@@ -142,14 +142,15 @@ ros2 launch tardigrade_bringup mock.launch.py
 Start the ZED wrapper first:
 
 ```bash
-ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+ros2 launch zed_wrapper zed_camera.launch.py \
+  camera_model:=zed publish_tf:=false
 ```
 
 Start VectorNav plus the ZED/VectorNav odometry node separately:
 
 ```bash
 ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
-  port:=/dev/serial/by-id/YOUR_VECTORNAV_PORT \
+  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0 \
   baud:=115200
 ```
 
@@ -159,14 +160,15 @@ The output topic is:
 /tardigrade/state/odometry
 ```
 
-## Experimental ZED + VectorNav EKF
+## ZED + VectorNav EKF
 
 Start the sensors first:
 
 ```bash
-ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed
+ros2 launch zed_wrapper zed_camera.launch.py \
+  camera_model:=zed publish_tf:=false
 ros2 launch tardigrade_bringup vectornav_state.launch.py \
-  port:=/dev/serial/by-id/YOUR_VECTORNAV_PORT \
+  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0 \
   baud:=115200
 ```
 
@@ -180,7 +182,7 @@ Default inputs:
 
 ```text
 /zed/zed_node/odom
-/vectornav/imu
+/tardigrade/sensors/imu
 ```
 
 Default output:
@@ -189,8 +191,8 @@ Default output:
 /tardigrade/state/odometry/filtered
 ```
 
-The filtered topic is intentionally not the main `/tardigrade/state/odometry`
-topic yet. Compare both in Foxglove before promoting the EKF output.
+Assisted control consumes the filtered topic. Compare it with the simpler
+`/tardigrade/state/odometry` topic in Foxglove during sensor acceptance.
 
 ## Common Checks
 

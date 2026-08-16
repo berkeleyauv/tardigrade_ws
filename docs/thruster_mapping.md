@@ -1,163 +1,143 @@
 # Thruster Mapping
 
-Use this guide when the robot's real wiring does not match the old diagram.
-That is fine. What matters is that the physical robot, ESP output map, and ROS
-assumptions agree.
-
-The source-of-truth file is:
+The mixer source of truth is:
 
 ```text
-config/esp_thruster_map.json
+src/tardigrade_esp/config/esp_thruster_map.json
 ```
 
-The current ESP wiring is:
+The ESP firmware pin order must match the same slot order. ROS service and
+documentation slot numbers are 1-based; the serial protocol encodes motor
+indices 0–7.
+
+## Robot Frame
+
+All mixer coefficients use ROS FLU body coordinates:
 
 ```text
-slot 1  pin 21  front left vectored
-slot 2  pin 19  rear right vectored
-slot 3  pin 27  front left vertical
-slot 4  pin 18  rear left vertical
-slot 5  pin 5   rear right vertical
-slot 6  pin 14  front right vertical
-slot 7  pin 12  front right vectored
-slot 8  pin 26  rear left vectored
++X forward
++Y left / port
++Z up
+positive roll  right-hand rotation about +X
+positive pitch right-hand rotation about +Y
+positive yaw   nose left / counter-clockwise from above
 ```
 
-The thrusters called `vectored` above are the four outward-pointing angled
-thrusters. They provide surge, sway, and yaw through an X-style mix; they are
-not mounted parallel to the vehicle centerline. The JSON coefficients assume
-that PWM above neutral produces the positive force direction used by the
-starter mix. Verify that electrical/propeller polarity one slot at a time and
-flip every nonzero coefficient for any thruster whose positive force is
-reversed.
+## Current Physical And Electrical Map
 
-## What The YAML Means
+The current sticky-note wiring map is:
 
-The current control path is:
+| Slot | ESP pin | Physical location | Role |
+|---:|---:|---|---|
+| 1 | 21 | front left | vectored |
+| 2 | 19 | rear right | vectored |
+| 3 | 27 | front left | vertical |
+| 4 | 18 | rear left | vertical |
+| 5 | 5 | rear right | vertical |
+| 6 | 14 | front right | vertical |
+| 7 | 12 | front right | vectored |
+| 8 | 26 | rear left | vectored |
+
+The current nonzero mixer coefficients are:
+
+| Slot | Surge | Sway | Heave | Roll | Pitch | Yaw |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | +1 | −1 | 0 | 0 | 0 | −1 |
+| 2 | +1 | −1 | 0 | 0 | 0 | +1 |
+| 3 | 0 | 0 | +1 | +1 | −1 | 0 |
+| 4 | 0 | 0 | +1 | +1 | +1 | 0 |
+| 5 | 0 | 0 | +1 | −1 | +1 | 0 |
+| 6 | 0 | 0 | +1 | −1 | −1 | 0 |
+| 7 | +1 | +1 | 0 | 0 | 0 | +1 |
+| 8 | +1 | +1 | 0 | 0 | 0 | −1 |
+
+These coefficients assume a positive motor command produces the intended
+positive force direction. Propeller, ESC, or wiring polarity can invalidate
+that assumption even when the slot number is correct.
+
+## Current Command Path
 
 ```text
-keyboard_cmd_vel -> /tardigrade/cmd_vel -> esp_thruster_bridge -> ESP32 -> thrusters
+Xbox / Jetson controller
+  -> /tardigrade/cmd_vel
+  -> thruster_mixer
+  -> /tardigrade/thrusters/cmd (8 normalized values)
+  -> esp_bridge
+  -> binary SetMotor packets
+  -> ESP safety clamp and PWM
 ```
 
-ROS commands body motion. `esp_thruster_bridge` maps those commands to PWM
-slots using `esp_thruster_map.json`.
+The ESP does not receive the mix matrix and does not infer robot motion. It
+only knows motor index and normalized command. The Jetson owns the mapping.
 
-Use ROS body-frame FLU in the YAML:
+## Verify Slot Identity
 
-```text
-x positive = forward / bow
-y positive = left / port
-z positive = up
-```
+Make the vehicle physically safe, clear every propeller, assign a kill-switch
+operator, and stop every other command mode and ESP bridge.
 
-For each thruster, record:
-
-- `thruster_id`: your team's physical label on the robot.
-- `diagram_label`: old diagram number, if the thruster still corresponds to it.
-- `slot`: ESP PWM output slot.
-- `pin`: ESP32 GPIO pin for that slot.
-- `physical_location`: where it is mounted on the robot.
-- `role`: horizontal, vertical, or angled.
-- `position_m`: measured from the chosen vehicle origin, ideally center of mass.
-- `force_direction_when_positive`: unit-ish direction in ROS FLU when positive.
-- `observed_positive_motion`: what happened during the motor test.
-
-## Establish The Physical Map
-
-1. Make the vehicle physically safe.
-
-   Remove props if possible, keep fingers clear, restrain the robot, use the
-   lowest useful motor-test power, and be ready to disarm.
-
-2. Label the physical thrusters `1` through `8`.
-
-   The labels do not need to match the old diagram. They just need to be
-   visible and stable.
-
-3. Trace each ESC signal wire to the ESP32 output.
-
-   Fill the ESP slot/pin in `esp_thruster_map.json`.
-
-4. Use `esp_thruster_test` one output at a time.
-
-   For each output, record which physical thruster moves and what direction it
-   pushes for a positive command. Do not test multiple thrusters at once while
-   mapping.
-
-5. Fill the force direction.
-
-   Use the ROS FLU convention. Examples:
-
-```yaml
-force_direction_when_positive:
-  x: 1.0
-  y: 0.0
-  z: 0.0
-```
-
-   means positive command pushes the robot forward.
-
-```yaml
-force_direction_when_positive:
-  x: 0.0
-  y: 0.0
-  z: 1.0
-```
-
-   means positive command pushes the robot upward.
-
-6. Fix wrong behavior at the ESP map or physical wiring level first.
-
-   If the wrong thruster moves, the output assignment is wrong. If the right
-   thruster moves in the wrong direction, reverse that output or correct the ESC
-   direction. The ROS teleop code should not be used to hide a bad physical map.
-
-7. Repeat after ESP firmware or wiring changes.
-
-   Keep the JSON map current so setup can be restored quickly.
-
-## Teleop Verification
-
-After the ESP slot map matches the physical robot, run the bridge with thruster
-power disconnected first:
+Start the bounded checkout mode:
 
 ```bash
-ros2 run tardigrade_esp esp_thruster_bridge --ros-args \
-  -p serial_port:=/dev/ttyUSB0 \
-  -p config_file:=/ws/config/esp_thruster_map.json
+ros2 launch tardigrade_esp thruster_checkout_real.launch.py \
+  serial_port:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 ```
 
-In another container terminal:
+Arm:
 
 ```bash
-ros2 run tardigrade_teleop keyboard_cmd_vel
+ros2 service call /tardigrade/set_armed \
+  tardigrade_interfaces/srv/SetArmed "{armed: true}"
 ```
 
-The ESP bridge should log incoming commands and serial writes. With thruster
-power disconnected, this verifies the ROS command path without motion.
-
-Only after that, connect power in a physically safe setup and test one output or
-one axis at a time:
+Test one slot for one second:
 
 ```bash
-ros2 run tardigrade_esp esp_thruster_test --ros-args \
-  -p serial_port:=/dev/ttyUSB0 \
-  -p test_us:=1600 \
-  -p hold_sec:=1.0
+ros2 service call /tardigrade/test/run_thruster \
+  tardigrade_interfaces/srv/TestThruster \
+  "{slot: 1, command: 0.10, duration_sec: 1.0}"
 ```
 
-Expected first-axis checks:
+For each slot record:
 
-```text
-w  -> forward
-s  -> backward
-j  -> left
-l  -> right
-r  -> up
-f  -> down
-a  -> yaw left
-d  -> yaw right
+- which physical thruster moved;
+- whether a positive command produces the assumed force direction;
+- whether the motor remained neutral before and after the request;
+- any slot that did not move at the bounded checkout authority.
+
+The checkout node commands the other seven slots to zero and returns all eight
+to zero automatically. Do not test multiple slots simultaneously while
+identifying wiring.
+
+Disarm after each mapping session:
+
+```bash
+ros2 service call /tardigrade/set_armed \
+  tardigrade_interfaces/srv/SetArmed "{armed: false}"
 ```
 
-If an axis is wrong, stop and fix the physical/ESP mapping before increasing
-speed limits.
+## Verify Body-Axis Signs
+
+After slot identity and polarity are known, use direct mode with thruster power
+disconnected first:
+
+```bash
+ros2 launch tardigrade_bringup pool_direct.launch.py
+```
+
+Watch the final eight values:
+
+```bash
+ros2 topic echo /tardigrade/thrusters/cmd
+```
+
+Hold LB and command one axis at a time. Compare the signs against the table.
+Then conduct only brief, restrained powered taps using the end-to-end pool
+runbook.
+
+If the wrong thruster moves, fix slot/pin identity. If the correct thruster
+pushes in the opposite direction, reverse its physical/ESC polarity or invert
+all nonzero mixer coefficients for that slot. Do not hide a hardware or mixer
+error by reversing pilot controls.
+
+Repeat this verification after any PDB rewiring, ESC replacement, propeller
+change, firmware pin-order change, or mixer edit.
