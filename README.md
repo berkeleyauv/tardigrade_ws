@@ -119,6 +119,24 @@ Direct pool teleop, with `/joy` published by Foxglove on the MacBook:
 ros2 launch tardigrade_bringup pool_direct.launch.py
 ```
 
+Direct keyboard fallback uses two Jetson terminals. First start the backend:
+
+```bash
+ros2 launch tardigrade_bringup pool_keyboard.launch.py
+```
+
+Then start the interactive keyboard node in the terminal that receives the
+key presses:
+
+```bash
+ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
+  -p linear_step:=0.15 -p vertical_step:=0.12 -p yaw_step:=0.15 \
+  -p command_hold_sec:=0.25
+```
+
+This is a direct-checkout fallback, not an assisted/PID input. Each key press
+is a short pulse and automatically returns to zero.
+
 Assisted teleop after the state-estimation and direct-mode gates pass:
 
 ```bash
@@ -126,7 +144,8 @@ ros2 launch tardigrade_bringup pool_assisted.launch.py
 ```
 
 Only one load-bearing mode may run at once. `thruster_checkout_real`,
-`pool_direct`, and `pool_assisted` each start their own ESP bridge.
+`pool_direct`, `pool_keyboard`, and `pool_assisted` each start their own ESP
+bridge.
 
 ## Stable Robot Ports
 

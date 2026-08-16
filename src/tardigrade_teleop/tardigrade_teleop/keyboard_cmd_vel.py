@@ -24,14 +24,17 @@ from geometry_msgs.msg import Twist
 
 
 HELP = """
-Keyboard teleop publishes velocity commands.
+Keyboard teleop publishes short, automatically stopping command pulses.
 
-w/s: forward/back
-j/l: strafe left/right
-r/f: up/down
-a/d: yaw left/right
+w/s: pulse forward/back
+j/l: pulse strafe left/right
+r/f: pulse up/down
+a/d: pulse yaw left/right
 space: zero command
 Ctrl-C: quit
+
+Tap repeatedly for continued motion. Every pulse automatically returns to
+zero; this is a checkout fallback, not the assisted/PID deadman interface.
 """
 
 
@@ -43,15 +46,19 @@ class KeyboardCmdVel(Node):
         self.declare_parameter('linear_step', 0.1)
         self.declare_parameter('vertical_step', 0.05)
         self.declare_parameter('yaw_step', 0.2)
-        self.declare_parameter('publish_rate_hz', 10.0)
+        self.declare_parameter('publish_rate_hz', 20.0)
+        self.declare_parameter('command_hold_sec', 0.25)
 
         self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
         self.linear_step = float(self.get_parameter('linear_step').value)
         self.vertical_step = float(self.get_parameter('vertical_step').value)
         self.yaw_step = float(self.get_parameter('yaw_step').value)
         publish_rate_hz = float(self.get_parameter('publish_rate_hz').value)
+        self.command_hold_sec = max(
+            0.0, float(self.get_parameter('command_hold_sec').value))
 
         self.cmd = Twist()
+        self.command_deadline_ns = None
         self.pub = self.create_publisher(Twist, self.cmd_vel_topic, 10)
         self.timer = self.create_timer(1.0 / max(publish_rate_hz, 1.0), self.tick)
 
@@ -71,11 +78,14 @@ class KeyboardCmdVel(Node):
         super().destroy_node()
 
     def tick(self):
-        # Keep publishing the last command so downstream controllers see a live
-        # stream. Space resets the latched command to zero.
         key = self.read_key()
         if key is not None:
             self.handle_key(key)
+
+        now_ns = self.get_clock().now().nanoseconds
+        if (self.command_deadline_ns is not None
+                and now_ns >= self.command_deadline_ns):
+            self.stop()
 
         self.pub.publish(self.cmd)
 
@@ -87,24 +97,43 @@ class KeyboardCmdVel(Node):
 
     def handle_key(self, key):
         # Body-frame ROS FLU convention: x forward, y left, z up, yaw positive left.
+        command = Twist()
+        motion_key = True
         if key == 'w':
-            self.cmd.linear.x = self.linear_step
+            command.linear.x = self.linear_step
         elif key == 's':
-            self.cmd.linear.x = -self.linear_step
+            command.linear.x = -self.linear_step
         elif key == 'j':
-            self.cmd.linear.y = self.linear_step
+            command.linear.y = self.linear_step
         elif key == 'l':
-            self.cmd.linear.y = -self.linear_step
+            command.linear.y = -self.linear_step
         elif key == 'r':
-            self.cmd.linear.z = self.vertical_step
+            command.linear.z = self.vertical_step
         elif key == 'f':
-            self.cmd.linear.z = -self.vertical_step
+            command.linear.z = -self.vertical_step
         elif key == 'a':
-            self.cmd.angular.z = self.yaw_step
+            command.angular.z = self.yaw_step
         elif key == 'd':
-            self.cmd.angular.z = -self.yaw_step
+            command.angular.z = -self.yaw_step
         elif key == ' ':
-            self.cmd = Twist()
+            self.stop()
+            return
+        else:
+            motion_key = False
+
+        if motion_key:
+            self.cmd = command
+            now_ns = self.get_clock().now().nanoseconds
+            self.command_deadline_ns = (
+                now_ns + int(self.command_hold_sec * 1e9))
+
+    def stop(self):
+        self.cmd = Twist()
+        self.command_deadline_ns = None
+
+    def publish_stop(self):
+        self.stop()
+        self.pub.publish(self.cmd)
 
 
 def main(args=None):
@@ -114,5 +143,6 @@ def main(args=None):
     try:
         rclpy.spin(node)
     finally:
+        node.publish_stop()
         node.destroy_node()
         rclpy.shutdown()

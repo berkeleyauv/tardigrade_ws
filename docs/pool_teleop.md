@@ -336,6 +336,28 @@ Required results:
 
 Do not arm until all eight checks pass.
 
+### Temporary keyboard fallback
+
+If Foxglove `/joy` cannot be restored, stop `pool_direct` completely. In one
+Jetson terminal start the keyboard backend:
+
+```bash
+ros2 launch tardigrade_bringup pool_keyboard.launch.py
+```
+
+In a second interactive SSH terminal start the keyboard publisher:
+
+```bash
+ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
+  -p linear_step:=0.15 -p vertical_step:=0.12 -p yaw_step:=0.15 \
+  -p command_hold_sec:=0.25
+```
+
+Use `w/s` for surge, `j/l` for sway, `r/f` for heave, `a/d` for yaw, and
+Space for zero. Each press is a 250 ms pulse that automatically stops. This is
+a restrained direct-checkout fallback only. It does not provide the continuous
+deadman heartbeat required by assisted/PID tuning.
+
 ## 9. Restrained Direction And Stop-Layer Test
 
 Remove propellers when practical or securely restrain the vehicle. Keep the

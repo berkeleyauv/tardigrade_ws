@@ -1,9 +1,9 @@
 # Tardigrade Runtime and Checkout Modes
 
 Run only one command-producing mode at a time. Sensor and Foxglove processes
-may run alongside any mode, but `thruster_checkout_real`, `pool_direct`, and
-`pool_assisted` are mutually exclusive because each owns the load-bearing
-thruster command path.
+may run alongside any mode, but `thruster_checkout_real`, `pool_direct`,
+`pool_keyboard`, and `pool_assisted` are mutually exclusive because each owns
+the load-bearing thruster command path.
 
 ## Common monitoring
 
@@ -114,7 +114,31 @@ ros2 launch tardigrade_bringup pool_direct.launch.py \
 
 See `foxglove/README.md` for the Mac panel settings and dry checks.
 
-## Mode 6: assisted Xbox and PID tuning
+## Mode 6: direct keyboard fallback
+
+Stop `pool_direct` and every other ESP bridge. Start the mixer and ESP backend:
+
+```bash
+ros2 launch tardigrade_bringup pool_keyboard.launch.py
+```
+
+In a second interactive Jetson/SSH terminal, run:
+
+```bash
+ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
+  -p linear_step:=0.15 -p vertical_step:=0.12 -p yaw_step:=0.15 \
+  -p command_hold_sec:=0.25
+```
+
+Keys are `w/s` surge, `j/l` sway, `r/f` heave, `a/d` yaw, and Space for
+immediate zero. Every motion key produces one 250 ms pulse and then
+automatically returns to zero. Tap repeatedly for continued motion. Stopping
+the keyboard node or losing SSH also lets the mixer timeout to zero.
+
+This mode has no continuous deadman and is therefore only a restrained direct
+checkout fallback. It must not be used for assisted/PID tuning.
+
+## Mode 7: assisted Xbox and PID tuning
 
 Stop direct mode, start the fused state, then:
 
