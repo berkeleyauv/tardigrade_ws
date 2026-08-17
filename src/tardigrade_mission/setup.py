@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'gate_mission = tardigrade_mission.gate_mission:main',
+            'path_follower = tardigrade_mission.path_follower:main',
             'prequal_test = tardigrade_mission.prequal_test:main',
         ],
     },
