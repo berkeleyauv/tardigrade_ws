@@ -26,9 +26,9 @@ class KeyboardCmdVel(Node):
         super().__init__('keyboard_cmd_vel')
 
         self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
-        self.declare_parameter('linear_step', 0.1)
-        self.declare_parameter('vertical_step', 0.05)
-        self.declare_parameter('yaw_step', 0.2)
+        self.declare_parameter('linear_step', 0.5)
+        self.declare_parameter('vertical_step', 0.25)
+        self.declare_parameter('yaw_step', 0.4)
         self.declare_parameter('publish_rate_hz', 10.0)
 
         self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
@@ -73,22 +73,32 @@ class KeyboardCmdVel(Node):
 
     def handle_key(self, key):
         # Body-frame ROS FLU convention: x forward, y left, z up, yaw positive left.
+        # Yawing and translating in x/y are kept mutually exclusive so a/d
+        # produces a turn in place instead of arcing while moving forward.
         if key == 'w':
             self.cmd.linear.x = self.linear_step
+            self.cmd.angular.z = 0.0
         elif key == 's':
             self.cmd.linear.x = -self.linear_step
+            self.cmd.angular.z = 0.0
         elif key == 'j':
             self.cmd.linear.y = self.linear_step
+            self.cmd.angular.z = 0.0
         elif key == 'l':
             self.cmd.linear.y = -self.linear_step
+            self.cmd.angular.z = 0.0
         elif key == 'r':
             self.cmd.linear.z = self.vertical_step
         elif key == 'f':
             self.cmd.linear.z = -self.vertical_step
         elif key == 'a':
             self.cmd.angular.z = self.yaw_step
+            self.cmd.linear.x = 0.0
+            self.cmd.linear.y = 0.0
         elif key == 'd':
             self.cmd.angular.z = -self.yaw_step
+            self.cmd.linear.x = 0.0
+            self.cmd.linear.y = 0.0
         elif key == ' ':
             self.cmd = Twist()
 

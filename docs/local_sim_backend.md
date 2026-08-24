@@ -3,6 +3,64 @@
 This is a ROS-only stand-in for the future Unity scene. It lets us test mission
 logic before Unity exists.
 
+## Quick Start: Change A Path And Run It
+
+This is the exact sequence to edit the robot's path and see it run — either
+against the fake backend or against Unity. See
+[Driving A Custom Path](#driving-a-custom-path) below for the full parameter
+reference and [Does This Need A Rebuild?](#does-this-need-a-rebuild) for why
+each step is/isn't needed.
+
+**1. Change the path.** Easiest: no file edit, just change the `waypoints`
+argument in step 4 below. To change the *behavior* (not just the waypoints),
+edit `src/tardigrade_mission/tardigrade_mission/path_follower.py` directly.
+
+**2. Start the container** (skip if it's already running):
+
+```bash
+cd "C:\Users\elila\Desktop\Robosub Stuff\tardigrade_ws"
+./docker-build.sh --detached
+```
+
+**3. Rebuild only if you added a new script/entry point, or edited a
+`.msg`/`.srv`** (a plain edit inside `path_follower.py`, or a param change,
+needs none of this — skip to step 4):
+
+```bash
+docker exec -it tardigrade-foxy bash
+cd /ws && ./build.sh --pkg tardigrade_mission
+exit
+```
+
+**4. Terminal 1 — start a backend.** Fake backend (no Unity needed):
+
+```bash
+docker exec -it tardigrade-foxy bash
+cd /ws && source install/setup.bash
+ros2 run tardigrade_sim fake_unity_backend
+```
+
+Or, to run against Unity instead: start `ros_tcp_endpoint` in the container
+(see [the Unity sim README](../../tardigrade_unity_sim/README.md)) and press
+Play in the Unity Editor.
+
+**5. Terminal 2 — run the path:**
+
+```bash
+docker exec -it tardigrade-foxy bash
+cd /ws && source install/setup.bash
+ros2 run tardigrade_mission path_follower --ros-args \
+  -p waypoints:="[2.0, 0.0, 2.0, 2.0, 0.0, 2.0]"
+```
+
+Drop the `--ros-args -p waypoints:=...` entirely to run the default 3 m
+square.
+
+**6. Watch it move.** With the fake backend, watch the log lines
+(`Waypoint 1/N: ...`, `reached.`) or `ros2 topic echo
+/tardigrade/state/odometry` in a third terminal. With Unity, watch the Scene
+view — the robot should trace the waypoints in the pool.
+
 ## What It Provides
 
 Run:

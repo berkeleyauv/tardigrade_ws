@@ -48,6 +48,9 @@ odometry, and perception topics.
   autostart files.
 - [foxglove/README.md](foxglove/README.md): visualization setup and layout
   notes.
+- [docs/running_the_simulator.md](docs/running_the_simulator.md): full
+  end-to-end runbook for the Unity / fake-backend simulator (Docker, teleop,
+  paths, troubleshooting).
 - [docs/](docs): detailed runbooks that should version with the code.
 
 ## Clone

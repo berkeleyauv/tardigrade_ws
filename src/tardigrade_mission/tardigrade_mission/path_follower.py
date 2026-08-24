@@ -56,8 +56,12 @@ class PathFollower(Node):
 
         self.declare_parameter('position_tolerance_m', 0.25)
         self.declare_parameter('depth_tolerance_m', 0.15)
-        # Face the waypoint before driving if heading error exceeds this.
-        self.declare_parameter('heading_align_threshold_rad', 0.4)
+        # How square-on we must be facing the waypoint to stop turning and
+        # start driving straight.
+        self.declare_parameter('alignment_tolerance_rad', 0.06)
+        # Once driving, how far heading is allowed to drift before we stop
+        # and turn in place again, rather than steering while moving.
+        self.declare_parameter('heading_align_threshold_rad', 0.25)
 
         self.declare_parameter('forward_cmd', 0.6)
         self.declare_parameter('yaw_kp', 1.2)
@@ -77,6 +81,9 @@ class PathFollower(Node):
             self.get_parameter('position_tolerance_m').value
         )
         self.depth_tolerance_m = float(self.get_parameter('depth_tolerance_m').value)
+        self.alignment_tolerance_rad = float(
+            self.get_parameter('alignment_tolerance_rad').value
+        )
         self.heading_align_threshold_rad = float(
             self.get_parameter('heading_align_threshold_rad').value
         )
@@ -140,8 +147,15 @@ class PathFollower(Node):
                 self.set_external_control(False)
 
     def go_to_waypoint(self, wx, wy):
+        # Two distinct phases, never blended: turn in place until pointed at
+        # the waypoint, then drive straight with yaw held at zero. If heading
+        # drifts too far while driving, stop translating and re-align before
+        # driving again. This avoids commanding linear.x and angular.z on the
+        # same tick, which is what produces a wide arcing turn instead of a
+        # pivot.
         period = 1.0 / max(self.control_rate_hz, 1.0)
         start = time.monotonic()
+        aligning = True
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
             x, y, z, yaw = self.current_pose()
@@ -166,20 +180,27 @@ class PathFollower(Node):
             bearing = math.atan2(dy, dx)
             yaw_error = angle_wrap(bearing - yaw)
 
+            if aligning:
+                if abs(yaw_error) <= self.alignment_tolerance_rad:
+                    aligning = False
+                    continue
+            elif abs(yaw_error) > self.heading_align_threshold_rad:
+                aligning = True
+                continue
+
             cmd = Twist()
-            cmd.angular.z = clamp(
-                self.yaw_kp * yaw_error, -self.max_yaw_cmd, self.max_yaw_cmd
-            )
-            # Only drive forward once roughly pointed at the target, so we turn
-            # in place instead of arcing wide.
-            if abs(yaw_error) < self.heading_align_threshold_rad:
-                cmd.linear.x = self.forward_cmd
-            if self.target_depth_m != 0.0:
-                cmd.linear.z = clamp(
-                    self.depth_kp * depth_error,
-                    -self.max_depth_cmd,
-                    self.max_depth_cmd,
+            if aligning:
+                cmd.angular.z = clamp(
+                    self.yaw_kp * yaw_error, -self.max_yaw_cmd, self.max_yaw_cmd
                 )
+            else:
+                cmd.linear.x = self.forward_cmd
+                if self.target_depth_m != 0.0:
+                    cmd.linear.z = clamp(
+                        self.depth_kp * depth_error,
+                        -self.max_depth_cmd,
+                        self.max_depth_cmd,
+                    )
             self.cmd_pub.publish(cmd)
             time.sleep(period)
 
