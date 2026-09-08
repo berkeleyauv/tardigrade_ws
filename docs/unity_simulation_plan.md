@@ -1,4 +1,9 @@
-# Unity Simulation Plan
+# Historical Unity Simulation Plan
+
+> This document describes the original legacy `/cmd_vel` prototype and is kept
+> only as design history. Use [unity_sil.md](unity_sil.md) and
+> [jetson_control_architecture.md](jetson_control_architecture.md) for the
+> implemented named-command architecture.
 
 This plan sets up Unity as a replaceable simulator backend for the same ROS
 autonomy and control scripts that run on the real robot.

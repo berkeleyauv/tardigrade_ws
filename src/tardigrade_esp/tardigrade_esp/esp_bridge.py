@@ -8,10 +8,9 @@ telemetry, and republishes each frame as /tardigrade/esp/state
 ESP-side state.
 
 F2 subset (motor test + arm/disarm), added on top of F1:
-  - subscribes /tardigrade/thrusters/cmd (std_msgs/Float32MultiArray, 8
-    elements, index = thruster, value -1..+1) and forwards each as a SetMotor
-    frame — the same raw per-thruster surface described in
-    foxglove_integration.md, minus the ROS-parameter tuning half of F2.
+  - subscribes /tardigrade/actuators/thruster_commands
+    (tardigrade_interfaces/ThrusterCommands), validates and reorders names by
+    physical ESP slot, and forwards each normalized value as SetMotor.
   - /tardigrade/set_armed (tardigrade_interfaces/SetArmed) sends Arm/Disarm and
     reports back what the ESP actually Ack'd, not just "frame was sent".
   - sends a continuous Heartbeat to the ESP for as long as the last decoded
@@ -46,13 +45,16 @@ Run:
 """
 
 import math
+import json
+import os
 import threading
 import time
 
+from ament_index_python.packages import get_package_share_directory
 import rclpy
 from rclpy.node import Node
 
-from tardigrade_interfaces.msg import EspState
+from tardigrade_interfaces.msg import EspState, ThrusterCommands
 from tardigrade_interfaces.srv import SetArmed
 from std_msgs.msg import Bool, Float32MultiArray
 
@@ -81,6 +83,21 @@ def validated_motor_values(data):
     return [max(-1.0, min(1.0, value)) for value in values]
 
 
+def validated_named_motor_values(names, values, expected_names):
+    """Validate a named command and return it in physical slot order."""
+    if len(names) != len(values):
+        raise ValueError('names and setpoints must have equal lengths')
+    if len(names) != len(set(names)):
+        raise ValueError('thruster names must be unique')
+    if set(names) != set(expected_names):
+        unknown = sorted(set(names) - set(expected_names))
+        missing = sorted(set(expected_names) - set(names))
+        raise ValueError(f'unknown={unknown}; missing={missing}')
+    by_name = dict(zip(names, values))
+    return validated_motor_values(
+        [by_name[name] for name in expected_names])
+
+
 class EspBridge(Node):
     def __init__(self):
         super().__init__('esp_bridge')
@@ -89,6 +106,15 @@ class EspBridge(Node):
         self.declare_parameter('baud', 115200)
         self.declare_parameter('poll_rate_hz', 20.0)
         self.declare_parameter('cmd_timeout_sec', 0.5)
+        self.declare_parameter(
+            'command_topic',
+            '/tardigrade/actuators/thruster_commands')
+        self.declare_parameter('legacy_command_topic', '')
+        self.declare_parameter(
+            'config_file',
+            os.path.join(
+                get_package_share_directory('tardigrade_esp'),
+                'config', 'esp_thruster_map.json'))
 
         port = self.get_parameter('serial_port').value
         baud = int(self.get_parameter('baud').value)
@@ -98,6 +124,20 @@ class EspBridge(Node):
             float(self.get_parameter('cmd_timeout_sec').value),
         )
         self._poll_period = 1.0 / max(1.0, rate)
+        command_topic = str(self.get_parameter('command_topic').value)
+        legacy_command_topic = str(
+            self.get_parameter('legacy_command_topic').value)
+        config_file = str(self.get_parameter('config_file').value)
+        with open(config_file, encoding='utf-8') as stream:
+            configuration = json.load(stream)
+        thrusters = sorted(
+            configuration.get('thrusters', []),
+            key=lambda item: int(item['slot']))
+        self._thruster_names = [str(item['name']) for item in thrusters]
+        if len(self._thruster_names) != _NUM_THRUSTERS or \
+                len(set(self._thruster_names)) != _NUM_THRUSTERS:
+            raise ValueError(
+                'ESP map must contain eight uniquely named thruster slots')
 
         if serial is None:
             raise RuntimeError('pyserial required: pip install pyserial '
@@ -120,8 +160,13 @@ class EspBridge(Node):
         self._watchdog_neutral_active = False
 
         self._motor_sub = self.create_subscription(
-            Float32MultiArray, '/tardigrade/thrusters/cmd',
+            ThrusterCommands, command_topic,
             self._on_thruster_cmd, 10)
+        self._legacy_motor_sub = None
+        if legacy_command_topic:
+            self._legacy_motor_sub = self.create_subscription(
+                Float32MultiArray, legacy_command_topic,
+                self._on_legacy_thruster_cmd, 10)
         self._arm_srv = self.create_service(
             SetArmed, '/tardigrade/set_armed', self._on_set_armed)
         # Independent of any client staying connected — see module docstring
@@ -143,7 +188,7 @@ class EspBridge(Node):
         self.get_logger().info(
             f'esp_bridge: {port} @ {baud} -> /tardigrade/esp/state '
             f'(polling GetState at {rate:.0f} Hz); '
-            f'/tardigrade/thrusters/cmd -> SetMotor; '
+            f'{command_topic} -> SetMotor; '
             f'/tardigrade/set_armed -> Arm/Disarm; '
             f'command timeout={self._cmd_timeout_sec:.2f}s')
 
@@ -206,11 +251,26 @@ class EspBridge(Node):
 
     def _on_thruster_cmd(self, msg):
         try:
+            values = validated_named_motor_values(
+                msg.names, msg.setpoints, self._thruster_names)
+        except (TypeError, ValueError) as exc:
+            self.get_logger().warn(
+                f'named thruster command: {exc} — ignoring')
+            return
+        self._accept_motor_values(values)
+
+    def _on_legacy_thruster_cmd(self, msg):
+        try:
             values = validated_motor_values(msg.data)
         except (TypeError, ValueError) as exc:
             self.get_logger().warn(
-                f'/tardigrade/thrusters/cmd: {exc} — ignoring')
+                f'legacy thruster command: {exc} — ignoring')
             return
+        self.get_logger().warn(
+            'Received deprecated positional thruster command')
+        self._accept_motor_values(values)
+
+    def _accept_motor_values(self, values):
         try:
             with self._write_lock:
                 self._write_motor_values(values)

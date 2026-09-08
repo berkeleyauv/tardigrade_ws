@@ -1,123 +1,99 @@
-# Jetson Control Architecture
+# Shared Control Architecture
 
 ## Decision
 
-The Jetson owns robot state estimation, setpoints, PID control, and mixing. The
-ESP32 is a safe eight-channel actuator.
+Simulation and hardware use one backend-agnostic physical-unit control path:
 
 ```text
-ZED + VectorNav
-      -> robot_localization EKF
-      -> /tardigrade/state/odometry/filtered
-      -> depth_attitude_controller
-      -> /tardigrade/cmd_vel
-      -> thruster_mixer
-      -> /tardigrade/thrusters/cmd
-      -> esp_bridge
-      -> ESP SetMotor
-      -> ESC PWM
+manual / mission / pose guidance (TwistStamped)
+  -> velocity_setpoint_mux
+  -> /tardigrade/control/velocity_setpoint
+  -> velocity_wrench_controller + filtered odometry
+  -> /tardigrade/control/wrench_command (N, N m)
+  -> thruster_allocator
+  -> /tardigrade/actuators/thruster_forces (named N)
+  -> thruster_actuator_mapper
+  -> /tardigrade/actuators/thruster_commands (named [-1, 1])
+  -> Unity OR esp_bridge
 ```
 
-Direct teleop bypasses the PID node but uses the same mixer, bridge, and ESP
-safety path. Assisted teleop and future autonomy use the same controller; only
-the source of manual/setpoint intent changes.
+`tardigrade_control` owns guidance, feedback, allocation, and actuator curves.
+`tardigrade_esp` owns only serial transport and physical slot mapping. Unity
+and the ESP therefore receive the same actuator message.
 
-## Ownership
+## Command sources
 
-| Responsibility | Owner |
+The mux accepts three isolated sources:
+
+| Source | Topic |
 |---|---|
-| ZED and VectorNav drivers | Jetson ROS |
-| Frame conversion and EKF | Jetson ROS |
-| Xbox mapping and LB deadman | Jetson ROS |
-| Roll, pitch, yaw, and optional depth PID | Jetson ROS |
-| Eight-thruster mixing | Jetson ROS |
-| Serial ownership and packet encoding | Jetson `esp_bridge` |
-| Arming, heartbeat timeout, authority clamp | ESP firmware |
-| PWM generation and neutral output | ESP firmware |
-| Hardware watchdog | ESP firmware |
-| Physical power removal | Kill switch/operator |
+| Manual | `/tardigrade/control/velocity_setpoint/manual` |
+| Mission | `/tardigrade/control/velocity_setpoint/mission` |
+| Pose guidance | `/tardigrade/control/velocity_setpoint/pose` |
 
-Exactly one backend consumes `/tardigrade/thrusters/cmd`: `esp_bridge` on the
-robot or the simulator backend during simulation.
+Select one with the `active_source` launch argument or the mux ROS parameter.
+Manual authority additionally requires a fresh true
+`/tardigrade/teleop/enabled`; releasing the deadman clears controller state and
+commands zero. Every other stale source also produces zero and disables the
+controller.
 
-## ESP Contract
+Pose guidance consumes an `odom`-frame `geometry_msgs/PoseStamped` on
+`/tardigrade/control/pose_setpoint`, rotates position error into body FLU, and
+produces bounded body velocity/angular-rate setpoints.
 
-The normal host-to-ESP messages are:
+## Feedback and allocation
 
-```text
-Heartbeat
-Arm / Disarm
-SetMotor(index, normalized value)
-GetState
-```
+The 50 Hz inner controller uses only
+`/tardigrade/state/odometry/filtered`. Each axis has versioned gains in
+`src/tardigrade_control/config/control.yaml`. It implements PI feedback,
+filtered derivative-on-measurement, optional fitted drag feed-forward, local
+output limits, and tracking anti-windup.
 
-The ESP validates packet CRC, motor index, numeric range, armed state, and link
-freshness. It clamps every direct motor request to its firmware authority limit
-before writing PWM. In the current firmware that limit is `±0.30` per thruster.
+The allocator solves the six-DOF wrench against measured thruster geometry and
+asymmetric limits. It publishes `/tardigrade/control/allocation_status` with
+requested wrench, achieved wrench, residual, feasibility, and saturated
+thruster names. The controller uses this achieved wrench to prevent integral
+windup when the vehicle cannot realize a request.
 
-The ROS checkout node has an additional, lower `±0.10` limit. Teleop body
-commands have their own conservative limits before mixing. These stacked limits
-are intentional.
+## ESP contract
 
-Normalized command is ESC command range, not a linear fraction of electrical
-power, RPM, or thrust.
+`esp_bridge` validates every named command, rejects missing/duplicate/unknown
+names and non-finite values, reorders by the physical slot map, then emits one
+`SetMotor` frame per slot. Its command watchdog sends eight neutral commands
+when updates stop. The firmware independently validates packets, enforces its
+authority limit, handles link timeout, drives PWM, and remains below the
+physical kill switch.
 
-## No Pose Packet In Normal Operation
+The positional `/tardigrade/thrusters/cmd` interface is disabled by default.
+Only individual-thruster checkout and explicitly deprecated open-loop launch
+profiles opt into it.
 
-The Jetson already owns fused pose and must not forward it to the ESP. Do not
-run:
+## Safety layers
 
-- firmware `pose_bridge.py`;
-- firmware `gcs_server.py --ros`;
-- ROS `/tardigrade/test/synthetic_pose`;
-- any second process that owns the ESP serial port.
+1. Manual control requires the continuously held deadman.
+2. The source mux rejects stale, malformed, wrong-frame, or unselected input.
+3. The feedback controller clears integrators when command or odometry expires.
+4. The allocator and actuator mapper neutralize stale upstream commands.
+5. `esp_bridge` neutralizes stale actuator commands within 0.5 seconds.
+6. ESP link timeout, firmware watchdog, and authority limits remain active.
+7. The physical kill switch removes motor power independently of software.
 
-The transitional ESP firmware still contains `ExternalEstimator`,
-`RobosubController`, and `RobosubMixer`. A fresh Pose packet can make that
-legacy controller active and allow it to overwrite Jetson motor requests.
-Keeping pose absent makes the path inactive.
+Do not forward Jetson pose to the transitional controller still present in the
+ESP firmware. Run only `esp_bridge` as the serial owner and remove the old ESP
+controller/mixer after this ROS path is proven in water.
 
-Consequently these ESP telemetry fields are expected to be false:
-
-```text
-state_valid
-pose_ok
-```
-
-They do not describe Jetson estimator health. Use
-`/tardigrade/state/odometry/filtered` and the controller freshness topics for
-that purpose.
-
-After the Jetson path is proven, the firmware should remove the pose estimator,
-onboard controller/mixer, parameter tuning path, and synthetic-pose scaffolding.
-Until then, operational separation is mandatory.
-
-## Safety Layers
-
-1. LB must be continuously held for operator commands.
-2. Joy older than 250 ms disables teleop and publishes zero.
-3. Assisted control requires fresh Joy, enable heartbeat, command, and EKF
-   odometry; failure clears integrators and publishes zero.
-4. The mixer and bridge command watchdogs neutralize stale input within 500 ms.
-5. Loss of Jetson serial traffic disarms the ESP in approximately 300 ms.
-6. The ESP hardware watchdog resets a stalled firmware loop.
-7. The physical kill switch removes motor authority independently of software.
-
-No layer replaces the one below it. Every stop path must be rehearsed before a
-wet or PID test.
-
-## Runtime Modes
+## Launches
 
 ```bash
-# Individual slot checkout
-ros2 launch tardigrade_esp thruster_checkout_real.launch.py
-
-# MacBook/Foxglove Xbox, open-loop body commands
-ros2 launch tardigrade_bringup pool_direct.launch.py
-
-# MacBook/Foxglove Xbox, Jetson assisted control
+# Real closed-loop manual control (requires filtered odometry)
 ros2 launch tardigrade_bringup pool_assisted.launch.py
+
+# Unity with the same controller and allocator
+ros2 launch tardigrade_bringup unity_sil.launch.py
+
+# Individual hardware checkout; explicitly enables the positional interface
+ros2 launch tardigrade_esp thruster_checkout_real.launch.py
 ```
 
-These modes are mutually exclusive because each owns the real actuator path.
-The complete operating procedure is [pool_teleop.md](pool_teleop.md).
+`pool_direct` and `pool_keyboard` are deprecated open-loop checkout paths. Do
+not tune or run autonomy through them.

@@ -1,4 +1,4 @@
-"""Pool direct teleop: Xbox Joy input -> mixer -> ESP actuator bridge."""
+"""Deprecated open-loop checkout: Xbox input -> legacy mixer -> ESP."""
 
 import os
 
@@ -70,7 +70,9 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'joy_topic': LaunchConfiguration('joy_topic'),
-                'cmd_vel_topic': '/tardigrade/cmd_vel',
+                'cmd_vel_topic': (
+                    '/tardigrade/control/velocity_setpoint/manual'),
+                'legacy_output_topic': '/tardigrade/cmd_vel',
                 'deadzone': ParameterValue(
                     LaunchConfiguration('deadzone'), value_type=float),
                 'deadman_button': ParameterValue(
@@ -94,13 +96,14 @@ def generate_launch_description():
             }],
         ),
         Node(
-            package='tardigrade_esp',
+            package='tardigrade_control',
             executable='thruster_mixer',
             name='thruster_mixer',
             output='screen',
             parameters=[{
                 'config_file': LaunchConfiguration('config_file'),
                 'cmd_timeout_sec': 0.5,
+                'legacy_command_topic': '/tardigrade/thrusters/cmd',
             }],
         ),
         Node(

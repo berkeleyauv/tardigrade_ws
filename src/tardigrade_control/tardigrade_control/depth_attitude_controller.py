@@ -1,4 +1,4 @@
-"""Jetson-side depth and attitude controller for Tardigrade."""
+"""Depth and attitude controller for Tardigrade."""
 
 import math
 

@@ -85,7 +85,7 @@ Removes `build`, `install`, and `log`, then rebuilds.
 ## Bringup Launch Files
 
 ```bash
-ros2 launch tardigrade_sim local_sim.launch.py
+ros2 launch tardigrade_bringup local_sim.launch.py
 ```
 
 Starts the local mock stack for development without hardware.
@@ -138,15 +138,15 @@ ros2 run tardigrade_esp esp_bridge --ros-args \
   -p serial_port:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 ```
 
-Forwards `/tardigrade/thrusters/cmd` to the ESP's bounded `SetMotor` actuator
-interface and publishes ESP telemetry. This standalone command is for
+Forwards named `/tardigrade/actuators/thruster_commands` to the ESP's bounded
+`SetMotor` interface and publishes ESP telemetry. This standalone command is for
 diagnostics; `pool_direct` and `pool_assisted` start their own bridge, so stop
 the standalone process before either mode.
 
 Monitoring topics:
 
 ```text
-/tardigrade/thrusters/cmd
+/tardigrade/actuators/thruster_commands
 /tardigrade/esp/state
 ```
 
@@ -158,18 +158,27 @@ ros2 launch tardigrade_esp thruster_checkout_real.launch.py
 ```
 
 ```bash
-ros2 run tardigrade_esp depth_attitude_controller
+ros2 launch tardigrade_control control_stack.launch.py \
+  active_source:=manual
 ```
 
-Provides independently enabled roll, pitch, yaw, and depth loops while passing
-manual surge and sway through. The pool launch supplies its gains and safety
-inputs; running the node alone is only a development diagnostic.
+Runs the modern command mux, pose guidance, physical-unit velocity controller,
+bounded allocator, and nonlinear actuator mapper. It does not start Unity or
+the ESP hardware backend.
+
+For a modern manual dry test, run the keyboard publisher in an interactive
+terminal. Its short command pulse also drives the mux enable signal:
 
 ```bash
 ros2 run tardigrade_teleop keyboard_cmd_vel
 ```
 
-Publishes keyboard velocity commands for bench testing.
+```bash
+ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
+  -p legacy_output_topic:=/tardigrade/cmd_vel
+```
+
+Publishes keyboard velocity commands for the deprecated open-loop checkout.
 
 ## State Estimation
 
@@ -220,7 +229,7 @@ defines:
 build-ws     /ws/build.sh
 build-hw     /ws/build.sh --hardware
 clean-build  /ws/build.sh --clean
-mock         ros2 launch tardigrade_sim local_sim.launch.py
+mock         ros2 launch tardigrade_bringup local_sim.launch.py
 status       ros2 topic echo /tardigrade/status
 fg           ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```

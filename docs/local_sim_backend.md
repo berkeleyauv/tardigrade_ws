@@ -25,11 +25,11 @@ It provides:
 It subscribes:
 
 ```text
-/tardigrade/cmd_vel
+/tardigrade/control/velocity_setpoint/mission
 ```
 
-When armed and external control is enabled, it integrates `/tardigrade/cmd_vel`
-into fake odometry. It also publishes fake gate and slalom detections.
+When armed and external control is enabled, it integrates the stamped mission
+velocity into fake odometry. It also publishes fake gate and slalom detections.
 
 ## Build
 
@@ -62,7 +62,8 @@ ros2 topic echo /tardigrade/perception/gate
 Terminal 3:
 
 ```bash
-ros2 run tardigrade_teleop keyboard_cmd_vel
+ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
+  -p cmd_vel_topic:=/tardigrade/control/velocity_setpoint/mission
 ```
 
 The fake robot moves only after these services are called:

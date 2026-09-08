@@ -20,6 +20,7 @@ from unittest.mock import patch
 from tardigrade_esp import tardigrade_protocol as tp
 from tardigrade_esp.esp_bridge import EspBridge
 from tardigrade_esp.esp_bridge import validated_motor_values
+from tardigrade_esp.esp_bridge import validated_named_motor_values
 
 
 class FakeLogger:
@@ -50,6 +51,24 @@ def bridge_for_watchdog(last_command_time):
 
 
 class BridgeSafetyTest(unittest.TestCase):
+    def test_named_motor_command_is_reordered_by_physical_slot(self):
+        expected = list('abcdefgh')
+        received = list(reversed(expected))
+        self.assertEqual(
+            validated_named_motor_values(
+                received, [float(index) / 10.0 for index in range(8)],
+                expected),
+            [0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0],
+        )
+
+    def test_named_motor_command_rejects_bad_contracts(self):
+        with self.assertRaises(ValueError):
+            validated_named_motor_values(
+                ['left', 'left'], [0.0, 0.0], ['left', 'right'])
+        with self.assertRaises(ValueError):
+            validated_named_motor_values(
+                ['left', 'other'], [0.0, 0.0], ['left', 'right'])
+
     def test_motor_command_requires_exactly_eight_values(self):
         with self.assertRaises(ValueError):
             validated_motor_values([0.0] * 7)

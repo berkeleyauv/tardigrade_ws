@@ -134,7 +134,7 @@ See [foxglove/README.md](foxglove/README.md) for more details.
 After building and sourcing:
 
 ```bash
-ros2 launch tardigrade_sim local_sim.launch.py
+ros2 launch tardigrade_bringup local_sim.launch.py
 ```
 
 ## Jetson ZED + VectorNav

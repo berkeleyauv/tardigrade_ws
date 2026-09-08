@@ -16,12 +16,15 @@ setup(
     zip_safe=True,
     maintainer='root',
     maintainer_email='root@todo.todo',
-    description='Local simulation backends for Tardigrade.',
+    description='Unity adapters and simulation-only test utilities.',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'fake_unity_backend = tardigrade_sim.fake_unity_backend:main',
+            'legacy_interface_bridge = '
+            'tardigrade_sim.legacy_interface_bridge:main',
+            'acceptance_monitor = tardigrade_sim.acceptance_monitor:main',
         ],
     },
 )

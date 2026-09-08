@@ -1,4 +1,4 @@
-"""Direct keyboard backend: mixer -> ESP bridge.
+"""Deprecated direct keyboard backend: legacy mixer -> ESP bridge.
 
 Run keyboard_cmd_vel separately in an interactive terminal. ROS launch does
 not reliably pass terminal input through to a child node.
@@ -32,13 +32,14 @@ def generate_launch_description():
         DeclareLaunchArgument('baud', default_value='115200'),
         DeclareLaunchArgument('config_file', default_value=default_map),
         Node(
-            package='tardigrade_esp',
+            package='tardigrade_control',
             executable='thruster_mixer',
             name='thruster_mixer',
             output='screen',
             parameters=[{
                 'config_file': LaunchConfiguration('config_file'),
                 'cmd_timeout_sec': 0.5,
+                'legacy_command_topic': '/tardigrade/thrusters/cmd',
             }],
         ),
         Node(

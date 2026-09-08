@@ -1,7 +1,7 @@
 import math
 
 import rclpy
-from geometry_msgs.msg import Quaternion, Twist
+from geometry_msgs.msg import Quaternion, Twist, TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 
@@ -32,11 +32,15 @@ class FakeUnityBackend(Node):
     def __init__(self):
         super().__init__('fake_unity_backend')
 
-        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
+        self.declare_parameter(
+            'cmd_vel_topic',
+            '/tardigrade/control/velocity_setpoint/mission')
         self.declare_parameter('status_topic', '/tardigrade/status')
         self.declare_parameter('odometry_topic', '/tardigrade/state/odometry')
-        self.declare_parameter('gate_topic', '/tardigrade/perception/gate')
-        self.declare_parameter('slalom_topic', '/tardigrade/perception/slalom')
+        self.declare_parameter(
+            'gate_topic', '/tardigrade/sim/oracle/gate')
+        self.declare_parameter(
+            'slalom_topic', '/tardigrade/sim/oracle/slalom')
         self.declare_parameter('update_rate_hz', 30.0)
         self.declare_parameter('cmd_timeout_sec', 0.5)
         self.declare_parameter('gate_x_m', 4.0)
@@ -52,15 +56,18 @@ class FakeUnityBackend(Node):
         self.gate_topic = self.get_parameter('gate_topic').value
         self.slalom_topic = self.get_parameter('slalom_topic').value
         update_rate_hz = float(self.get_parameter('update_rate_hz').value)
-        self.cmd_timeout_sec = float(self.get_parameter('cmd_timeout_sec').value)
+        self.cmd_timeout_sec = float(
+            self.get_parameter('cmd_timeout_sec').value)
         self.gate_x_m = float(self.get_parameter('gate_x_m').value)
         self.gate_y_m = float(self.get_parameter('gate_y_m').value)
         self.gate_visible_distance_m = float(
             self.get_parameter('gate_visible_distance_m').value
         )
         self.gate_fov_rad = float(self.get_parameter('gate_fov_rad').value)
-        self.slalom_start_x_m = float(self.get_parameter('slalom_start_x_m').value)
-        self.slalom_spacing_m = float(self.get_parameter('slalom_spacing_m').value)
+        self.slalom_start_x_m = float(
+            self.get_parameter('slalom_start_x_m').value)
+        self.slalom_spacing_m = float(
+            self.get_parameter('slalom_spacing_m').value)
 
         self.x = 0.0
         self.y = 0.0
@@ -73,14 +80,17 @@ class FakeUnityBackend(Node):
         self.last_update_time = self.get_clock().now()
 
         self.cmd_sub = self.create_subscription(
-            Twist,
+            TwistStamped,
             self.cmd_vel_topic,
             self.cmd_callback,
             10,
         )
-        self.status_pub = self.create_publisher(RobotStatus, self.status_topic, 10)
-        self.odom_pub = self.create_publisher(Odometry, self.odometry_topic, 10)
-        self.gate_pub = self.create_publisher(GateDetection, self.gate_topic, 10)
+        self.status_pub = self.create_publisher(
+            RobotStatus, self.status_topic, 10)
+        self.odom_pub = self.create_publisher(
+            Odometry, self.odometry_topic, 10)
+        self.gate_pub = self.create_publisher(
+            GateDetection, self.gate_topic, 10)
         self.slalom_pub = self.create_publisher(
             SlalomMarkerDetection,
             self.slalom_topic,
@@ -109,13 +119,14 @@ class FakeUnityBackend(Node):
         )
 
     def cmd_callback(self, msg):
-        self.latest_cmd = msg
+        self.latest_cmd = msg.twist
         self.latest_cmd_time = self.get_clock().now()
 
     def handle_set_armed(self, request, response):
         self.armed = bool(request.armed)
         response.success = True
-        response.message = 'Fake backend armed' if self.armed else 'Fake backend disarmed'
+        response.message = (
+            'Fake backend armed' if self.armed else 'Fake backend disarmed')
         return response
 
     def handle_set_external_control(self, request, response):
@@ -140,7 +151,8 @@ class FakeUnityBackend(Node):
         self.publish_slalom_detection()
 
     def integrate_motion(self, dt):
-        if not self.armed or not self.external_control_enabled or self.command_is_stale():
+        if (not self.armed or not self.external_control_enabled or
+                self.command_is_stale()):
             return
 
         cmd = self.latest_cmd
@@ -219,7 +231,9 @@ class FakeUnityBackend(Node):
         marker_index = 1
         marker_x = self.slalom_start_x_m
         for index in range(1, 4):
-            candidate_x = self.slalom_start_x_m + (index - 1) * self.slalom_spacing_m
+            candidate_x = (
+                self.slalom_start_x_m +
+                (index - 1) * self.slalom_spacing_m)
             if self.x < candidate_x + 0.5:
                 marker_index = index
                 marker_x = candidate_x

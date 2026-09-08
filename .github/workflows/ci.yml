@@ -40,12 +40,15 @@ jobs:
               # packages are intentionally skipped in CI.
               rosdep install --from-paths \
                 src/tardigrade_interfaces \
+                src/tardigrade_description \
                 src/tardigrade_state_estimation \
+                src/tardigrade_control \
                 src/tardigrade_esp \
                 src/tardigrade_teleop \
                 src/tardigrade_bringup \
                 src/tardigrade_mission \
                 src/tardigrade_sim \
+                src/tardigrade_perception \
                 src/vectornav/vectornav_msgs \
                 src/vectornav/vectornav \
                 src/zed-ros2-wrapper/zed-ros2-interfaces \
@@ -56,12 +59,15 @@ jobs:
               source install/setup.bash
               colcon test --packages-select \
                 tardigrade_interfaces \
+                tardigrade_description \
                 tardigrade_state_estimation \
+                tardigrade_control \
                 tardigrade_esp \
                 tardigrade_teleop \
                 tardigrade_bringup \
                 tardigrade_mission \
                 tardigrade_sim \
+                tardigrade_perception \
                 --pytest-args -k "not test_copyright and not test_flake8 and not test_pep257"
               colcon test-result --verbose
             '

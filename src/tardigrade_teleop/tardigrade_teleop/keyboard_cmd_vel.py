@@ -20,7 +20,8 @@ import tty
 import rclpy
 from rclpy.node import Node
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, TwistStamped
+from std_msgs.msg import Bool
 
 
 HELP = """
@@ -42,7 +43,12 @@ class KeyboardCmdVel(Node):
     def __init__(self):
         super().__init__('keyboard_cmd_vel')
 
-        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
+        self.declare_parameter(
+            'cmd_vel_topic',
+            '/tardigrade/control/velocity_setpoint/manual')
+        self.declare_parameter(
+            'enabled_topic', '/tardigrade/teleop/enabled')
+        self.declare_parameter('legacy_output_topic', '')
         self.declare_parameter('linear_step', 0.1)
         self.declare_parameter('vertical_step', 0.05)
         self.declare_parameter('yaw_step', 0.2)
@@ -50,6 +56,8 @@ class KeyboardCmdVel(Node):
         self.declare_parameter('command_hold_sec', 0.25)
 
         self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
+        legacy_output_topic = str(
+            self.get_parameter('legacy_output_topic').value)
         self.linear_step = float(self.get_parameter('linear_step').value)
         self.vertical_step = float(self.get_parameter('vertical_step').value)
         self.yaw_step = float(self.get_parameter('yaw_step').value)
@@ -59,7 +67,14 @@ class KeyboardCmdVel(Node):
 
         self.cmd = Twist()
         self.command_deadline_ns = None
-        self.pub = self.create_publisher(Twist, self.cmd_vel_topic, 10)
+        self.pub = self.create_publisher(
+            TwistStamped, self.cmd_vel_topic, 10)
+        self.enabled_pub = self.create_publisher(
+            Bool, str(self.get_parameter('enabled_topic').value), 10)
+        self.legacy_pub = None
+        if legacy_output_topic:
+            self.legacy_pub = self.create_publisher(
+                Twist, legacy_output_topic, 10)
         self.timer = self.create_timer(1.0 / max(publish_rate_hz, 1.0), self.tick)
 
         if not sys.stdin.isatty():
@@ -87,7 +102,24 @@ class KeyboardCmdVel(Node):
                 and now_ns >= self.command_deadline_ns):
             self.stop()
 
-        self.pub.publish(self.cmd)
+        self.publish_command(self.cmd)
+        self.publish_enabled(self.command_deadline_ns is not None)
+
+    def publish_command(self, command):
+        """Publish one body-frame stamped velocity command."""
+        message = TwistStamped()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.header.frame_id = 'base_link'
+        message.twist = command
+        self.pub.publish(message)
+        if self.legacy_pub is not None:
+            self.legacy_pub.publish(command)
+
+    def publish_enabled(self, enabled):
+        """Publish whether the current keyboard pulse is authorized."""
+        message = Bool()
+        message.data = bool(enabled)
+        self.enabled_pub.publish(message)
 
     def read_key(self):
         ready, _, _ = select.select([sys.stdin], [], [], 0.0)
@@ -133,7 +165,8 @@ class KeyboardCmdVel(Node):
 
     def publish_stop(self):
         self.stop()
-        self.pub.publish(self.cmd)
+        self.publish_command(self.cmd)
+        self.publish_enabled(False)
 
 
 def main(args=None):

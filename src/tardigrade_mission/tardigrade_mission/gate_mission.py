@@ -1,7 +1,7 @@
 import time
 
 import rclpy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, TwistStamped
 from rclpy.node import Node
 
 from tardigrade_interfaces.msg import GateDetection, RobotStatus
@@ -16,7 +16,9 @@ class GateMission(Node):
     def __init__(self):
         super().__init__('gate_mission')
 
-        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
+        self.declare_parameter(
+            'cmd_vel_topic',
+            '/tardigrade/control/velocity_setpoint/mission')
         self.declare_parameter('status_topic', '/tardigrade/status')
         self.declare_parameter('gate_topic', '/tardigrade/perception/gate')
         self.declare_parameter('dry_run', False)
@@ -55,7 +57,8 @@ class GateMission(Node):
         self.latest_status = None
         self.latest_gate = None
 
-        self.cmd_pub = self.create_publisher(Twist, self.cmd_vel_topic, 10)
+        self.cmd_pub = self.create_publisher(
+            TwistStamped, self.cmd_vel_topic, 10)
         self.status_sub = self.create_subscription(
             RobotStatus,
             self.status_topic,
@@ -129,7 +132,7 @@ class GateMission(Node):
                 raise RuntimeError('Timed out searching for gate')
             cmd = Twist()
             cmd.angular.z = self.search_yaw_rate_radps
-            self.cmd_pub.publish(cmd)
+            self.publish_command(cmd)
             rclpy.spin_once(self, timeout_sec=0.1)
         self.publish_zero()
         self.get_logger().info('Gate visible.')
@@ -159,7 +162,7 @@ class GateMission(Node):
                 -self.align_max_yaw_rate_radps,
                 self.align_max_yaw_rate_radps,
             )
-            self.cmd_pub.publish(cmd)
+            self.publish_command(cmd)
             time.sleep(0.1)
 
     def pass_through_gate(self):
@@ -178,7 +181,7 @@ class GateMission(Node):
                     -self.align_max_yaw_rate_radps,
                     self.align_max_yaw_rate_radps,
                 )
-            self.cmd_pub.publish(cmd)
+            self.publish_command(cmd)
             time.sleep(0.1)
         self.publish_zero()
 
@@ -190,7 +193,14 @@ class GateMission(Node):
         )
 
     def publish_zero(self):
-        self.cmd_pub.publish(Twist())
+        self.publish_command(Twist())
+
+    def publish_command(self, command):
+        message = TwistStamped()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.header.frame_id = 'base_link'
+        message.twist = command
+        self.cmd_pub.publish(message)
 
     def set_external_control(self, enabled):
         if not self.external_client.wait_for_service(timeout_sec=self.timeout_sec):

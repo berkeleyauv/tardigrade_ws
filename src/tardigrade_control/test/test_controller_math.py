@@ -3,15 +3,29 @@ import unittest
 
 from geometry_msgs.msg import Quaternion
 
-from tardigrade_esp.depth_attitude_controller import DepthAttitudeController
-from tardigrade_esp.depth_attitude_controller import clamp
-from tardigrade_esp.depth_attitude_controller import angle_error
-from tardigrade_esp.depth_attitude_controller import euler_from_quaternion
-from tardigrade_esp.depth_attitude_controller import roll_pitch_from_quaternion
-from tardigrade_esp.depth_attitude_controller import valid_gain_request
+from tardigrade_control.depth_attitude_controller import angle_error
+from tardigrade_control.depth_attitude_controller import clamp
+from tardigrade_control.depth_attitude_controller import (
+    DepthAttitudeController)
+from tardigrade_control.depth_attitude_controller import euler_from_quaternion
+from tardigrade_control.depth_attitude_controller import (
+    roll_pitch_from_quaternion)
+from tardigrade_control.depth_attitude_controller import valid_gain_request
+from tardigrade_control.velocity_wrench_controller import (
+    antiwindup_integral_rate)
 
 
 class ControllerMathTest(unittest.TestCase):
+    def test_allocator_shortfall_back_calculates_integrator(self):
+        rate = antiwindup_integral_rate(
+            error=1.0,
+            ki=2.0,
+            gain=1.0,
+            requested=10.0,
+            achieved=4.0,
+        )
+        self.assertEqual(rate, -2.0)
+
     def test_odometry_subscription_callback_exists(self):
         self.assertTrue(callable(DepthAttitudeController.odom_callback))
 

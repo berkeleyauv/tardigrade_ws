@@ -127,7 +127,8 @@ In a second interactive Jetson/SSH terminal, run:
 ```bash
 ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
   -p linear_step:=0.15 -p vertical_step:=0.12 -p yaw_step:=0.15 \
-  -p command_hold_sec:=0.25
+  -p command_hold_sec:=0.25 \
+  -p legacy_output_topic:=/tardigrade/cmd_vel
 ```
 
 Keys are `w/s` surge, `j/l` sway, `r/f` heave, `a/d` yaw, and Space for
@@ -165,6 +166,11 @@ Record every powered attempt:
 ros2 bag record -o pool_checkout_01 \
   /zed/zed_node/odom /vectornav/imu /tardigrade/sensors/imu \
   /tardigrade/state/odometry /tardigrade/state/odometry/filtered \
-  /tardigrade/cmd_vel/manual /tardigrade/cmd_vel \
-  /tardigrade/thrusters/cmd /tardigrade/esp/state /tf /tf_static
+  /tardigrade/control/velocity_setpoint/manual \
+  /tardigrade/control/velocity_setpoint \
+  /tardigrade/control/wrench_command \
+  /tardigrade/control/allocation_status \
+  /tardigrade/actuators/thruster_forces \
+  /tardigrade/actuators/thruster_commands \
+  /tardigrade/esp/state /tf /tf_static
 ```

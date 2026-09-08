@@ -1,4 +1,4 @@
-# Robosub control gains — THE SOURCE OF TRUTH.
+# Deprecated normalized-controller gains retained for checkout compatibility.
 #
 # Loaded by depth_attitude_controller in both the simulator and on the real
 # robot, so a tune done in sim transfers verbatim. Edit gains live through the

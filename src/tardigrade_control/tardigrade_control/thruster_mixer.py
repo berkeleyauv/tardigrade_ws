@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""thruster_mixer — body-frame wrench -> 8 normalized thruster commands.
+"""Legacy body-frame wrench to eight normalized thruster commands.
 
 The mixing half of the old esp_thruster_bridge, split out so the OUTPUT is a
 plain ROS topic instead of serial bytes. That split is the sim/real seam from
@@ -27,8 +27,6 @@ from geometry_msgs.msg import Twist
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 
-from ament_index_python.packages import get_package_share_directory
-
 
 def clamp(value, low, high):
     return max(low, min(high, value))
@@ -38,20 +36,18 @@ class ThrusterMixer(Node):
     def __init__(self, **node_kwargs):
         super().__init__('thruster_mixer', **node_kwargs)
 
-        default_config = os.path.join(
-            get_package_share_directory('tardigrade_esp'),
-            'config',
-            'esp_thruster_map.json',
-        )
         self.declare_parameter('wrench_topic', '/tardigrade/cmd_vel')
         self.declare_parameter('output_topic', '/tardigrade/thrusters/cmd')
-        self.declare_parameter('config_file', default_config)
+        self.declare_parameter('config_file', '')
         self.declare_parameter('publish_rate_hz', 20.0)
         self.declare_parameter('cmd_timeout_sec', 0.5)
 
         wrench_topic = self.get_parameter('wrench_topic').value
         output_topic = self.get_parameter('output_topic').value
         config_file = self.get_parameter('config_file').value
+        if not config_file:
+            raise ValueError(
+                'config_file is required for the legacy thruster mixer')
         rate = float(self.get_parameter('publish_rate_hz').value)
         self.cmd_timeout_sec = float(
             self.get_parameter('cmd_timeout_sec').value)

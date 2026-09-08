@@ -1,20 +1,19 @@
 # End-to-End Pool Test Runbook
 
 This is the canonical procedure for the current Tardigrade pool stack. Follow
-it in order. Direct MacBook Xbox teleop, monitoring, and recording are the
-required outcomes. Assisted attitude control is optional. Depth hold is a
-stretch goal.
+it in order. Individual-slot and deprecated open-loop tests establish wiring
+and signs; the normal operating path is closed-loop physical-unit control.
 
 ## 1. Architecture And Non-Negotiable Rules
 
-The Jetson owns state estimation, teleop, PID, and mixing:
+The Jetson owns state estimation, command selection, feedback, and allocation:
 
 ```text
-ZED + VectorNav -> Jetson EKF -> Jetson controller -> Jetson mixer
-Xbox on MacBook -------------------------------^          |
-                                                           v
-                                      8 thruster commands -> ESP
-                                      ESP: arm, clamp, PWM, watchdog
+ZED + VectorNav -> EKF -> velocity/rate controller -> wrench allocator
+Xbox / mission / pose -> source mux --------------^              |
+                                                                    v
+                             named force/command mapping -> ESP bridge
+                             ESP: arm, clamp, PWM, watchdog
 ```
 
 The ESP does not need pose. Its transitional onboard controller remains in the
@@ -289,7 +288,7 @@ ros2 service call /tardigrade/set_armed \
 Update [thruster_mapping.md](thruster_mapping.md) and the mixer JSON if the
 physical observation differs.
 
-## 8. Direct Teleop Dry Checkout
+## 8. Deprecated Open-Loop Teleop Dry Checkout
 
 Stop the individual-thruster launch and every standalone ESP bridge. Leave
 rosbridge and sensors running. Start the complete direct command path:
@@ -298,7 +297,7 @@ rosbridge and sensors running. Start the complete direct command path:
 ros2 launch tardigrade_bringup pool_direct.launch.py
 ```
 
-This defaults to Foxglove `/joy` and starts:
+This compatibility-only launch defaults to Foxglove `/joy` and starts:
 
 ```text
 xbox_cmd_vel -> thruster_mixer -> esp_bridge
@@ -350,7 +349,8 @@ In a second interactive SSH terminal start the keyboard publisher:
 ```bash
 ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
   -p linear_step:=0.15 -p vertical_step:=0.12 -p yaw_step:=0.15 \
-  -p command_hold_sec:=0.25
+  -p command_hold_sec:=0.25 \
+  -p legacy_output_topic:=/tardigrade/cmd_vel
 ```
 
 Use `w/s` for surge, `j/l` for sway, `r/f` for heave, `a/d` for yaw, and
@@ -433,82 +433,63 @@ limits, and the ESP independently clamps every final thruster command to
 
 Direct teleop and recording are sufficient for a successful pool checkout.
 
-## 11. Assisted Attitude Tuning
+## 11. Closed-Loop Velocity Tuning
 
-Assisted control requires all sensor gates and direct-mode gates to pass.
-Disarm and stop `pool_direct`, then start:
+The modern controller requires all sensor gates and direct checkout gates to
+pass. Disarm and stop `pool_direct`, then start:
 
 ```bash
 ros2 launch tardigrade_bringup pool_assisted.launch.py
 ```
 
-All four PID axes start disabled. The controller also requires fresh `/joy`,
-LB, manual commands, and filtered odometry. Any stale input disables output,
-clears integrators, and releases captured targets.
-
-Use the Foxglove `pid_tuning.json` layout or command-line services. Begin with
-roll only:
-
-For a focused first-day procedure, use
-[roll_pid_tuning.md](roll_pid_tuning.md) and import
-`foxglove/layouts/roll_pid_tuning.json`.
+The command mux selects `manual` in this launch. It requires fresh `/joy`, the
+LB deadman, stamped manual velocity, and filtered odometry. Any stale input
+disables the controller and clears its integrators. Start with low output
+limits and tune one velocity/rate axis at a time. All parameters are on
+`/velocity_wrench_controller`, for example:
 
 ```bash
-ros2 service call /tardigrade/control/set_axes_enabled \
-  tardigrade_interfaces/srv/SetControlAxes \
-  "{roll: true, pitch: false, yaw: false, depth: false}"
-```
-
-Set bounded roll gains:
-
-```bash
-ros2 service call /tardigrade/control/set_pid_gains \
-  tardigrade_interfaces/srv/SetPidGains \
-  "{axis: roll, kp: 0.8, ki: 0.0, kd: 0.15, output_limit: 0.2}"
+ros2 param set /velocity_wrench_controller yaw.ki 0.0
+ros2 param set /velocity_wrench_controller yaw.output_limit 5.0
+ros2 param set /velocity_wrench_controller yaw.kp 2.0
 ```
 
 Watch:
 
 ```text
-/tardigrade/control/enabled
-/tardigrade/control/odometry_fresh
-/tardigrade/control/command_fresh
-/tardigrade/control/roll/debug
-/tardigrade/control/pitch/debug
-/tardigrade/control/yaw/debug
-/tardigrade/control/depth/debug
-/tardigrade/thrusters/cmd
+/tardigrade/control/velocity_setpoint_enabled
+/tardigrade/control/velocity_setpoint
+/tardigrade/control/wrench_command
+/tardigrade/control/allocation_status
+/tardigrade/actuators/thruster_forces
+/tardigrade/actuators/thruster_commands
 ```
 
 Tune one axis at a time in this order:
 
-1. Roll
-2. Pitch
-3. Yaw
+1. Heave velocity
+2. Yaw rate
+3. Surge velocity
+4. Sway velocity
+5. Roll and pitch rates during restrained tests
 
-For each axis, keep Ki at zero initially. Raise Kp gradually until correction
-is useful, then add Kd to damp overshoot. Add Ki only for a repeatable standing
-error. Stop immediately if feedback reinforces the disturbance, saturates
-continuously, or sensor freshness changes.
-
-Disable every loop before changing phases:
-
-```bash
-ros2 service call /tardigrade/control/set_axes_enabled \
-  tardigrade_interfaces/srv/SetControlAxes \
-  "{roll: false, pitch: false, yaw: false, depth: false}"
-```
+For each axis, keep Ki and drag feed-forward at zero initially. Raise Kp
+gradually, then add filtered Kd only if measured acceleration is clean enough.
+Add Ki only for repeatable standing error. Stop immediately if feedback has the
+wrong sign, the allocation residual stays large, a thruster saturates
+continuously, or estimator/command freshness changes.
 
 Record every powered PID attempt in a separate bag. Save the session values:
 
 ```bash
-ros2 param dump /depth_attitude_controller \
+ros2 param dump /velocity_wrench_controller \
   > /tmp/pool_tuned_gains.yaml
 ```
 
 Review that file and manually copy accepted values into
-`src/tardigrade_esp/config/controller_gains.yaml`. Do not blindly overwrite the
-versioned source file.
+`src/tardigrade_control/config/control.yaml`. Do not blindly overwrite the
+versioned source file. Tune pose-to-velocity gains separately after the inner
+velocity/rate loops are stable.
 
 ## 12. Optional Depth Experiment
 
@@ -529,13 +510,8 @@ positive buoyancy.
 
 At the end of every powered attempt:
 
-If assisted mode is running, disable all loops:
-
-```bash
-ros2 service call /tardigrade/control/set_axes_enabled \
-  tardigrade_interfaces/srv/SetControlAxes \
-  "{roll: false, pitch: false, yaw: false, depth: false}"
-```
+If manual closed-loop mode is running, release the LB deadman and confirm
+`/tardigrade/control/velocity_setpoint_enabled` becomes false.
 
 In either direct or assisted mode, disarm:
 

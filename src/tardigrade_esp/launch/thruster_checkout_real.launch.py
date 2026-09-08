@@ -38,6 +38,7 @@ def generate_launch_description():
                     LaunchConfiguration('baud'), value_type=int
                 ),
                 'cmd_timeout_sec': 0.5,
+                'legacy_command_topic': '/tardigrade/thrusters/cmd',
             }],
         ),
     ])

@@ -1,3 +1,5 @@
+"""Start the lightweight non-Unity simulator backend."""
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
 

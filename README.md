@@ -5,19 +5,25 @@ operation use the same Docker workspace.
 
 ## Current Architecture
 
-The Jetson owns sensing, state estimation, teleop, PID control, and thruster
-mixing. The ESP32 is a bounded actuator and independent safety layer.
+The Jetson owns sensing, state estimation, guidance, velocity control, and
+geometry-based allocation. Unity and the ESP32 consume the same named,
+normalized actuator command. The ESP32 remains an independent safety layer.
 
 ```mermaid
 flowchart LR
     ZED[ZED camera] --> EKF[Jetson state estimation]
     VN[VectorNav IMU] --> EKF
-    Xbox[Xbox on MacBook] --> Teleop[Jetson teleop]
-    Teleop -->|direct mode| Mixer[Jetson 8-thruster mixer]
-    Teleop -->|assisted setpoints| Control[Jetson controller]
-    EKF --> Control
-    Control --> Mixer
-    Mixer --> Bridge[ESP serial bridge]
+    Xbox[Xbox on MacBook] --> Sources[Stamped command sources]
+    Mission[Mission] --> Sources
+    Pose[Pose target] --> Guidance[Pose guidance]
+    Guidance --> Sources
+    Sources --> Mux[Explicit source mux]
+    EKF --> Control[Velocity/rate controller]
+    Mux --> Control
+    Control -->|Wrench, N and N m| Allocator[Geometry allocator]
+    Allocator -->|Named forces, N| Mapper[Actuator curves]
+    Mapper -->|Named commands| Unity[Unity plant]
+    Mapper -->|Named commands| Bridge[ESP serial bridge]
     Bridge --> Safety[ESP arm, watchdog, authority cap]
     Safety --> ESC[ESCs and thrusters]
 ```
@@ -25,6 +31,24 @@ flowchart LR
 The Jetson does **not** forward pose to the ESP during normal operation. Do not
 run the firmware repository's `pose_bridge.py`, `gcs_server.py --ros`, or the
 ROS synthetic-pose test hook with the Jetson controller.
+
+Package ownership is deliberately narrow:
+
+| Package | Owns |
+|---|---|
+| `tardigrade_interfaces` | Shared ROS messages and services only |
+| `tardigrade_description` | Canonical vehicle, actuator, and sensor configuration |
+| `tardigrade_control` | Backend-agnostic controllers, allocation, and command mapping |
+| `tardigrade_state_estimation` | Sensor conversion and filtered state |
+| `tardigrade_perception` | ROS-facing perception nodes |
+| `tardigrade_esp` | ESP serial protocol and hardware actuator adapters only |
+| `tardigrade_sim` | Unity compatibility adapters and simulation-only utilities |
+| `tardigrade_bringup` | Complete real, Unity, and lightweight launch profiles |
+| `tardigrade_mock` | Preserved development mocks while downstream users remain |
+
+Complete operating modes are launched from `tardigrade_bringup`; library-like
+packages may retain small component launch files, but they do not compose a
+whole robot mode.
 
 ## Canonical Guides
 
@@ -39,6 +63,8 @@ ROS synthetic-pose test hook with the Jetson controller.
   physical verification.
 - [Jetson control architecture](docs/jetson_control_architecture.md): ownership
   and safety boundaries.
+- [Unity SIL simulator](docs/unity_sil.md): physical model, ROS contract,
+  deterministic scenarios, configuration workflow, and gate acceptance.
 - [Foxglove setup](foxglove/README.md): connection, layouts, and MacBook Xbox
   extension.
 - [Development setup](SETUP.md), [scripts](SCRIPTS.md), and
@@ -89,7 +115,13 @@ source install/setup.bash
 Local simulator:
 
 ```bash
-ros2 launch tardigrade_sim local_sim.launch.py
+ros2 launch tardigrade_bringup local_sim.launch.py
+```
+
+Realistic Unity software-in-the-loop stack:
+
+```bash
+ros2 launch tardigrade_bringup unity_sil.launch.py
 ```
 
 VectorNav only on the current robot:
@@ -113,7 +145,7 @@ ros2 launch tardigrade_esp thruster_checkout_real.launch.py \
   serial_port:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 ```
 
-Direct pool teleop, with `/joy` published by Foxglove on the MacBook:
+Deprecated open-loop checkout, with `/joy` published by Foxglove:
 
 ```bash
 ros2 launch tardigrade_bringup pool_direct.launch.py
@@ -131,11 +163,12 @@ key presses:
 ```bash
 ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
   -p linear_step:=0.15 -p vertical_step:=0.12 -p yaw_step:=0.15 \
-  -p command_hold_sec:=0.25
+  -p command_hold_sec:=0.25 \
+  -p legacy_output_topic:=/tardigrade/cmd_vel
 ```
 
-This is a direct-checkout fallback, not an assisted/PID input. Each key press
-is a short pulse and automatically returns to zero.
+This explicitly opts into the deprecated direct-checkout interface. Each key
+press is a short pulse and automatically returns to zero.
 
 Assisted teleop after the state-estimation and direct-mode gates pass:
 
@@ -170,12 +203,15 @@ Never rely on `/dev/ttyUSB0` versus `/dev/ttyUSB1`; those numbers can swap.
 ./build.sh
 colcon test --packages-select \
   tardigrade_interfaces \
+  tardigrade_description \
   tardigrade_state_estimation \
+  tardigrade_control \
   tardigrade_esp \
   tardigrade_teleop \
   tardigrade_bringup \
   tardigrade_mission \
-  tardigrade_sim
+  tardigrade_sim \
+  tardigrade_perception
 colcon test-result --verbose
 ```
 

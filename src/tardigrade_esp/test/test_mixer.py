@@ -33,14 +33,14 @@ class MixerTest(unittest.TestCase):
         self.assertEqual(
             [thruster['name'] for thruster in data['thrusters']],
             [
-                'thruster_1_front_left_vectored',
-                'thruster_2_rear_right_vectored',
-                'thruster_3_front_left_vertical',
-                'thruster_4_rear_left_vertical',
-                'thruster_5_rear_right_vertical',
-                'thruster_6_front_right_vertical',
-                'thruster_7_front_right_vectored',
-                'thruster_8_rear_left_vectored',
+                'front_left_horizontal',
+                'rear_right_horizontal',
+                'front_left_vertical',
+                'rear_left_vertical',
+                'rear_right_vertical',
+                'front_right_vertical',
+                'front_right_horizontal',
+                'rear_left_horizontal',
             ],
         )
 
