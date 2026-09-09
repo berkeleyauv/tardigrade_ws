@@ -64,9 +64,9 @@ when updates stop. The firmware independently validates packets, enforces its
 authority limit, handles link timeout, drives PWM, and remains below the
 physical kill switch.
 
-The positional `/tardigrade/thrusters/cmd` interface is disabled by default.
-Only individual-thruster checkout and explicitly deprecated open-loop launch
-profiles opt into it.
+Individual checkout uses the same named
+`/tardigrade/actuators/thruster_commands` interface as the controller. The
+positional actuator interface has been removed.
 
 ## Safety layers
 
@@ -91,9 +91,6 @@ ros2 launch tardigrade_bringup pool_assisted.launch.py
 # Unity with the same controller and allocator
 ros2 launch tardigrade_bringup unity_sil.launch.py
 
-# Individual hardware checkout; explicitly enables the positional interface
+# Individual hardware checkout; same named actuator interface, bounded service
 ros2 launch tardigrade_esp thruster_checkout_real.launch.py
 ```
-
-`pool_direct` and `pool_keyboard` are deprecated open-loop checkout paths. Do
-not tune or run autonomy through them.

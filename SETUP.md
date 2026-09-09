@@ -203,7 +203,6 @@ colcon test --packages-select \
   tardigrade_esp \
   tardigrade_teleop \
   tardigrade_bringup \
-  tardigrade_mission \
-  tardigrade_sim
+  tardigrade_mission
 colcon test-result --verbose
 ```

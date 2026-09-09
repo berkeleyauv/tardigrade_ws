@@ -25,17 +25,14 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AllocationStatus.msg"
   "msg/EspState.msg"
-  "msg/GateDetection.msg"
   "msg/PidDebug.msg"
   "msg/RobotStatus.msg"
-  "msg/SlalomMarkerDetection.msg"
   "msg/ThrusterCommands.msg"
   "msg/ThrusterForces.msg"
   "srv/ResetSimulation.srv"
   "srv/SetArmed.srv"
-  "srv/SetControlAxes.srv"
   "srv/SetExternalControl.srv"
-  "srv/SetPidGains.srv"
+  "srv/SetVelocityPidGains.srv"
   "srv/TestThruster.srv"
   DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
 )

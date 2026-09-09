@@ -94,11 +94,55 @@
         "calibrationTopic": "/zed/zed_node/left/camera_info"
       }
     },
-    "CallService!thruster": {
-      "requestPayload": "{\"slot\":1,\"command\":0.05,\"duration_sec\":1.0}",
-      "layout": "vertical",
-      "timeoutSeconds": 5,
-      "serviceName": "/tardigrade/test/run_thruster"
+    "Image!right": {
+      "cameraState": {},
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point"
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/right/image_rect_color",
+        "calibrationTopic": "/zed/zed_node/right/camera_info"
+      }
+    },
+    "Plot!depth": {
+      "title": "Vertical estimate comparison (m)",
+      "paths": [
+        {
+          "value": "/zed/zed_node/odom.pose.pose.position.z",
+          "label": "ZED z",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/tardigrade/state/odometry/filtered.pose.pose.position.z",
+          "label": "EKF z",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "xAxisVal": "timestamp"
+    },
+    "Plot!pressure": {
+      "title": "ESP depth (m)",
+      "paths": [
+        {
+          "value": "/tardigrade/esp/state.depth",
+          "label": "depth",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": false,
+      "legendDisplay": "top",
+      "xAxisVal": "timestamp"
     }
   },
   "globalVariables": {},
@@ -107,24 +151,34 @@
     "speed": 1
   },
   "layout": {
-    "direction": "row",
+    "direction": "column",
     "first": {
-      "direction": "column",
-      "first": "tardigrade-tools.Vehicle Status!status",
-      "second": "CallService!thruster",
-      "splitPercentage": 76
+      "direction": "row",
+      "first": "Image!left",
+      "second": "Image!right",
+      "splitPercentage": 50
     },
     "second": {
-      "direction": "column",
+      "direction": "row",
       "first": {
-        "direction": "row",
+        "direction": "column",
         "first": "3D!vehicle",
         "second": "tardigrade-tools.Attitude!attitude",
-        "splitPercentage": 56
+        "splitPercentage": 52
       },
-      "second": "Image!left",
-      "splitPercentage": 58
+      "second": {
+        "direction": "column",
+        "first": "tardigrade-tools.Vehicle Status!status",
+        "second": {
+          "direction": "row",
+          "first": "Plot!depth",
+          "second": "Plot!pressure",
+          "splitPercentage": 58
+        },
+        "splitPercentage": 54
+      },
+      "splitPercentage": 52
     },
-    "splitPercentage": 31
+    "splitPercentage": 44
   }
 }

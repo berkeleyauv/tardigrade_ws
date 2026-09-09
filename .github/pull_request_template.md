@@ -5,7 +5,7 @@
 ## Testing
 
 - [ ] `./build.sh`
-- [ ] `colcon test --packages-select tardigrade_interfaces tardigrade_description tardigrade_state_estimation tardigrade_control tardigrade_esp tardigrade_teleop tardigrade_bringup tardigrade_mission tardigrade_sim tardigrade_perception`
+- [ ] `colcon test --packages-select tardigrade_interfaces tardigrade_description tardigrade_state_estimation tardigrade_control tardigrade_esp tardigrade_teleop tardigrade_bringup tardigrade_mission`
 - [ ] Hardware/Jetson test, if needed:
 
 ## Risk Checklist

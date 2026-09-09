@@ -34,9 +34,15 @@ class FakeLogger:
 class FakeSerial:
     def __init__(self):
         self.writes = []
+        self.is_open = True
+        self.closed = False
 
     def write(self, data):
         self.writes.append(data)
+
+    def close(self):
+        self.is_open = False
+        self.closed = True
 
 
 def bridge_for_watchdog(last_command_time):
@@ -103,6 +109,31 @@ class BridgeSafetyTest(unittest.TestCase):
         self.assertEqual(bridge._ser.writes, expected)
         self.assertTrue(bridge._watchdog_neutral_active)
         self.assertEqual(len(logger.warnings), 1)
+
+    def test_motor_command_writes_exact_binary_set_motor_frames(self):
+        bridge = bridge_for_watchdog(None)
+        values = [0.05] + [0.0] * 7
+
+        bridge._write_motor_values(values)
+
+        self.assertEqual(
+            bridge._ser.writes,
+            [
+                tp.encode_set_motor(index, value)
+                for index, value in enumerate(values)
+            ],
+        )
+
+    def test_shutdown_sends_eight_neutrals_before_serial_close(self):
+        bridge = bridge_for_watchdog(None)
+
+        bridge._neutralize_and_close_serial()
+
+        self.assertEqual(
+            bridge._ser.writes,
+            [tp.encode_set_motor(index, 0.0) for index in range(8)],
+        )
+        self.assertTrue(bridge._ser.closed)
 
     def test_fresh_command_sends_only_heartbeat(self):
         bridge = bridge_for_watchdog(time.monotonic())

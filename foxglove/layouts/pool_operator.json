@@ -94,11 +94,21 @@
         "calibrationTopic": "/zed/zed_node/left/camera_info"
       }
     },
-    "CallService!thruster": {
-      "requestPayload": "{\"slot\":1,\"command\":0.05,\"duration_sec\":1.0}",
-      "layout": "vertical",
-      "timeoutSeconds": 5,
-      "serviceName": "/tardigrade/test/run_thruster"
+    "Image!right": {
+      "cameraState": {},
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point"
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/right/image_rect_color",
+        "calibrationTopic": "/zed/zed_node/right/camera_info"
+      }
     }
   },
   "globalVariables": {},
@@ -108,23 +118,23 @@
   },
   "layout": {
     "direction": "row",
-    "first": {
-      "direction": "column",
-      "first": "tardigrade-tools.Vehicle Status!status",
-      "second": "CallService!thruster",
-      "splitPercentage": 76
-    },
+    "first": "tardigrade-tools.Vehicle Status!status",
     "second": {
       "direction": "column",
       "first": {
         "direction": "row",
         "first": "3D!vehicle",
         "second": "tardigrade-tools.Attitude!attitude",
-        "splitPercentage": 56
+        "splitPercentage": 58
       },
-      "second": "Image!left",
+      "second": {
+        "direction": "row",
+        "first": "Image!left",
+        "second": "Image!right",
+        "splitPercentage": 50
+      },
       "splitPercentage": 58
     },
-    "splitPercentage": 31
+    "splitPercentage": 28
   }
 }

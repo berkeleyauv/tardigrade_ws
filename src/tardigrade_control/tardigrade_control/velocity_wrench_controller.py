@@ -5,14 +5,22 @@ import math
 import rclpy
 from geometry_msgs.msg import TwistStamped, WrenchStamped
 from nav_msgs.msg import Odometry
+from rcl_interfaces.msg import SetParametersResult
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from std_msgs.msg import Bool
+from std_srvs.srv import Trigger
 
 from tardigrade_description.vehicle_model import load_vehicle_model
-from tardigrade_interfaces.msg import AllocationStatus
+from tardigrade_interfaces.msg import AllocationStatus, PidDebug
+from tardigrade_interfaces.srv import SetVelocityPidGains
 
 
 AXES = ('surge', 'sway', 'heave', 'roll', 'pitch', 'yaw')
+GAIN_FIELDS = ('kp', 'ki', 'kd', 'integral_limit', 'output_limit')
+MAX_GAIN = 1000.0
+MAX_INTEGRAL_LIMIT = 1000.0
+MAX_OUTPUT_LIMIT = 1000.0
 
 
 def clamp(value, limit):
@@ -24,6 +32,25 @@ def antiwindup_integral_rate(error, ki, gain, requested, achieved):
     if ki <= 1e-9 or requested is None or achieved is None:
         return error
     return error + gain * (achieved - requested) / ki
+
+
+def valid_velocity_gain_request(axis, kp, ki, kd, integral_limit,
+                                output_limit):
+    """Validate one complete physical-unit velocity PID configuration."""
+    if axis not in AXES:
+        return False, f'axis must be one of {", ".join(AXES)}'
+    values = (kp, ki, kd, integral_limit, output_limit)
+    if not all(math.isfinite(float(value)) for value in values):
+        return False, 'gain values must be finite'
+    if any(value < 0.0 or value > MAX_GAIN for value in (kp, ki, kd)):
+        return False, f'gains must be in [0, {MAX_GAIN:g}]'
+    if integral_limit < 0.0 or integral_limit > MAX_INTEGRAL_LIMIT:
+        return False, (
+            f'integral_limit must be in [0, {MAX_INTEGRAL_LIMIT:g}]')
+    if output_limit <= 0.0 or output_limit > MAX_OUTPUT_LIMIT:
+        return False, (
+            f'output_limit must be in (0, {MAX_OUTPUT_LIMIT:g}]')
+    return True, 'ok'
 
 
 class VelocityWrenchController(Node):
@@ -149,8 +176,137 @@ class VelocityWrenchController(Node):
             str(self.get_parameter('output_topic').value),
             10,
         )
+        self.controller_enabled_pub = self.create_publisher(
+            Bool, '/tardigrade/control/enabled', 10)
+        self.odom_fresh_pub = self.create_publisher(
+            Bool, '/tardigrade/control/odometry_fresh', 10)
+        self.command_fresh_pub = self.create_publisher(
+            Bool, '/tardigrade/control/command_fresh', 10)
+        self.debug_pubs = {
+            axis: self.create_publisher(
+                PidDebug, f'/tardigrade/control/{axis}/debug', 10)
+            for axis in AXES
+        }
+        self.gains_service = self.create_service(
+            SetVelocityPidGains,
+            '/tardigrade/control/set_velocity_pid_gains',
+            self.set_velocity_pid_gains,
+        )
+        self.reset_service = self.create_service(
+            Trigger,
+            '/tardigrade/control/reset_pid',
+            self.reset_pid,
+        )
+        self.add_on_set_parameters_callback(self.parameters_callback)
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / max(rate, 1.0), self.control)
+
+    def parameters_callback(self, parameters):
+        """Apply gain parameter changes atomically to the running loop."""
+        prospective = {
+            axis: list(values) for axis, values in self.gains.items()
+        }
+        changed_axes = set()
+        for parameter in parameters:
+            parts = parameter.name.split('.')
+            if len(parts) != 2 or parts[0] not in AXES or \
+                    parts[1] not in GAIN_FIELDS:
+                continue
+            try:
+                value = float(parameter.value)
+            except (TypeError, ValueError):
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{parameter.name} must be numeric',
+                )
+            field_index = GAIN_FIELDS.index(parts[1])
+            prospective[parts[0]][field_index] = value
+            changed_axes.add(parts[0])
+
+        for axis in changed_axes:
+            valid, reason = valid_velocity_gain_request(
+                axis, *prospective[axis])
+            if not valid:
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{axis}: {reason}',
+                )
+
+        if changed_axes:
+            self.gains = {
+                axis: tuple(values)
+                for axis, values in prospective.items()
+            }
+            self._reset_control_state()
+            self.get_logger().info(
+                'Applied live PID gains for ' + ', '.join(
+                    sorted(changed_axes)))
+        return SetParametersResult(successful=True)
+
+    def set_velocity_pid_gains(self, request, response):
+        """Foxglove-friendly service wrapper around live ROS parameters."""
+        valid, reason = valid_velocity_gain_request(
+            request.axis, request.kp, request.ki, request.kd,
+            request.integral_limit, request.output_limit)
+        if not valid:
+            response.success = False
+            response.message = reason
+            return response
+        values = (
+            request.kp, request.ki, request.kd,
+            request.integral_limit, request.output_limit,
+        )
+        result = self.set_parameters_atomically([
+            Parameter(f'{request.axis}.{field}', value=float(value))
+            for field, value in zip(GAIN_FIELDS, values)
+        ])
+        response.success = bool(result.successful)
+        response.message = (
+            f'updated {request.axis}; PID state reset'
+            if result.successful else result.reason)
+        return response
+
+    def reset_pid(self, request, response):
+        """Clear integrators, derivatives, and the captured depth target."""
+        del request
+        self._reset_control_state()
+        response.success = True
+        response.message = 'velocity PID state reset'
+        return response
+
+    def _reset_control_state(self):
+        self.integrals = [0.0] * 6
+        self.previous_measurement = None
+        self.filtered_derivative = [0.0] * 6
+        self.target_z = None
+
+    @staticmethod
+    def _publish_bool(publisher, value):
+        message = Bool()
+        message.data = bool(value)
+        publisher.publish(message)
+
+    def _publish_debug(self, now, active, setpoints, measurements, errors,
+                       p_terms, i_terms, d_terms, outputs, raw_outputs):
+        for index, axis in enumerate(AXES):
+            message = PidDebug()
+            message.stamp = now.to_msg()
+            message.axis = axis
+            message.setpoint = float(setpoints[index])
+            message.measurement = float(measurements[index])
+            message.error = float(errors[index])
+            message.kp = float(self.gains[axis][0])
+            message.ki = float(self.gains[axis][1])
+            message.kd = float(self.gains[axis][2])
+            message.p_term = float(p_terms[index])
+            message.i_term = float(i_terms[index])
+            message.d_term = float(d_terms[index])
+            message.output = float(outputs[index])
+            message.integral_limit = float(self.gains[axis][3])
+            message.output_limit = float(self.gains[axis][4])
+            message.saturated = bool(
+                active and abs(raw_outputs[index]) > self.gains[axis][4])
+            self.debug_pubs[axis].publish(message)
 
     def on_setpoint(self, message):
         values = self._twist_values(message.twist)
@@ -202,16 +358,31 @@ class VelocityWrenchController(Node):
         dt = 0.0 if self.last_ns is None else min(
             max((now.nanoseconds - self.last_ns) / 1e9, 0.0), 0.1)
         self.last_ns = now.nanoseconds
+        setpoint_fresh = self._fresh(
+            self.setpoint_ns, self.setpoint_timeout, now.nanoseconds)
+        enable_fresh = self._fresh(
+            self.enabled_ns, self.setpoint_timeout, now.nanoseconds)
+        odom_fresh = self._fresh(
+            self.odom_ns, self.odom_timeout, now.nanoseconds)
+        command_fresh = setpoint_fresh and enable_fresh
         active = (
             self.enabled and self.setpoint is not None and
             self.odometry is not None and
-            self._fresh(self.enabled_ns, self.setpoint_timeout,
-                        now.nanoseconds) and
-            self._fresh(self.setpoint_ns, self.setpoint_timeout,
-                        now.nanoseconds) and
-            self._fresh(self.odom_ns, self.odom_timeout, now.nanoseconds)
+            command_fresh and odom_fresh
         )
         outputs = [0.0] * 6
+        raw_outputs = [0.0] * 6
+        p_terms = [0.0] * 6
+        i_terms = [0.0] * 6
+        d_terms = [0.0] * 6
+        setpoints = (
+            list(self.setpoint) if self.setpoint is not None else [0.0] * 6)
+        measurements = (
+            list(self.odometry) if self.odometry is not None else [0.0] * 6)
+        errors = [
+            desired - measured
+            for desired, measured in zip(setpoints, measurements)
+        ]
         if active:
             if self.target_z is None:
                 self.target_z = self.current_z
@@ -260,6 +431,10 @@ class VelocityWrenchController(Node):
                 raw = (
                     kp * error + ki * candidate -
                     kd * self.filtered_derivative[index] + feedforward)
+                p_terms[index] = kp * error
+                i_terms[index] = ki * candidate
+                d_terms[index] = -kd * self.filtered_derivative[index]
+                raw_outputs[index] = raw
                 outputs[index] = clamp(raw, output_limit)
                 unwinding = (
                     raw > output_limit and integral_rate < 0.0 or
@@ -267,17 +442,23 @@ class VelocityWrenchController(Node):
                 if abs(raw) <= output_limit or unwinding:
                     self.integrals[index] = candidate
             if self.hold_depth and self.current_z is not None:
+                depth_correction = self.depth_position_kp * (
+                    self.target_z - self.current_z)
+                raw_outputs[2] += depth_correction
                 outputs[2] = clamp(
-                    outputs[2] + self.depth_position_kp *
-                    (self.target_z - self.current_z),
+                    outputs[2] + depth_correction,
                     self.gains['heave'][4],
                 )
             self.previous_measurement = list(self.odometry)
         else:
-            self.integrals = [0.0] * 6
-            self.previous_measurement = None
-            self.filtered_derivative = [0.0] * 6
-            self.target_z = None
+            self._reset_control_state()
+
+        self._publish_bool(self.controller_enabled_pub, active)
+        self._publish_bool(self.odom_fresh_pub, odom_fresh)
+        self._publish_bool(self.command_fresh_pub, command_fresh)
+        self._publish_debug(
+            now, active, setpoints, measurements, errors,
+            p_terms, i_terms, d_terms, outputs, raw_outputs)
 
         message = WrenchStamped()
         message.header.stamp = now.to_msg()

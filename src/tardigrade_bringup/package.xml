@@ -20,9 +20,7 @@
   <depend>tardigrade_description</depend>
   <depend>tardigrade_esp</depend>
   <depend>tardigrade_mission</depend>
-  <depend>tardigrade_perception</depend>
   <depend>rosbridge_server</depend>
-  <depend>tardigrade_sim</depend>
   <depend>tardigrade_state_estimation</depend>
   <depend>tardigrade_teleop</depend>
   <depend>tf2_ros</depend>

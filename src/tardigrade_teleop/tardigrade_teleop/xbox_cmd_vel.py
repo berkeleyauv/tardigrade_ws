@@ -68,7 +68,6 @@ class XboxCmdVel(Node):
         self.declare_parameter(
             'cmd_vel_topic',
             '/tardigrade/control/velocity_setpoint/manual')
-        self.declare_parameter('legacy_output_topic', '')
         self.declare_parameter(
             'enabled_topic', '/tardigrade/teleop/enabled')
         self.declare_parameter('publish_rate_hz', 20.0)
@@ -99,8 +98,6 @@ class XboxCmdVel(Node):
         joy_topic = self.get_parameter('joy_topic').value
         cmd_topic = self.get_parameter('cmd_vel_topic').value
         enabled_topic = self.get_parameter('enabled_topic').value
-        legacy_output_topic = str(
-            self.get_parameter('legacy_output_topic').value)
 
         self._command = Twist()
         self._last_joy_ns = None
@@ -109,10 +106,6 @@ class XboxCmdVel(Node):
         self._warned_malformed = False
 
         self._cmd_pub = self.create_publisher(TwistStamped, cmd_topic, 10)
-        self._legacy_cmd_pub = None
-        if legacy_output_topic:
-            self._legacy_cmd_pub = self.create_publisher(
-                Twist, legacy_output_topic, 10)
         self._enabled_pub = self.create_publisher(Bool, enabled_topic, 10)
         self._joy_sub = self.create_subscription(
             Joy, joy_topic, self._on_joy, 10)
@@ -159,8 +152,6 @@ class XboxCmdVel(Node):
         message.header.frame_id = 'base_link'
         message.twist = command
         self._cmd_pub.publish(message)
-        if self._legacy_cmd_pub is not None:
-            self._legacy_cmd_pub.publish(command)
 
     def publish_stop(self):
         """Publish an explicit final disabled/zero sample."""

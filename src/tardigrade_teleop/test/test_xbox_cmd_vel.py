@@ -1,6 +1,7 @@
 import math
 import unittest
 
+from tardigrade_teleop.keyboard_cmd_vel import command_from_key
 from tardigrade_teleop.xbox_cmd_vel import command_from_joy
 from tardigrade_teleop.xbox_cmd_vel import joy_is_valid
 from tardigrade_teleop.xbox_cmd_vel import shape_axis
@@ -30,6 +31,17 @@ FOXGLOVE_CONFIG = {
 
 
 class XboxMappingTest(unittest.TestCase):
+    def test_keyboard_mapping_uses_ros_flu_signs(self):
+        forward = command_from_key('w', 0.1, 0.05, 0.2)
+        left = command_from_key('j', 0.1, 0.05, 0.2)
+        down = command_from_key('f', 0.1, 0.05, 0.2)
+        yaw_right = command_from_key('d', 0.1, 0.05, 0.2)
+        self.assertEqual(forward.linear.x, 0.1)
+        self.assertEqual(left.linear.y, 0.1)
+        self.assertEqual(down.linear.z, -0.05)
+        self.assertEqual(yaw_right.angular.z, -0.2)
+        self.assertIsNone(command_from_key('x', 0.1, 0.05, 0.2))
+
     def test_deadzone_is_rescaled(self):
         self.assertEqual(shape_axis(0.1, 0.1), 0.0)
         self.assertTrue(math.isclose(shape_axis(0.55, 0.1), 0.5))

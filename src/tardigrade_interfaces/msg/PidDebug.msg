@@ -13,5 +13,6 @@ float32 i_term
 float32 d_term
 
 float32 output
+float32 integral_limit
 float32 output_limit
 bool saturated

@@ -7,7 +7,7 @@ not subscribe to simulator truth. The load-bearing path is:
 mission/teleop -> TwistStamped velocity setpoint -> velocity controller
   -> WrenchStamped -> bounded geometry allocator -> named forces
   -> thrust-curve mapper -> named normalized commands -> Unity Rigidbody
-  -> IMU + pressure + synthetic VIO + stereo images -> EKF/perception
+  -> IMU + pressure + synthetic VIO + stereo images -> EKF/ROS consumers
 ```
 
 The Unity project is expected next to this repository as
@@ -15,6 +15,10 @@ The Unity project is expected next to this repository as
 `feature/realistic-unity-ros2-sim`.
 
 ## Build and start
+
+For interactive editor, Foxglove, and keyboard testing, follow the focused
+[Unity operator workflow](unity_operator_workflow.md). It excludes missions and
+is the normal control-development entry point.
 
 Build ROS inside the Foxy container:
 
@@ -65,30 +69,24 @@ stack and player together. Override the player with `SIM_PLAYER`.
 | `/tardigrade/control/pose_setpoint_enabled` | `std_msgs/Bool` | pose guidance validity -> mux |
 | `/tardigrade/control/wrench_command` | `geometry_msgs/WrenchStamped` | controller -> allocator; N and N m |
 | `/tardigrade/control/allocation_status` | `tardigrade_interfaces/AllocationStatus` | achieved wrench, residual, feasibility, saturation |
+| `/tardigrade/control/{axis}/debug` | `tardigrade_interfaces/PidDebug` | six live velocity-loop debug streams for tuning |
 | `/tardigrade/actuators/thruster_forces` | `tardigrade_interfaces/ThrusterForces` | allocator -> actuator map; named N |
 | `/tardigrade/actuators/thruster_commands` | `tardigrade_interfaces/ThrusterCommands` | actuator map -> exactly one backend; named `[-1,1]` |
 | `/tardigrade/sensors/imu/data` | `sensor_msgs/Imu` | Unity -> EKF; `imu_link` |
 | `/tardigrade/sensors/pressure` | `sensor_msgs/FluidPressure` | Unity -> depth conversion; absolute Pa |
 | `/tardigrade/sensors/visual_odometry` | `nav_msgs/Odometry` | Unity -> EKF; noisy/drifting, `odom` |
-| `/tardigrade/sensors/camera/front/{left,right}/{image_raw,camera_info}` | standard sensor messages | Unity -> perception |
+| `/tardigrade/sensors/camera/front/{left,right}/{image_raw,camera_info}` | standard sensor messages | Unity -> ROS image consumers |
 | `/tardigrade/state/odometry/filtered` | `nav_msgs/Odometry` | EKF -> sole controller state input |
 | `/tardigrade/sim/ground_truth/odometry` | `nav_msgs/Odometry` | tests/Foxglove only |
 | `/clock` | `rosgraph_msgs/Clock` | Unity; monotonic 100 Hz simulation time |
 | `/tardigrade/sim/reset` | `tardigrade_interfaces/ResetSimulation` | scenario ID, seed, ENU initial pose |
+| `/tardigrade/control/set_velocity_pid_gains` | `tardigrade_interfaces/SetVelocityPidGains` | validated live physical-unit gains; resets PID state |
+| `/tardigrade/control/reset_pid` | `std_srvs/Trigger` | clear velocity-loop state without changing gains |
 
 Named actuator arrays are rejected when lengths differ or a value/name is
 missing, duplicated, unknown, non-finite, or outside its range. Unity requires
 arming and external-control services and returns every thruster toward neutral
 when commands are older than 0.5 seconds.
-
-The compatibility node can still convert legacy `/tardigrade/cmd_vel` and
-mirror normalized commands to `/tardigrade/thrusters/cmd`, but normal Unity
-bringup no longer starts it. It is available only for isolated migration tests.
-
-Oracle detections from the Python fake backend live below
-`/tardigrade/sim/oracle/*`. The Unity gate mission consumes
-`/tardigrade/perception/gate`, produced from Unity pixels by
-`tardigrade_perception/gate_detector`.
 
 ## Frames and time
 
@@ -163,20 +161,12 @@ based across operating systems rather than bit-identical PhysX state.
 
 ## Acceptance and telemetry
 
-With Unity running, launch the real end-to-end gate path:
-
-```bash
-ros2 launch tardigrade_bringup gate_acceptance.launch.py
-```
-
-The acceptance monitor compares filtered odometry with truth, observes only the
-real perception result, and checks depth error, estimator error, and aperture
-crossing. Record `/clock`, sensors, filtered odometry, truth, wrench, named
-forces/commands, perception, `/tf`, and `/tf_static`. Foxglove should display
-truth versus estimate, camera images, controller wrench, and each thruster.
-
-The lightweight `local_sim.launch.py` remains for fast mission logic tests. Use
-Unity for physics, sensor, estimator, failure, and perception tests.
+Use Unity for physics, sensor, estimator, controller, and actuator-failure
+tests. Record `/clock`, raw sensors, filtered odometry, ground truth, wrench,
+named forces/commands, `/tf`, and `/tf_static`. Foxglove should display truth
+versus estimate, camera images, controller output, allocation residual, and
+each named thruster. Production controllers must never subscribe to simulator
+ground truth.
 
 ## Visual and camera fidelity
 

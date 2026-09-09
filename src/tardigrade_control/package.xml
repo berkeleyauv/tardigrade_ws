@@ -15,6 +15,7 @@
   <depend>rcl_interfaces</depend>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
   <depend>tardigrade_description</depend>
   <depend>tardigrade_interfaces</depend>
 

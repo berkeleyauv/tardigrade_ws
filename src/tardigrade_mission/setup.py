@@ -21,8 +21,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'gate_mission = tardigrade_mission.gate_mission:main',
             'prequal_test = tardigrade_mission.prequal_test:main',
+            'qual_test = tardigrade_mission.qual_test:main',
         ],
     },
 )

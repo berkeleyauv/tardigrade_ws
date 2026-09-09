@@ -27,9 +27,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'depth_attitude_controller = '
-            'tardigrade_control.depth_attitude_controller:main',
-            'thruster_mixer = tardigrade_control.thruster_mixer:main',
             'velocity_wrench_controller = '
             'tardigrade_control.velocity_wrench_controller:main',
             'velocity_setpoint_mux = '

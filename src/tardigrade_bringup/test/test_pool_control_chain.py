@@ -16,7 +16,8 @@ from tardigrade_control.thruster_allocator import ThrusterAllocator
 from tardigrade_control.velocity_setpoint_mux import VelocitySetpointMux
 from tardigrade_control.velocity_wrench_controller import (
     VelocityWrenchController)
-from tardigrade_interfaces.msg import AllocationStatus, ThrusterCommands
+from tardigrade_interfaces.msg import (
+    AllocationStatus, PidDebug, ThrusterCommands)
 from tardigrade_teleop.xbox_cmd_vel import XboxCmdVel
 
 
@@ -44,6 +45,7 @@ class PoolControlChainTest(unittest.TestCase):
             Odometry, '/tardigrade/state/odometry/filtered', 10)
         self.latest_commands = None
         self.latest_allocation = None
+        self.latest_surge_debug = None
         self.command_sub = self.test_node.create_subscription(
             ThrusterCommands,
             '/tardigrade/actuators/thruster_commands',
@@ -54,6 +56,12 @@ class PoolControlChainTest(unittest.TestCase):
             AllocationStatus,
             '/tardigrade/control/allocation_status',
             self._on_allocation,
+            10,
+        )
+        self.debug_sub = self.test_node.create_subscription(
+            PidDebug,
+            '/tardigrade/control/surge/debug',
+            self._on_surge_debug,
             10,
         )
         self.nodes = (
@@ -73,6 +81,9 @@ class PoolControlChainTest(unittest.TestCase):
 
     def _on_allocation(self, message):
         self.latest_allocation = message
+
+    def _on_surge_debug(self, message):
+        self.latest_surge_debug = message
 
     def _spin_with_inputs(self, joy, duration=0.5):
         odometry = Odometry()
@@ -102,6 +113,18 @@ class PoolControlChainTest(unittest.TestCase):
         self.assertTrue(all(
             abs(value) <= 1.0 for value in self.latest_commands.setpoints))
         self.assertIsNotNone(self.latest_allocation)
+        self.assertIsNotNone(self.latest_surge_debug)
+        self.assertEqual(self.latest_surge_debug.axis, 'surge')
+        self.assertGreater(self.latest_surge_debug.output, 0.0)
+
+    def test_live_gain_parameter_updates_running_controller(self):
+        result = self.controller.set_parameters_atomically([
+            Parameter('surge.kp', value=12.5),
+            Parameter('surge.output_limit', value=40.0),
+        ])
+        self.assertTrue(result.successful)
+        self.assertEqual(self.controller.gains['surge'][0], 12.5)
+        self.assertEqual(self.controller.gains['surge'][4], 40.0)
 
     def test_deadman_release_neutralizes_all_thrusters(self):
         self._spin_with_inputs(self._joy(True, surge=1.0))

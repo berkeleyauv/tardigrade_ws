@@ -27,7 +27,6 @@ setup(
     entry_points={
         'console_scripts': [
             'esp_bridge = tardigrade_esp.esp_bridge:main',
-            'fake_esp_state = tardigrade_esp.fake_esp_state:main',
             'thruster_test = tardigrade_esp.thruster_test:main',
         ],
     },

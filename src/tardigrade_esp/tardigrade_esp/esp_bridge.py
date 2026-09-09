@@ -56,7 +56,7 @@ from rclpy.node import Node
 
 from tardigrade_interfaces.msg import EspState, ThrusterCommands
 from tardigrade_interfaces.srv import SetArmed
-from std_msgs.msg import Bool, Float32MultiArray
+from std_msgs.msg import Bool
 
 from . import tardigrade_protocol as tp
 
@@ -109,7 +109,6 @@ class EspBridge(Node):
         self.declare_parameter(
             'command_topic',
             '/tardigrade/actuators/thruster_commands')
-        self.declare_parameter('legacy_command_topic', '')
         self.declare_parameter(
             'config_file',
             os.path.join(
@@ -125,8 +124,6 @@ class EspBridge(Node):
         )
         self._poll_period = 1.0 / max(1.0, rate)
         command_topic = str(self.get_parameter('command_topic').value)
-        legacy_command_topic = str(
-            self.get_parameter('legacy_command_topic').value)
         config_file = str(self.get_parameter('config_file').value)
         with open(config_file, encoding='utf-8') as stream:
             configuration = json.load(stream)
@@ -162,11 +159,6 @@ class EspBridge(Node):
         self._motor_sub = self.create_subscription(
             ThrusterCommands, command_topic,
             self._on_thruster_cmd, 10)
-        self._legacy_motor_sub = None
-        if legacy_command_topic:
-            self._legacy_motor_sub = self.create_subscription(
-                Float32MultiArray, legacy_command_topic,
-                self._on_legacy_thruster_cmd, 10)
         self._arm_srv = self.create_service(
             SetArmed, '/tardigrade/set_armed', self._on_set_armed)
         # Independent of any client staying connected — see module docstring
@@ -259,17 +251,6 @@ class EspBridge(Node):
             return
         self._accept_motor_values(values)
 
-    def _on_legacy_thruster_cmd(self, msg):
-        try:
-            values = validated_motor_values(msg.data)
-        except (TypeError, ValueError) as exc:
-            self.get_logger().warn(
-                f'legacy thruster command: {exc} — ignoring')
-            return
-        self.get_logger().warn(
-            'Received deprecated positional thruster command')
-        self._accept_motor_values(values)
-
     def _accept_motor_values(self, values):
         try:
             with self._write_lock:
@@ -353,11 +334,21 @@ class EspBridge(Node):
             f'set_armed({verb}): accepted={accepted} reason={reason_name}')
         return response
 
+    def _neutralize_and_close_serial(self):
+        """Best-effort neutral command before releasing the serial port."""
+        if not self._ser.is_open:
+            return
+        try:
+            with self._write_lock:
+                self._write_motor_values([0.0] * _NUM_THRUSTERS)
+        except Exception as exc:  # noqa: BLE001
+            self.get_logger().warn(f'failed to send shutdown neutral: {exc}')
+        self._ser.close()
+
     def destroy_node(self):
         self._stop.set()
         try:
-            if self._ser.is_open:
-                self._ser.close()
+            self._neutralize_and_close_serial()
         finally:
             super().destroy_node()
 

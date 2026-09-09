@@ -5,7 +5,6 @@ velocity_setpoint_mux:
   ros__parameters:
     publish_rate_hz: 50.0
     command_timeout_sec: 0.5
-    active_source: mission
     frame_id: base_link
 
 pose_velocity_controller:

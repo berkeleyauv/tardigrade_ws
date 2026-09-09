@@ -1,11 +1,10 @@
 # Tardigrade Runtime and Checkout Modes
 
-Run only one command-producing mode at a time. Sensor and Foxglove processes
-may run alongside any mode, but `thruster_checkout_real`, `pool_direct`,
-`pool_keyboard`, and `pool_assisted` are mutually exclusive because each owns
-the load-bearing thruster command path.
+Run exactly one actuator backend at a time. Sensor and Foxglove processes may
+run alongside a mode, but `thruster_checkout_real` and `pool_assisted` each own
+the ESP serial port and must never overlap.
 
-## Common monitoring
+## Monitoring
 
 Start rosbridge and connect Foxglove to `ws://JETSON_IP:9090`:
 
@@ -13,150 +12,92 @@ Start rosbridge and connect Foxglove to `ws://JETSON_IP:9090`:
 ros2 launch tardigrade_bringup foxglove_rosbridge.launch.py
 ```
 
-Useful layouts:
+Use `pool_checkout.json` for bounded thruster checkout, `pool_operator.json`
+or `pool_sensors.json` for normal hardware work, and `sim_operator.json` or
+`sim_sensors.json` for Unity. The shared `pid_tuning.json` works with either
+backend. Install Tardigrade Tools first as described in `foxglove/README.md`.
 
-- `foxglove/layouts/pool_checkout.json`: camera, estimator, ESP, and bounded
-  individual-thruster service.
-- `foxglove/layouts/zed.json`: detailed ZED camera and TF inspection.
-- `foxglove/layouts/state_estimation.json`: ZED, VectorNav, EKF, and TF.
-- `foxglove/layouts/pid_tuning.json`: controller services and PID plots.
+## Hardware sensors
 
-## Mode 1: ZED camera only
-
-```bash
-ros2 launch zed_wrapper zed_camera.launch.py \
-  camera_model:=zed publish_tf:=false
-```
-
-Check:
+The diagnostic sensor launches are intentionally retained:
 
 ```bash
-ros2 topic hz /zed/zed_node/left/image_rect_color
-ros2 topic hz /zed/zed_node/odom
-```
-
-Use `zed.json` or the image panel in `pool_checkout.json`. Confirm live video,
-smooth odometry, increasing Z when the camera moves upward, and no tracking
-reset during short hand motions.
-
-## Mode 2: VectorNav only
-
-```bash
-ros2 launch tardigrade_bringup vectornav_state.launch.py \
-  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0
-```
-
-Check `/tardigrade/sensors/imu` and `/tardigrade/state/odometry`. Perform the
-unpowered sign tests in `docs/coordinate_frames.md`.
-
-## Mode 3: complete fused state
-
-Start the ZED as in Mode 1, then run these in separate terminals:
-
-```bash
-ros2 launch tardigrade_bringup zed_vectornav_state.launch.py \
-  port:=/dev/serial/by-id/usb-FTDI_USB-RS232-WE_AV0LN035-if00-port0 \
-  use_zed_orientation_if_imu_stale:=false
-```
-
-```bash
+ros2 launch tardigrade_bringup zed_state.launch.py
+ros2 launch tardigrade_bringup vectornav_state.launch.py
+ros2 launch tardigrade_bringup zed_vectornav_state.launch.py
 ros2 launch tardigrade_bringup zed_vectornav_ekf.launch.py
 ```
 
-The comparison output is `/tardigrade/state/odometry`; the EKF output used by
-assisted control is `/tardigrade/state/odometry/filtered`. Use
-`state_estimation.json` and check that position follows ZED while orientation
-and angular rates follow the converted VectorNav without TF warnings.
+Assisted control consumes `/tardigrade/state/odometry/filtered`. Verify the
+sensor rates, REP-103 signs, frames, and TF tree before enabling thrust.
 
-## Mode 4: one thruster at a time
+## Individual hardware thruster checkout
 
-Stop every mixer, teleop, PID, and other ESP bridge first. Start only:
+Stop every teleop, controller, allocator, and other ESP bridge. Start only:
 
 ```bash
 ros2 launch tardigrade_esp thruster_checkout_real.launch.py \
   serial_port:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 ```
 
-In Foxglove, use `/tardigrade/set_armed` deliberately, then call
-`/tardigrade/test/run_thruster`. The request is 1-indexed:
-
-```json
-{"slot": 1, "command": 0.10, "duration_sec": 1.0}
-```
-
-The node rejects slots outside 1–8, commands above 0.10, durations above two
-seconds, and non-finite values. It commands the other seven slots to zero and
-automatically returns all eight to zero. Use `{"armed": false}` immediately
-after each observation. Keep the physical kill switch reachable.
-
-Expected current locations are listed in `docs/thruster_mapping.md`.
-
-## Mode 5: direct Xbox checkout
-
-Stop the individual-thruster launch, then run:
+Confirm ESP telemetry, arm deliberately, then request one physical slot:
 
 ```bash
-ros2 launch tardigrade_bringup pool_direct.launch.py
+ros2 service call /tardigrade/set_armed \
+  tardigrade_interfaces/srv/SetArmed "{armed: true}"
+
+ros2 service call /tardigrade/test/run_thruster \
+  tardigrade_interfaces/srv/TestThruster \
+  "{slot: 1, command: 0.05, duration_sec: 1.0}"
 ```
 
-LB is the continuous deadman. This checks joystick, command signs, mixer, and
-ESP behavior without feedback control. Start with thruster power disconnected,
-then perform only the low-authority wet test after every axis sign is accepted.
-
-The default expects the controller on the operator MacBook and the Foxglove
-Joystick Panel publishing `/joy`. For an Xbox connected directly to the
-Jetson, use:
+Slots are 1-indexed. The checkout rejects invalid or non-finite requests,
+commands above 0.10, durations above two seconds, and a second request while a
+test is active. Any rejection or timeout publishes a named eight-thruster
+neutral command. Disarm after every observation:
 
 ```bash
-ros2 launch tardigrade_bringup pool_direct.launch.py \
-  start_joy_node:=true heave_axis:=4 yaw_axis:=3 device_id:=0
+ros2 service call /tardigrade/set_armed \
+  tardigrade_interfaces/srv/SetArmed "{armed: false}"
 ```
 
-See `foxglove/README.md` for the Mac panel settings and dry checks.
+## Assisted Xbox control
 
-## Mode 6: direct keyboard fallback
-
-Stop `pool_direct` and every other ESP bridge. Start the mixer and ESP backend:
-
-```bash
-ros2 launch tardigrade_bringup pool_keyboard.launch.py
-```
-
-In a second interactive Jetson/SSH terminal, run:
-
-```bash
-ros2 run tardigrade_teleop keyboard_cmd_vel --ros-args \
-  -p linear_step:=0.15 -p vertical_step:=0.12 -p yaw_step:=0.15 \
-  -p command_hold_sec:=0.25 \
-  -p legacy_output_topic:=/tardigrade/cmd_vel
-```
-
-Keys are `w/s` surge, `j/l` sway, `r/f` heave, `a/d` yaw, and Space for
-immediate zero. Every motion key produces one 250 ms pulse and then
-automatically returns to zero. Tap repeatedly for continued motion. Stopping
-the keyboard node or losing SSH also lets the mixer timeout to zero.
-
-This mode has no continuous deadman and is therefore only a restrained direct
-checkout fallback. It must not be used for assisted/PID tuning.
-
-## Mode 7: assisted Xbox and PID tuning
-
-Stop direct mode, start the fused state, then:
+After the hardware sensor and individual-thruster gates pass:
 
 ```bash
 ros2 launch tardigrade_bringup pool_assisted.launch.py
 ```
 
-Use `pid_tuning.json`. Begin with every axis disabled, then roll only, pitch
-only, and yaw only. Depth remains disabled until underwater ZED Z tracking is
-accepted. LB release, stale Joy, stale odometry, or stale commands force zero.
+The launch uses the complete production path:
 
-For an Xbox connected directly to the Jetson, use:
+```text
+/joy -> stamped manual velocity -> source mux -> velocity controller
+  -> wrench allocator -> force/command mapping -> named command -> ESP bridge
+```
+
+LB is the continuous deadman. Stale Joy, velocity, odometry, allocation, or
+actuator input neutralizes the chain. Use `start_joy_node:=true` only when the
+controller is connected directly to the Jetson; otherwise Foxglove publishes
+`/joy` from the operator computer.
+
+## Unity
 
 ```bash
-ros2 launch tardigrade_bringup pool_assisted.launch.py \
-  start_joy_node:=true heave_axis:=4 yaw_axis:=3 device_id:=0
+ros2 launch tardigrade_bringup unity_sil.launch.py
+ros2 launch tardigrade_bringup unity_operator.launch.py
 ```
+
+`unity_sil` starts ROS-TCP, the shared controller, estimator, and TF.
+`unity_operator` additionally starts rosbridge and selects the manual command
+source by default. Neither launch starts ESP hardware.
+
+## Qualification missions
+
+The preserved `prequal_autonomy.launch.py` and `qual_autonomy.launch.py`
+profiles are hardware modes. They start the production controller and ESP
+bridge and default to `dry_run:=true`. Follow the pool runbook and inspect every
+argument before changing that value.
 
 ## Recording
 
@@ -164,8 +105,9 @@ Record every powered attempt:
 
 ```bash
 ros2 bag record -o pool_checkout_01 \
-  /zed/zed_node/odom /vectornav/imu /tardigrade/sensors/imu \
-  /tardigrade/state/odometry /tardigrade/state/odometry/filtered \
+  /joy /zed/zed_node/odom /vectornav/imu \
+  /tardigrade/sensors/imu \
+  /tardigrade/state/odometry/filtered \
   /tardigrade/control/velocity_setpoint/manual \
   /tardigrade/control/velocity_setpoint \
   /tardigrade/control/wrench_command \

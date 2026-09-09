@@ -1,4 +1,4 @@
-"""Start ROS-TCP, estimation, perception, and the modern SIL control chain."""
+"""Start ROS-TCP, estimation, and the modern SIL control chain."""
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -55,11 +55,5 @@ def generate_launch_description():
                 'robot_description': robot_description,
                 'use_sim_time': True,
             }],
-        ),
-        Node(
-            package='tardigrade_perception',
-            executable='gate_detector',
-            output='screen',
-            parameters=[{'use_sim_time': True}],
         ),
     ])

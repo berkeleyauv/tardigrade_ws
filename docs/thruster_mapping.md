@@ -123,17 +123,17 @@ ros2 service call /tardigrade/set_armed \
 
 ## Verify Body-Axis Signs
 
-After slot identity and polarity are known, use direct mode with thruster power
-disconnected first:
+After slot identity and polarity are known, start assisted control with thruster
+power disconnected first:
 
 ```bash
-ros2 launch tardigrade_bringup pool_direct.launch.py
+ros2 launch tardigrade_bringup pool_assisted.launch.py
 ```
 
 Watch the final eight values:
 
 ```bash
-ros2 topic echo /tardigrade/thrusters/cmd
+ros2 topic echo /tardigrade/actuators/thruster_commands
 ```
 
 Hold LB and command one axis at a time. Compare the signs against the table.
