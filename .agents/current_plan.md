@@ -1,121 +1,40 @@
 # Current Development Plan
 
-The physical robot is not in a stable state: PDB behavior, thruster behavior,
-and wiring are not trusted. Local development is the active path. Preserve the
-Jetson/ESP bringup knowledge, but do not make new work depend on the ZED,
-VectorNav, ESP32, or thrusters being available.
+## Active goal
 
-## Active Goal
+Prepare the current ROS and Unity control path for simulator development and
+near-term pool testing without changing the working ESP firmware contract.
 
-Make the software observable, easy to build, and testable without the robot:
+Priorities:
 
-1. Keep Docker startup simple on a laptop and on the Jetson.
-2. Keep the ROS workspace building without hardware.
-3. Make mock/fake bringup useful for interface-level development.
-4. Build a Foxglove pool-test UI instead of a custom webapp.
-5. Add fake perception/status/odometry so autonomy can be tested locally.
-6. Keep the Jetson/ZED/ESP runbook accurate for the next hardware session.
-7. Keep real-thrust work blocked behind documented safety and mapping checks.
-
-## Local Startup
-
-From the repo root:
-
-```bash
-./docker-build.sh
-```
-
-Inside the container:
-
-```bash
-cd /ws
-./build.sh
-source install/setup.bash
-ros2 launch tardigrade_bringup mock.launch.py
-```
-
-Use `docker/compose.yaml` alone for MacBook/local work. Use
-`docker/compose.jetson.yaml` only on the Jetson hardware bench. Prefer
-`./docker-build.sh --jetson` over spelling out the Compose command directly.
-
-The ZED wrapper source is present in local clones, but the SDK-backed packages
-`zed_components`, `zed_wrapper`, and `zed_ros2` should be skipped on machines
-without the Stereolabs ZED SDK.
-
-## Docker / Script Workflow
-
-Human-facing scripts live at the repo root:
-
-- `docker-build.sh`: starts the container. Use `--build`, `--rebuild`,
-  `--jetson`, or `--detached` as needed.
-- `build.sh`: builds the ROS workspace. Use `--clean`, `--hardware`,
-  `--pkg PACKAGE`, or `--debug` as needed.
-
-Docker internals live under `docker/`:
-
-- `docker/compose.yaml`: base local-development container.
-- `docker/compose.jetson.yaml`: Jetson hardware override.
-- `docker/Dockerfile`: image definition.
-- `docker/ros_entrypoint.sh`: runs when the container starts.
-- `docker/ros_bashrc.sh`: runs for interactive shells and defines aliases.
-
-## Known Hardware State
-
-Recent hardware sessions verified:
-
-- ZED pose can publish on `/zed/zed_node/pose`.
-- VectorNav connects at `115200` baud and publishes `/vectornav/imu`.
-- `zed_vectornav_odometry` publishes `/tardigrade/state/odometry`.
-- `tardigrade_esp` is the active actuator path.
-- `tardigrade_teleop` publishes keyboard `/tardigrade/cmd_vel`.
-
-Not yet proven repeatable:
-
-- EKF output replacing the older simple odometry path.
-- Real-thrust teleop.
-- Thruster map validation against the physical vehicle.
-- End-to-end pool task execution.
-
-## Roadmap
-
-Current priority order:
-
-1. Foxglove observability and pool-test UI.
-2. Fake ROS inputs for mission logic: status, odometry, gate/slalom detections,
-   and a fake controller.
-3. BehaviorTree.CPP or behavior-tree-shaped autonomy for gate first.
-4. Lightweight simulation/fake world before full simulator work.
-5. Sensor-frame cleanup, calibration notes, and eventual fusion with ZED, IMU,
-   and depth.
-
-Foxglove is the intended UI path. Do not start a custom webapp unless the team
-explicitly decides Foxglove cannot satisfy a concrete requirement. The right
-work is to publish good ROS topics, debug images, metrics, and layouts.
-
-## Next Useful Local Work
-
-- Add a `foxglove/` or `config/foxglove/` directory with a committed layout.
-- Use `rosbridge_suite` first for Foxglove on ROS 2 Foxy. The preferred
-  `foxglove_bridge` package is not available as `ros-foxy-foxglove-bridge`,
-  and the source-build path has missing dependencies that should be treated as
-  a later upgrade.
-- Keep state-estimation launch files separate from visualization launch files.
-  Use `zed_vectornav_state.launch.py` for ZED + VectorNav odometry and
-  `foxglove_rosbridge.launch.py` for Foxglove access.
-- Standardize perception debug topics for gate/slalom detections and overlay
-  images.
-- Add fake ROS nodes for status, odometry, and perception.
-- Add tests around ESP mixing, teleop, state estimation, and frame conversions.
-- Add an ESP/control status topic when the bridge behavior settles.
-- Keep `README.md` short and keep the detailed hardware sequence in
-  `docs/esp_thruster_bringup.md`.
+1. Validate Unity sensors, filtered state, feedback, allocation, and named
+   actuator output.
+2. Preserve and test ZED, VectorNav, ESP telemetry, arming, watchdog, and the
+   bounded individual-thruster checkout.
+3. Use Foxglove layouts for simulator operation, sensor diagnosis, pool
+   checkout, and physical-unit PID tuning.
+4. Fit vehicle and sensor parameters from repeatable bagged pool experiments.
+5. Keep hardware launches conservative until pool evidence proves a profile is
+   redundant.
 
 ## Guardrails
 
-- Do not move Jetson-only mounts into `docker/compose.yaml`.
-- Do not add a top-level `src/zed-ros2-interfaces`; it already exists as a
-  nested submodule inside `src/zed-ros2-wrapper`.
-- Do not re-center Micro XRCE-DDS unless the team explicitly revives that path.
-- Keep robot-level APIs centered on `/tardigrade/*`.
-- Never hide arming or external-control enable inside launch files.
-- Do not build a custom dashboard before proving Foxglove is insufficient.
+- Do not edit firmware packet definitions or physical pin mapping as part of
+  ROS cleanup.
+- Do not run more than one ESP bridge or command-producing hardware mode.
+- Do not auto-arm in launch files.
+- Do not feed Unity ground truth into production control or estimation.
+- Do not use the synthetic-pose bench hook during normal control.
+- Do not remove ZED/VectorNav diagnostic profiles before their replacement is
+  verified on the robot.
+- Keep real-thrust work behind the checks in `docs/pool_teleop.md`.
+
+## Canonical entry points
+
+```bash
+ros2 launch tardigrade_bringup unity_operator.launch.py
+ros2 launch tardigrade_esp thruster_checkout_real.launch.py
+ros2 launch tardigrade_bringup pool_assisted.launch.py
+ros2 launch tardigrade_bringup prequal_autonomy.launch.py
+ros2 launch tardigrade_bringup qual_autonomy.launch.py
+```

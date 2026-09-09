@@ -3,7 +3,7 @@
 import math
 
 import rclpy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, TwistStamped
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from std_msgs.msg import Bool
@@ -65,7 +65,9 @@ class XboxCmdVel(Node):
     def __init__(self, **node_kwargs):
         super().__init__('xbox_cmd_vel', **node_kwargs)
         self.declare_parameter('joy_topic', '/joy')
-        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel')
+        self.declare_parameter(
+            'cmd_vel_topic',
+            '/tardigrade/control/velocity_setpoint/manual')
         self.declare_parameter(
             'enabled_topic', '/tardigrade/teleop/enabled')
         self.declare_parameter('publish_rate_hz', 20.0)
@@ -103,7 +105,7 @@ class XboxCmdVel(Node):
         self._warned_stale = False
         self._warned_malformed = False
 
-        self._cmd_pub = self.create_publisher(Twist, cmd_topic, 10)
+        self._cmd_pub = self.create_publisher(TwistStamped, cmd_topic, 10)
         self._enabled_pub = self.create_publisher(Bool, enabled_topic, 10)
         self._joy_sub = self.create_subscription(
             Joy, joy_topic, self._on_joy, 10)
@@ -133,7 +135,7 @@ class XboxCmdVel(Node):
     def _publish(self):
         now_ns = self.get_clock().now().nanoseconds
         enabled = self._fresh(now_ns) and self._deadman
-        self._cmd_pub.publish(self._command if enabled else Twist())
+        self._publish_command(self._command if enabled else Twist())
         enabled_message = Bool()
         enabled_message.data = enabled
         self._enabled_pub.publish(enabled_message)
@@ -144,9 +146,16 @@ class XboxCmdVel(Node):
                 'joystick data stale; publishing zero and disabling teleop')
             self._warned_stale = True
 
+    def _publish_command(self, command):
+        message = TwistStamped()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.header.frame_id = 'base_link'
+        message.twist = command
+        self._cmd_pub.publish(message)
+
     def publish_stop(self):
         """Publish an explicit final disabled/zero sample."""
-        self._cmd_pub.publish(Twist())
+        self._publish_command(Twist())
         enabled_message = Bool()
         enabled_message.data = False
         self._enabled_pub.publish(enabled_message)

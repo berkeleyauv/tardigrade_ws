@@ -1,0 +1,140 @@
+{
+  "configById": {
+    "tardigrade-tools.Vehicle Status!status": {},
+    "tardigrade-tools.Attitude!attitude": {},
+    "3D!vehicle": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 6,
+        "phi": 63,
+        "thetaOffset": 120,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.1,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {
+        "frame:base_link": {
+          "visible": true
+        },
+        "frame:imu_link": {
+          "visible": true
+        },
+        "frame:pressure_link": {
+          "visible": true
+        },
+        "frame:zed_camera_link": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/tardigrade/state/odometry/filtered": {
+          "visible": true
+        }
+      },
+      "layers": {
+        "tardigrade-grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Pool grid",
+          "instanceId": "tardigrade-grid",
+          "layerId": "foxglove.Grid",
+          "size": 20,
+          "divisions": 20,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "synchronize": false,
+      "imageMode": {},
+      "followTf": "base_link",
+      "fixedFrame": "odom"
+    },
+    "Image!left": {
+      "cameraState": {},
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point"
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/left/image_rect_color",
+        "calibrationTopic": "/zed/zed_node/left/camera_info"
+      }
+    },
+    "Image!right": {
+      "cameraState": {},
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point"
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/zed/zed_node/right/image_rect_color",
+        "calibrationTopic": "/zed/zed_node/right/camera_info"
+      }
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "tardigrade-tools.Vehicle Status!status",
+    "second": {
+      "direction": "column",
+      "first": {
+        "direction": "row",
+        "first": "3D!vehicle",
+        "second": "tardigrade-tools.Attitude!attitude",
+        "splitPercentage": 58
+      },
+      "second": {
+        "direction": "row",
+        "first": "Image!left",
+        "second": "Image!right",
+        "splitPercentage": 50
+      },
+      "splitPercentage": 58
+    },
+    "splitPercentage": 28
+  }
+}

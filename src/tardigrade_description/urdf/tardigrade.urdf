@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<robot name="tardigrade">
+  <link name="base_link">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.46 0.29 0.22"/></geometry>
+    </collision>
+  </link>
+
+  <link name="imu_link"/>
+  <joint name="base_to_imu" type="fixed">
+    <parent link="base_link"/><child link="imu_link"/>
+    <origin xyz="-0.035 0.145 0" rpy="0 3.14159265 0"/>
+  </joint>
+
+  <link name="pressure_link"/>
+  <joint name="base_to_pressure" type="fixed">
+    <parent link="base_link"/><child link="pressure_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="zed_camera_link"/>
+  <joint name="base_to_zed" type="fixed">
+    <parent link="base_link"/><child link="zed_camera_link"/>
+    <origin xyz="0.30 0 -0.05" rpy="0 0 0"/>
+  </joint>
+  <link name="zed_left_camera_optical_frame"/>
+  <joint name="zed_to_left_optical" type="fixed">
+    <parent link="zed_camera_link"/><child link="zed_left_camera_optical_frame"/>
+    <origin xyz="0 0.06 0" rpy="-1.57079633 0 -1.57079633"/>
+  </joint>
+  <link name="zed_right_camera_optical_frame"/>
+  <joint name="zed_to_right_optical" type="fixed">
+    <parent link="zed_camera_link"/><child link="zed_right_camera_optical_frame"/>
+    <origin xyz="0 -0.06 0" rpy="-1.57079633 0 -1.57079633"/>
+  </joint>
+</robot>

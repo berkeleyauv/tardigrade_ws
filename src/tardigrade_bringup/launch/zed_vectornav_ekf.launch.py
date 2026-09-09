@@ -37,6 +37,7 @@ def generate_launch_description():
         'publish_vectornav_static_tf'
     )
     publish_zed_static_tf = LaunchConfiguration('publish_zed_static_tf')
+    use_sim_time = LaunchConfiguration('use_sim_time')
 
     default_config = os.path.join(
         get_package_share_directory('tardigrade_bringup'),
@@ -147,6 +148,11 @@ def generate_launch_description():
             default_value='true',
             description='Publish base_link -> ZED static transform',
         ),
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='false',
+            description='Use /clock instead of wall time',
+        ),
 
         Node(
             package='tf2_ros',
@@ -199,6 +205,7 @@ def generate_launch_description():
                     'base_link_frame': base_frame,
                     'world_frame': odom_frame,
                     'publish_tf': publish_tf,
+                    'use_sim_time': use_sim_time,
                 },
             ],
             remappings=[

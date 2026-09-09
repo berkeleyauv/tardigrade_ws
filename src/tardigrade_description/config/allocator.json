@@ -1,0 +1,129 @@
+{
+  "allocation_matrix": [
+    [
+      0.70710678,
+      0.70710678,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.70710678,
+      0.70710678
+    ],
+    [
+      -0.70710678,
+      -0.70710678,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.70710678,
+      0.70710678
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.12,
+      0.12,
+      -0.12,
+      -0.12,
+      -0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      -0.18,
+      0.18,
+      0.18,
+      -0.18,
+      0.0,
+      0.0
+    ],
+    [
+      -0.21213203400000002,
+      0.21213203400000002,
+      0.0,
+      -0.0,
+      0.0,
+      0.0,
+      0.21213203400000002,
+      -0.21213203400000002
+    ]
+  ],
+  "generated": {
+    "sha256": "30f862bfdbe66e08fef9c75c8ef0446187f43454e42c53490d6dd37c61e31c77",
+    "source": "tardigrade_description/config/vehicle.json"
+  },
+  "limits": [
+    {
+      "deadband": 0.05,
+      "max_forward_n": 50.0,
+      "max_reverse_n": 40.0,
+      "name": "front_left_horizontal"
+    },
+    {
+      "deadband": 0.05,
+      "max_forward_n": 50.0,
+      "max_reverse_n": 40.0,
+      "name": "rear_right_horizontal"
+    },
+    {
+      "deadband": 0.05,
+      "max_forward_n": 45.0,
+      "max_reverse_n": 36.0,
+      "name": "front_left_vertical"
+    },
+    {
+      "deadband": 0.05,
+      "max_forward_n": 45.0,
+      "max_reverse_n": 36.0,
+      "name": "rear_left_vertical"
+    },
+    {
+      "deadband": 0.05,
+      "max_forward_n": 45.0,
+      "max_reverse_n": 36.0,
+      "name": "rear_right_vertical"
+    },
+    {
+      "deadband": 0.05,
+      "max_forward_n": 45.0,
+      "max_reverse_n": 36.0,
+      "name": "front_right_vertical"
+    },
+    {
+      "deadband": 0.05,
+      "max_forward_n": 50.0,
+      "max_reverse_n": 40.0,
+      "name": "front_right_horizontal"
+    },
+    {
+      "deadband": 0.05,
+      "max_forward_n": 50.0,
+      "max_reverse_n": 40.0,
+      "name": "rear_left_horizontal"
+    }
+  ],
+  "schema_version": 1,
+  "thruster_names": [
+    "front_left_horizontal",
+    "rear_right_horizontal",
+    "front_left_vertical",
+    "rear_left_vertical",
+    "rear_right_vertical",
+    "front_right_vertical",
+    "front_right_horizontal",
+    "rear_left_horizontal"
+  ]
+}

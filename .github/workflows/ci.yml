@@ -14,6 +14,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  foxglove-assets:
+    name: Validate Foxglove layouts and extension
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out workspace
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Validate layouts
+        run: python3 foxglove/validate_layouts.py
+
+      - name: Build custom panels
+        working-directory: foxglove/extensions/tardigrade-tools
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run typecheck
+          pnpm run build
+
   build-and-test:
     name: Build and test active ROS packages
     runs-on: ubuntu-22.04
@@ -40,12 +69,13 @@ jobs:
               # packages are intentionally skipped in CI.
               rosdep install --from-paths \
                 src/tardigrade_interfaces \
+                src/tardigrade_description \
                 src/tardigrade_state_estimation \
+                src/tardigrade_control \
                 src/tardigrade_esp \
                 src/tardigrade_teleop \
                 src/tardigrade_bringup \
                 src/tardigrade_mission \
-                src/tardigrade_sim \
                 src/vectornav/vectornav_msgs \
                 src/vectornav/vectornav \
                 src/zed-ros2-wrapper/zed-ros2-interfaces \
@@ -56,12 +86,13 @@ jobs:
               source install/setup.bash
               colcon test --packages-select \
                 tardigrade_interfaces \
+                tardigrade_description \
                 tardigrade_state_estimation \
+                tardigrade_control \
                 tardigrade_esp \
                 tardigrade_teleop \
                 tardigrade_bringup \
                 tardigrade_mission \
-                tardigrade_sim \
                 --pytest-args -k "not test_copyright and not test_flake8 and not test_pep257"
               colcon test-result --verbose
             '

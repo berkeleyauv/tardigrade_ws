@@ -3,7 +3,7 @@
 <package format="3">
   <name>tardigrade_bringup</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Top-level launch profiles for Tardigrade operating modes.</description>
   <maintainer email="root@todo.todo">root</maintainer>
   <license>TODO: License declaration</license>
 
@@ -14,10 +14,13 @@
   <depend>launch_ros</depend>
   <depend>joy</depend>
   <depend>robot_localization</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>ros_tcp_endpoint</depend>
+  <depend>tardigrade_control</depend>
+  <depend>tardigrade_description</depend>
   <depend>tardigrade_esp</depend>
   <depend>tardigrade_mission</depend>
   <depend>rosbridge_server</depend>
-  <depend>tardigrade_sim</depend>
   <depend>tardigrade_state_estimation</depend>
   <depend>tardigrade_teleop</depend>
   <depend>tf2_ros</depend>
@@ -31,6 +34,7 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <test_depend>sensor_msgs</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

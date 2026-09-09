@@ -1,10 +1,18 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, Shutdown
+from launch.actions import (
+    DeclareLaunchArgument, IncludeLaunchDescription, Shutdown)
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    control_launch = os.path.join(
+        get_package_share_directory('tardigrade_control'),
+        'launch', 'control_stack.launch.py')
     vectornav_port = LaunchConfiguration('vectornav_port')
     vectornav_baud = LaunchConfiguration('vectornav_baud')
     esp_port = LaunchConfiguration('esp_port')
@@ -21,13 +29,6 @@ def generate_launch_description():
     yaw_kp = LaunchConfiguration('yaw_kp')
     yaw_kd = LaunchConfiguration('yaw_kd')
     max_yaw_command = LaunchConfiguration('max_yaw_command')
-    depth_kp = LaunchConfiguration('depth_kp')
-    depth_ki = LaunchConfiguration('depth_ki')
-    depth_kd = LaunchConfiguration('depth_kd')
-    roll_kp = LaunchConfiguration('roll_kp')
-    roll_kd = LaunchConfiguration('roll_kd')
-    pitch_kp = LaunchConfiguration('pitch_kp')
-    pitch_kd = LaunchConfiguration('pitch_kd')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -55,14 +56,6 @@ def generate_launch_description():
         DeclareLaunchArgument('yaw_kp', default_value='0.4'),
         DeclareLaunchArgument('yaw_kd', default_value='0.1'),
         DeclareLaunchArgument('max_yaw_command', default_value='0.20'),
-        DeclareLaunchArgument('depth_kp', default_value='0.8'),
-        DeclareLaunchArgument('depth_ki', default_value='0.0'),
-        DeclareLaunchArgument('depth_kd', default_value='0.25'),
-        DeclareLaunchArgument('roll_kp', default_value='0.8'),
-        DeclareLaunchArgument('roll_kd', default_value='0.15'),
-        DeclareLaunchArgument('pitch_kp', default_value='0.8'),
-        DeclareLaunchArgument('pitch_kd', default_value='0.15'),
-
         Node(
             package='vectornav',
             executable='vectornav',
@@ -93,42 +86,23 @@ def generate_launch_description():
                 'odom_topic': '/tardigrade/state/odometry',
             }],
         ),
-        Node(
-            package='tardigrade_esp',
-            executable='depth_attitude_controller',
-            name='depth_attitude_controller',
-            output='screen',
-            parameters=[{
-                'depth_kp': depth_kp,
-                'depth_ki': depth_ki,
-                'depth_kd': depth_kd,
-                'roll_kp': roll_kp,
-                'roll_kd': roll_kd,
-                'pitch_kp': pitch_kp,
-                'pitch_kd': pitch_kd,
-                # The mission's angular.z is a desired heading rate; this
-                # inner PID closes yaw directly from VectorNav orientation.
-                'yaw_kp': 0.7,
-                'yaw_ki': 0.03,
-                'yaw_kd': 0.12,
-                'max_yaw_command': max_yaw_command,
-                # Intentionally gated off until the mission publishes the
-                # controller enable heartbeat required by the pool stack.
-                'enable_roll': False,
-                'enable_pitch': False,
-                'enable_yaw': False,
-                'enable_depth': False,
-            }],
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(control_launch),
+            launch_arguments={
+                'active_source': 'mission',
+                'odometry_topic': '/tardigrade/state/odometry',
+                'use_sim_time': 'false',
+            }.items(),
         ),
         Node(
             package='tardigrade_esp',
-            executable='esp_thruster_bridge',
-            name='esp_thruster_bridge',
+            executable='esp_bridge',
+            name='esp_bridge',
             output='screen',
             parameters=[{
                 'serial_port': esp_port,
                 'config_file': thruster_config,
-                'startup_neutral_sec': 2.0,
+                'cmd_timeout_sec': 0.5,
             }],
         ),
         Node(

@@ -1,0 +1,7 @@
+# Reproducible simulator reset. The pose uses REP-103 ENU coordinates.
+string scenario_id
+uint32 seed
+geometry_msgs/Pose initial_pose
+---
+bool success
+string message

@@ -1,11 +1,12 @@
-"""Pool assisted teleop: Xbox setpoints -> Jetson PID/mixer -> ESP."""
+"""Pool assisted teleop: Xbox setpoints -> controller/mixer -> ESP."""
 
 import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -18,18 +19,18 @@ _ESP_PORT = (
 
 
 def generate_launch_description():
-    package_share = get_package_share_directory('tardigrade_esp')
-    default_gains = os.path.join(
-        package_share, 'config', 'controller_gains.yaml')
+    esp_share = get_package_share_directory('tardigrade_esp')
+    control_launch = os.path.join(
+        get_package_share_directory('tardigrade_control'),
+        'launch', 'control_stack.launch.py')
     default_map = os.path.join(
-        package_share, 'config', 'esp_thruster_map.json')
+        esp_share, 'config', 'esp_thruster_map.json')
     device_id = ParameterValue(
         LaunchConfiguration('device_id'), value_type=int)
 
     return LaunchDescription([
         DeclareLaunchArgument('serial_port', default_value=_ESP_PORT),
         DeclareLaunchArgument('baud', default_value='115200'),
-        DeclareLaunchArgument('gains_file', default_value=default_gains),
         DeclareLaunchArgument('config_file', default_value=default_map),
         DeclareLaunchArgument(
             'start_joy_node',
@@ -71,7 +72,8 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'joy_topic': LaunchConfiguration('joy_topic'),
-                'cmd_vel_topic': '/tardigrade/cmd_vel/manual',
+                'cmd_vel_topic': (
+                    '/tardigrade/control/velocity_setpoint/manual'),
                 'deadzone': ParameterValue(
                     LaunchConfiguration('deadzone'), value_type=float),
                 'deadman_button': ParameterValue(
@@ -94,22 +96,12 @@ def generate_launch_description():
                     LaunchConfiguration('max_yaw'), value_type=float),
             }],
         ),
-        Node(
-            package='tardigrade_esp',
-            executable='depth_attitude_controller',
-            name='depth_attitude_controller',
-            output='screen',
-            parameters=[LaunchConfiguration('gains_file')],
-        ),
-        Node(
-            package='tardigrade_esp',
-            executable='thruster_mixer',
-            name='thruster_mixer',
-            output='screen',
-            parameters=[
-                LaunchConfiguration('gains_file'),
-                {'config_file': LaunchConfiguration('config_file')},
-            ],
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(control_launch),
+            launch_arguments={
+                'active_source': 'manual',
+                'use_sim_time': 'false',
+            }.items(),
         ),
         Node(
             package='tardigrade_esp',
@@ -121,6 +113,7 @@ def generate_launch_description():
                 'baud': ParameterValue(
                     LaunchConfiguration('baud'), value_type=int),
                 'cmd_timeout_sec': 0.5,
+                'config_file': LaunchConfiguration('config_file'),
             }],
         ),
     ])

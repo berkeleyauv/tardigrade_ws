@@ -1,6 +1,6 @@
 # Thruster Mapping
 
-The mixer source of truth is:
+The hardware slot/pin source of truth is:
 
 ```text
 src/tardigrade_esp/config/esp_thruster_map.json
@@ -38,7 +38,9 @@ The current sticky-note wiring map is:
 | 7 | 12 | front right | vectored |
 | 8 | 26 | rear left | vectored |
 
-The current nonzero mixer coefficients are:
+The following sign coefficients remain only for deprecated open-loop checkout;
+normal control derives its allocation matrix from measured poses and axes in
+`tardigrade_description/config/vehicle.json`:
 
 | Slot | Surge | Sway | Heave | Roll | Pitch | Yaw |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -58,17 +60,21 @@ that assumption even when the slot number is correct.
 ## Current Command Path
 
 ```text
-Xbox / Jetson controller
-  -> /tardigrade/cmd_vel
-  -> thruster_mixer
-  -> /tardigrade/thrusters/cmd (8 normalized values)
+Xbox / mission / pose guidance
+  -> stamped velocity source + command mux
+  -> velocity_wrench_controller (N, N m)
+  -> geometry-based thruster_allocator (named N)
+  -> thruster_actuator_mapper
+  -> /tardigrade/actuators/thruster_commands (named normalized values)
   -> esp_bridge
   -> binary SetMotor packets
   -> ESP safety clamp and PWM
 ```
 
-The ESP does not receive the mix matrix and does not infer robot motion. It
-only knows motor index and normalized command. The Jetson owns the mapping.
+The ESP does not receive the allocation matrix and does not infer robot motion.
+The bridge validates names and reorders them into the physical slot sequence
+before sending motor index and normalized command. The canonical vehicle
+description owns geometry; the ESP map owns physical slot and pin wiring.
 
 ## Verify Slot Identity
 
@@ -117,17 +123,17 @@ ros2 service call /tardigrade/set_armed \
 
 ## Verify Body-Axis Signs
 
-After slot identity and polarity are known, use direct mode with thruster power
-disconnected first:
+After slot identity and polarity are known, start assisted control with thruster
+power disconnected first:
 
 ```bash
-ros2 launch tardigrade_bringup pool_direct.launch.py
+ros2 launch tardigrade_bringup pool_assisted.launch.py
 ```
 
 Watch the final eight values:
 
 ```bash
-ros2 topic echo /tardigrade/thrusters/cmd
+ros2 topic echo /tardigrade/actuators/thruster_commands
 ```
 
 Hold LB and command one axis at a time. Compare the signs against the table.

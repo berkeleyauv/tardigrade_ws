@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nlohmann-json3-dev \
     python3-colcon-common-extensions \
     python3-pip \
+    python3-opencv \
     python3-rosdep \
     python3-vcstool \
     ros-foxy-camera-info-manager \

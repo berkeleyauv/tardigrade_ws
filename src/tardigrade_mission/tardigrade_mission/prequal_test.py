@@ -1,12 +1,12 @@
-import json
 import math
 import time
 
 import rclpy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
-from std_msgs.msg import Float64, String
+
+from tardigrade_interfaces.msg import EspState
 
 
 def yaw_from_quaternion(q):
@@ -25,14 +25,15 @@ def heading_error(target, current):
 
 
 class PrequalTest(Node):
-    """Run the prequal path through the active ESP depth-control command path."""
+    """Run the prequal path through the shared velocity-control stack."""
 
     def __init__(self):
         super().__init__('prequal_test')
-        self.declare_parameter('cmd_vel_topic', '/tardigrade/cmd_vel/manual')
+        self.declare_parameter(
+            'cmd_vel_topic',
+            '/tardigrade/control/velocity_setpoint/mission')
         self.declare_parameter('odometry_topic', '/tardigrade/state/odometry')
-        self.declare_parameter('esp_status_topic', '/tardigrade/esp/status')
-        self.declare_parameter('depth_target_topic', '/tardigrade/depth_target')
+        self.declare_parameter('esp_status_topic', '/tardigrade/esp/state')
         self.declare_parameter('dry_run', True)
         self.declare_parameter('navigation_mode', 'position')
         self.declare_parameter('startup_delay_sec', 60.0)
@@ -63,7 +64,6 @@ class PrequalTest(Node):
         self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
         self.odometry_topic = self.get_parameter('odometry_topic').value
         self.esp_status_topic = self.get_parameter('esp_status_topic').value
-        self.depth_target_topic = self.get_parameter('depth_target_topic').value
         self.dry_run = bool(self.get_parameter('dry_run').value)
         self.navigation_mode = self.get_parameter('navigation_mode').value
         if self.navigation_mode not in ('position', 'imu_timed'):
@@ -135,17 +135,13 @@ class PrequalTest(Node):
         self.start_y = None
         self.outbound_heading = None
 
-        self.cmd_pub = self.create_publisher(Twist, self.cmd_vel_topic, 10)
-        self.depth_target_pub = self.create_publisher(
-            Float64,
-            self.depth_target_topic,
-            10,
-        )
+        self.cmd_pub = self.create_publisher(
+            TwistStamped, self.cmd_vel_topic, 10)
         self.create_subscription(
             Odometry, self.odometry_topic, self.odom_callback, 10
         )
         self.create_subscription(
-            String, self.esp_status_topic, self.esp_status_callback, 10
+            EspState, self.esp_status_topic, self.esp_status_callback, 10
         )
 
     def odom_callback(self, msg):
@@ -153,10 +149,7 @@ class PrequalTest(Node):
         self.latest_odom_ns = self.get_clock().now().nanoseconds
 
     def esp_status_callback(self, msg):
-        try:
-            self.latest_esp_status = json.loads(msg.data)
-        except (TypeError, ValueError):
-            self.latest_esp_status = None
+        self.latest_esp_status = msg
         self.latest_esp_status_ns = self.get_clock().now().nanoseconds
 
     def age_sec(self, timestamp_ns):
@@ -165,12 +158,10 @@ class PrequalTest(Node):
         return (self.get_clock().now().nanoseconds - timestamp_ns) / 1e9
 
     def inputs_ready(self):
-        status = self.latest_esp_status or {}
         return (
             self.age_sec(self.latest_odom_ns) <= self.odometry_timeout_sec
             and self.age_sec(self.latest_esp_status_ns) <= self.esp_status_timeout_sec
-            and bool(status.get('serial_connected'))
-            and bool(status.get('last_write_ok'))
+            and self.latest_esp_status is not None
         )
 
     def require_ready(self, check_depth=True):
@@ -211,7 +202,6 @@ class PrequalTest(Node):
 
         self.depth_start_z = self.current_z()
         self.target_z = self.depth_start_z - self.target_depth_m
-        self.publish_depth_target()
         position = self.latest_odom.pose.pose.position
         self.start_x = position.x
         self.start_y = position.y
@@ -270,8 +260,7 @@ class PrequalTest(Node):
                 return
             if time.monotonic() - start > self.phase_timeout_sec:
                 raise RuntimeError(f'Phase timed out: {label}')
-            self.cmd_pub.publish(command_factory())
-            self.publish_depth_target()
+            self.publish_command(command_factory())
             time.sleep(0.1)
 
     def move_to_depth(self):
@@ -280,6 +269,11 @@ class PrequalTest(Node):
 
         def command():
             msg = Twist()
+            depth_error = self.target_z - self.current_z()
+            msg.linear.z = max(
+                -self.descent_command,
+                min(self.descent_command, 0.8 * depth_error),
+            )
             msg.angular.z = self.heading_command(self.outbound_heading)
             return msg
 
@@ -352,7 +346,6 @@ class PrequalTest(Node):
 
         def command():
             msg = Twist()
-            error = heading_error(target, self.current_yaw())
             command_limit = self.turn_yaw_command
             command_value = self.heading_command(target)
             msg.angular.z = max(-command_limit, min(command_limit, command_value))
@@ -403,8 +396,7 @@ class PrequalTest(Node):
             msg = Twist()
             if heading is not None:
                 msg.angular.z = self.heading_command(heading)
-            self.cmd_pub.publish(msg)
-            self.publish_depth_target()
+            self.publish_command(msg)
             time.sleep(0.1)
 
     def current_z(self):
@@ -424,14 +416,14 @@ class PrequalTest(Node):
         return roll, pitch
 
     def publish_zero(self):
-        self.cmd_pub.publish(Twist())
+        self.publish_command(Twist())
 
-    def publish_depth_target(self):
-        if self.target_z is None or self.navigation_mode != 'position':
-            return
-        msg = Float64()
-        msg.data = self.target_z
-        self.depth_target_pub.publish(msg)
+    def publish_command(self, command):
+        message = TwistStamped()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.header.frame_id = 'base_link'
+        message.twist = command
+        self.cmd_pub.publish(message)
 
 
 def main(args=None):

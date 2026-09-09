@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "vehicle_id": "tardigrade",
+  "coordinate_convention": "REP-103 FLU body, ENU world, SI units",
+  "provenance": {
+    "status": "estimated_pending_characterization",
+    "updated": "2026-09-07",
+    "notes": "Initial CAD-scale values. Replace values, not model code, after pool characterization."
+  },
+  "rigid_body": {
+    "mass_kg": 20.0,
+    "mass_uncertainty_kg": 5.0,
+    "center_of_mass_m": [0.0, 0.0, 0.0],
+    "center_of_buoyancy_m": [0.0, 0.0, 0.025],
+    "inertia_kg_m2": [0.221, 0.433, 0.493],
+    "added_mass_kg": [5.0, 9.0, 12.0],
+    "added_inertia_kg_m2": [0.04, 0.08, 0.10],
+    "displaced_volume_m3": 0.02020,
+    "collision_size_m": [0.46, 0.29, 0.22]
+  },
+  "water": {
+    "density_kg_m3": 1000.0,
+    "gravity_m_s2": 9.80665,
+    "atmospheric_pressure_pa": 101325.0,
+    "surface_enu_z_m": 0.0,
+    "surface_unity_y_m": 4.0,
+    "current_body_initial_m_s": [0.0, 0.0, 0.0]
+  },
+  "hydrodynamics": {
+    "linear_damping": [15.0, 25.0, 35.0, 1.2, 1.8, 2.0],
+    "quadratic_damping": [35.0, 55.0, 70.0, 2.2, 3.0, 3.5],
+    "coupling_terms": []
+  },
+  "buoyancy_elements": [
+    {"position_m": [0.14, 0.09, 0.025], "volume_m3": 0.00505, "height_m": 0.08},
+    {"position_m": [0.14, -0.09, 0.025], "volume_m3": 0.00505, "height_m": 0.08},
+    {"position_m": [-0.14, 0.09, 0.025], "volume_m3": 0.00505, "height_m": 0.08},
+    {"position_m": [-0.14, -0.09, 0.025], "volume_m3": 0.00505, "height_m": 0.08}
+  ],
+  "thrusters": [
+    {"name": "front_left_horizontal", "slot": 1, "position_m": [0.18, 0.12, 0.0], "axis": [0.70710678, -0.70710678, 0.0], "max_forward_n": 50.0, "max_reverse_n": 40.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03},
+    {"name": "rear_right_horizontal", "slot": 2, "position_m": [-0.18, -0.12, 0.0], "axis": [0.70710678, -0.70710678, 0.0], "max_forward_n": 50.0, "max_reverse_n": 40.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03},
+    {"name": "front_left_vertical", "slot": 3, "position_m": [0.18, 0.12, 0.0], "axis": [0.0, 0.0, 1.0], "max_forward_n": 45.0, "max_reverse_n": 36.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03},
+    {"name": "rear_left_vertical", "slot": 4, "position_m": [-0.18, 0.12, 0.0], "axis": [0.0, 0.0, 1.0], "max_forward_n": 45.0, "max_reverse_n": 36.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03},
+    {"name": "rear_right_vertical", "slot": 5, "position_m": [-0.18, -0.12, 0.0], "axis": [0.0, 0.0, 1.0], "max_forward_n": 45.0, "max_reverse_n": 36.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03},
+    {"name": "front_right_vertical", "slot": 6, "position_m": [0.18, -0.12, 0.0], "axis": [0.0, 0.0, 1.0], "max_forward_n": 45.0, "max_reverse_n": 36.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03},
+    {"name": "front_right_horizontal", "slot": 7, "position_m": [0.18, -0.12, 0.0], "axis": [0.70710678, 0.70710678, 0.0], "max_forward_n": 50.0, "max_reverse_n": 40.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03},
+    {"name": "rear_left_horizontal", "slot": 8, "position_m": [-0.18, 0.12, 0.0], "axis": [0.70710678, 0.70710678, 0.0], "max_forward_n": 50.0, "max_reverse_n": 40.0, "deadband": 0.05, "time_constant_s": 0.15, "command_delay_s": 0.03}
+  ],
+  "sensors": [
+    {"name": "imu", "frame_id": "imu_link", "position_m": [-0.035, 0.145, 0.0], "rpy_rad": [0.0, 3.14159265, 0.0], "rate_hz": 100.0, "latency_s": 0.010, "jitter_s": 0.001, "dropout_probability": 0.0, "noise_stddev": [0.02, 0.0015], "bias_walk_stddev": [0.0004, 0.00003]},
+    {"name": "pressure", "frame_id": "pressure_link", "position_m": [0.0, 0.0, 0.0], "rpy_rad": [0.0, 0.0, 0.0], "rate_hz": 30.0, "latency_s": 0.020, "jitter_s": 0.002, "dropout_probability": 0.0, "noise_stddev": [25.0], "bias_walk_stddev": [0.25]},
+    {"name": "visual_odometry", "frame_id": "zed_camera_link", "position_m": [0.30, 0.0, -0.05], "rpy_rad": [0.0, 0.0, 0.0], "rate_hz": 30.0, "latency_s": 0.070, "jitter_s": 0.005, "dropout_probability": 0.01, "noise_stddev": [0.01, 0.005], "bias_walk_stddev": [0.0005, 0.0002]},
+    {"name": "front_stereo", "frame_id": "zed_camera_link", "position_m": [0.30, 0.0, -0.05], "rpy_rad": [0.0, 0.0, 0.0], "rate_hz": 15.0, "latency_s": 0.050, "jitter_s": 0.002, "dropout_probability": 0.0, "baseline_m": 0.120, "resolution": [1280, 720], "horizontal_fov_deg": 90.0}
+  ],
+  "profiles": {
+    "clean": {"noise_scale": 0.0, "latency_scale": 0.0, "dropout_scale": 0.0},
+    "nominal": {"noise_scale": 1.0, "latency_scale": 1.0, "dropout_scale": 1.0},
+    "stress": {"noise_scale": 2.5, "latency_scale": 2.0, "dropout_scale": 5.0}
+  }
+}
